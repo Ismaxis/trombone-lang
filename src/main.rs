@@ -1,63 +1,29 @@
-use inkwell::builder::Builder;
+mod error;
+mod jit;
+
+pub use error::{Error, Result};
 use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
-use inkwell::module::Module;
 use inkwell::OptimizationLevel;
 
-use std::error::Error;
-
-type IncrementFunc = unsafe extern "C" fn(i32) -> i32;
-
-struct CodeGen<'ctx> {
-    context: &'ctx Context,
-    module: Module<'ctx>,
-    builder: Builder<'ctx>,
-    execution_engine: ExecutionEngine<'ctx>,
+fn main() -> Result<()> {
+    jit_example()
 }
 
-impl<'ctx> CodeGen<'ctx> {
-    fn jit_compile_inc(&self) -> Option<JitFunction<IncrementFunc>> {
-        let i32_type = self.context.i32_type();
-        let fn_type = i32_type.fn_type(&[i32_type.into()], false);
-        let function = self.module.add_function("increment", fn_type, None);
-        let basic_block = self.context.append_basic_block(function, "entry");
-
-        self.builder.position_at_end(basic_block);
-
-        let x = function.get_nth_param(0)?.into_int_value();
-
-        let sum = self
-            .builder
-            .build_int_add(x, i32_type.const_int(1, false), "increment")
-            .unwrap();
-
-        self.builder.build_return(Some(&sum)).unwrap();
-
-        unsafe { self.execution_engine.get_function("increment").ok() }
-    }
-}
-
-fn main() -> Result<(), Box<dyn Error>> {
+fn jit_example() -> Result<()> {
     let context = Context::create();
-    let module = context.create_module("cfunc");
-    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
-    let codegen = CodeGen {
-        context: &context,
-        module,
-        builder: context.create_builder(),
-        execution_engine,
-    };
-
-    let sum = codegen
+    let module = context.create_module("example_funcs");
+    let execution_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)?;
+    
+    let codegen = jit::CodeGen::new(&context, module, context.create_builder(), execution_engine);
+    let inc = codegen
         .jit_compile_inc()
-        .ok_or("Unable to JIT compile `increment`")?;
-
-    let x = 42;
+        .ok_or_else(|| "Unable to JIT compile `increment`".to_string())?;
 
     unsafe {
-        println!("{}++ = {}", x, sum.call(x));
-        assert_eq!(sum.call(x), x + 1);
+        let x = 42;
+        println!("inc({}) = {}", x, inc.call(x));
+        assert_eq!(inc.call(x), x + 1);
     }
-
     Ok(())
 }
