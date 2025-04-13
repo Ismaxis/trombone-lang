@@ -6,5 +6,4 @@ edition = "2021"
 [dependencies]
 libc = "0.2"
 anyhow = "1.0"
-llvm-sys = "140.0.4"
-inkwell = { version = "0.5.0", features = ["llvm14-0"] }
+inkwell = { version = "0.5.0", features = ["llvm18-0"] }

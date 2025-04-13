@@ -6,10 +6,6 @@ use inkwell::OptimizationLevel;
 
 use std::error::Error;
 
-/// Convenience type alias for the `Increment` function.
-///
-/// Calling this is innately `unsafe` because there's no guarantee it doesn't
-/// do `unsafe` operations internally.
 type IncrementFunc = unsafe extern "C" fn(i32) -> i32;
 
 struct CodeGen<'ctx> {
@@ -30,7 +26,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         let x = function.get_nth_param(0)?.into_int_value();
 
-        let sum = self.builder.build_int_add(x, i32_type.const_int(1, false), "increment").unwrap();
+        let sum = self
+            .builder
+            .build_int_add(x, i32_type.const_int(1, false), "increment")
+            .unwrap();
 
         self.builder.build_return(Some(&sum)).unwrap();
 
@@ -49,7 +48,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         execution_engine,
     };
 
-    let sum = codegen.jit_compile_inc().ok_or("Unable to JIT compile `increment`")?;
+    let sum = codegen
+        .jit_compile_inc()
+        .ok_or("Unable to JIT compile `increment`")?;
 
     let x = 42;
 
