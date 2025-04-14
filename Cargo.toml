@@ -1,0 +1,9 @@
+[package]
+name = "trombone-lang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = "0.2"
+inkwell = { version = "0.5.0", features = ["llvm18-0"] }
+derive_more = { version = "1.0", features = ["from"] }
