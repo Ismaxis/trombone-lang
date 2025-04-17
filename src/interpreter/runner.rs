@@ -1,50 +1,73 @@
-// use derive_more::derive::From;
-// use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
+#![allow(dead_code)]
 
-use crate::{bytecode::ArrayOpCode, Error};
+use crate::bytecode::Instruction;
+use crate::bytecode::Operation;
+use crate::error::*;
 
-// static STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
-// static WORD_SIZE: usize = size_of::<u64>();
+type TrombValue = i32; // DWORD
+static STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
+static WORD_SIZE: usize = size_of::<TrombValue>();
+
+pub struct OperationStream {
+    pub instructions: [u64; 1024], // TODO better types
+    pub instruction_pointer: usize,
+}
+
+impl OperationStream {
+    pub fn next_instruction(&mut self) -> Result<Operation> {
+        let ip = self.instruction_pointer;
+        self.instruction_pointer += 1;
+        Instruction::from_u64(self.instructions[ip]).try_into()
+    }
+
+    fn switch_frame(&mut self, offset: i32) {
+        self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
+    }
+
+    pub fn new(instructions: [u64; 1024]) -> Self {
+        Self {
+            instructions,
+            instruction_pointer: 0,
+        }
+    }
+}
 
 // #[derive(Debug)]
 pub struct Runner {
-    pub register: [u64; 256],
-    pub instructions: ArrayOpCode,
-    pub instruction_pointer: usize,
-    // pub stack: *mut u64, // DWORD
+    pub stream: OperationStream,
+    pub stack: [TrombValue; STACK_SIZE],
+    pub sp: usize,
 }
 
 impl Runner {
-    pub fn new(instructions: ArrayOpCode) -> Result<Self, Error> {
-        Ok(Self {
-            register: [0; 256],
-            instructions,
-            instruction_pointer: 0,
-        })
-    }
-
-    pub fn evaluate_next_instruction(&mut self) {
-        let opcode = &self.instructions[self.instruction_pointer];
-        match opcode {
-            crate::bytecode::OpCode::Add { dest, src1, src2 } => {
-                self.register[*dest as usize] =
-                    self.register[*src1 as usize] + self.register[*src2 as usize];
+    pub fn evaluate_next_instruction(&mut self) -> Result<()> {
+        let operation = self.stream.next_instruction()?;
+        match operation {
+            Operation::Add => {
+                let op1 = self.stack[self.sp - 1];
+                let op2 = self.stack[self.sp - 2];
+                self.stack[self.sp - 2] = op1 + op2;
+                self.sp -= 1;
             }
-        };
-        self.instruction_pointer += 1;
+            Operation::Pop => {
+                self.sp -= 1;
+            }
+            Operation::PushLiteral { value } => {
+                self.stack[self.sp] = value as TrombValue;
+                self.sp += 1;
+            }
+            Operation::Jump { offset } => {
+                self.stream.switch_frame(offset);
+            }
+        }
+        Ok(())
     }
 
-    // pub fn new() -> Result<Self, Error> {
-    //     let layout = Layout::from_size_align(STACK_SIZE / WORD_SIZE, WORD_SIZE)?;
-    //     unsafe {
-    //         let ptr = alloc(layout);
-    //         if ptr.is_null() {
-    //             handle_alloc_error(layout); // TODO
-    //         }
-    //         Ok(Self {
-    //             register: [0; 256],
-    //             stack: ptr as *mut u64,
-    //         })
-    //     }
-    // }
+    pub fn new(stream: OperationStream) -> Self {
+        Self {
+            stream,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+        }
+    }
 }

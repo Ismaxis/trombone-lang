@@ -3,8 +3,7 @@ mod error;
 mod interpreter;
 mod jit;
 
-use bytecode::OpCode;
-use interpreter::runner::Runner;
+use interpreter::runner::{OperationStream, Runner};
 
 pub use error::{Error, Result};
 use inkwell::context::Context;
@@ -15,24 +14,22 @@ fn main() -> Result<()> {
 }
 
 fn interpreter_run() -> Result<()> {
-    let instructions = vec![OpCode::Add {
-        dest: 2,
-        src1: 0,
-        src2: 1,
-    }];
+    // 1 + 2 = 3
+    let mut instructions = [0u64; 1024];
+    instructions[0] = (0x0002) << 48 | (0x00000001) << 0; // STORE 1
+    instructions[1] = (0x0002) << 48 | (0x00000002) << 0; // STORE 2
+    instructions[2] = (0x0001) << 48 | (0x0BADF00D) << 0; // ADD
 
-    let mut runner = Runner::new(instructions)?;
+    let stream = OperationStream::new(instructions);
 
-    runner.register[0] = 21;
-    runner.register[1] = 23;
+    let mut runner = Runner::new(stream);
 
-    runner.evaluate_next_instruction();
+    runner.evaluate_next_instruction()?;
+    runner.evaluate_next_instruction()?;
+    runner.evaluate_next_instruction()?;
 
-    println!(
-        "register[0] = {}, register[1] = {}, register[2] = {}",
-        runner.register[0], runner.register[1], runner.register[2]
-    );
-    assert_eq!(runner.register[2], 21 + 23);
+    assert_eq!(runner.sp, 1);
+    assert_eq!(runner.stack[runner.sp - 1], 3);
 
     Ok(())
 }
