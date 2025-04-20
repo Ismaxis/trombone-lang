@@ -4,17 +4,17 @@ use crate::bytecode::Instruction;
 use crate::bytecode::Operation;
 use crate::error::*;
 
-type TrombValue = i32; // DWORD
-const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
-const WORD_SIZE: usize = size_of::<TrombValue>();
+type TrombValue = i32;
 
-pub struct OperationStream {
-    pub instructions: [u64; 1024], // TODO better types
+const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
+
+pub struct OperationStream<'a> {
+    pub instructions: &'a [u64],
     pub instruction_pointer: usize,
 }
 
-impl OperationStream {
-    pub fn new(instructions: [u64; 1024]) -> Self {
+impl<'a> OperationStream<'a> {
+    pub fn new(instructions: &'a [u64]) -> Self {
         Self {
             instructions,
             instruction_pointer: 0,
@@ -32,21 +32,26 @@ impl OperationStream {
     }
 }
 
-// #[derive(Debug)]
-pub struct Runner {
-    pub stream: OperationStream,
+pub struct Runner<'a> {
+    pub stream: OperationStream<'a>,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
 }
 
-impl Runner {
+impl<'a> Runner<'a> {
+    pub fn new(stream: OperationStream<'a>) -> Self {
+        Self {
+            stream,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+        }
+    }
+
     pub fn evaluate_next_instruction(&mut self) -> Result<()> {
         use Operation::*;
         match self.stream.next_instruction()? {
             Add => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(op1 + op2);
+                self.binary_op(|a, b| a + b);
             }
             PushLiteral { value } => {
                 self.push(value);
@@ -56,34 +61,22 @@ impl Runner {
             }
             // Comparison
             Equal => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 == op1 { 1 } else { 0 });
+                self.comparison(|a, b| a == b);
             }
             NotEqual => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 != op1 { 1 } else { 0 });
+                self.comparison(|a, b| a != b);
             }
             LessThan => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 < op1 { 1 } else { 0 });
+                self.comparison(|a, b| a < b);
             }
             GreaterThan => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 > op1 { 1 } else { 0 });
+                self.comparison(|a, b| a > b);
             }
             LessThanOrEqual => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 <= op1 { 1 } else { 0 });
+                self.comparison(|a, b| a <= b);
             }
             GreaterThanOrEqual => {
-                let op1 = self.pop();
-                let op2 = self.pop();
-                self.push(if op2 >= op1 { 1 } else { 0 });
+                self.comparison(|a, b| a >= b);
             }
             // Jump
             Jump { offset } => {
@@ -103,7 +96,7 @@ impl Runner {
         Ok(())
     }
 
-    pub fn push(&mut self, value: TrombValue) {
+    fn push(&mut self, value: TrombValue) {
         self.stack[self.sp] = value;
         self.sp += 1;
     }
@@ -113,11 +106,19 @@ impl Runner {
         self.stack[self.sp]
     }
 
-    pub fn new(stream: OperationStream) -> Self {
-        Self {
-            stream,
-            stack: [0; STACK_SIZE],
-            sp: 0,
-        }
+    fn binary_op<F>(&mut self, op: F)
+    where
+        F: FnOnce(TrombValue, TrombValue) -> TrombValue,
+    {
+        let op1 = self.pop();
+        let op2 = self.pop();
+        self.push(op(op2, op1));
+    }
+
+    fn comparison<F>(&mut self, op: F)
+    where
+        F: FnOnce(TrombValue, TrombValue) -> bool,
+    {
+        self.binary_op(|a, b| op(a, b) as TrombValue);
     }
 }

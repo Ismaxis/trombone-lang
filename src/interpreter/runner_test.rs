@@ -13,7 +13,7 @@ mod tests {
         instructions[1] = Instruction::from_parts(0x0002, 0x00000002).as_u64(); // STORE 2
         instructions[2] = Instruction::from_parts(0x0001, 0x0BADF00D).as_u64(); // ADD
 
-        let stream = OperationStream::new(instructions);
+        let stream = OperationStream::new(&instructions);
         let mut runner = Runner::new(stream);
 
         runner.evaluate_next_instruction()?;
@@ -64,7 +64,7 @@ mod tests {
         // Final value to confirm we reached the end
         instructions[13] = Instruction::from_parts(0x0002, 0x0000000A).as_u64(); // STORE 10
 
-        let stream = OperationStream::new(instructions);
+        let stream = OperationStream::new(&instructions);
         let mut runner = Runner::new(stream);
 
         for _ in 0..8 {
@@ -117,7 +117,7 @@ mod tests {
         instructions[16] = Instruction::from_parts(0x0002, 0x00000003).as_u64(); // STORE 3
         instructions[17] = Instruction::from_parts(opcode::OP_GE, 0).as_u64(); // >=
 
-        let stream = OperationStream::new(instructions);
+        let stream = OperationStream::new(&instructions);
         let mut runner = Runner::new(stream);
 
         for _ in 0..18 {
