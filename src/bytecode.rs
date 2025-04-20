@@ -12,7 +12,7 @@ impl Instruction {
     }
 
     pub fn extract_opcode(&self) -> u8 {
-        self.extract_word(6)
+        self.extract_word(7)
     }
 
     pub fn extract_immediate(&self) -> i32 {
@@ -29,7 +29,7 @@ pub type Literal = i32;
 
 pub enum Operation {
     Add,
-    PushLiteral { value: Literal },
+    PushLiteral { value: Literal }, // pushing i64 literals requires three commands:  https://github.com/Ismaxis/trombone-lang/pull/4#discussion_r2051408913
     Jump { offset: Offset },
     Pop,
 }

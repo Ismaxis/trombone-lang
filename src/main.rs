@@ -16,9 +16,9 @@ fn main() -> Result<()> {
 fn interpreter_run() -> Result<()> {
     // 1 + 2 = 3
     let mut instructions = [0u64; 1024];
-    instructions[0] = (0x0002) << 48 | (0x00000001) << 0; // STORE 1
-    instructions[1] = (0x0002) << 48 | (0x00000002) << 0; // STORE 2
-    instructions[2] = (0x0001) << 48 | (0x0BADF00D) << 0; // ADD
+    instructions[0] = (0x0002) << 56 | (0x00000001) << 0; // STORE 1
+    instructions[1] = (0x0002) << 56 | (0x00000002) << 0; // STORE 2
+    instructions[2] = (0x0001) << 56 | (0x0BADF00D) << 0; // ADD
 
     let stream = OperationStream::new(instructions);
 
