@@ -1,6 +1,6 @@
 pub type OpCode = u8;
 
-// Comparison opcodes
+// Comparison instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+
 //  | 0x80-85  |                   Unused                      |
@@ -12,7 +12,7 @@ pub const OP_GT: OpCode = 0x83; // Greater than
 pub const OP_LE: OpCode = 0x84; // Less than or equal
 pub const OP_GE: OpCode = 0x85; // Greater than or equal
 
-// Jump opcodes
+// Jump instructions
 // 63       56 55              32 31                           0
 // +----------+------------------+-----------------------------+
 // | 0x90-92  |      Unused      |         Jump Offset         |
