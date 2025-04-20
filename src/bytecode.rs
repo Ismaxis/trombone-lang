@@ -20,16 +20,20 @@ impl Instruction {
     }
 
     pub fn extract_immediate(&self) -> Immediate {
-        (self.0 & 0xFFFFFFFF) as Immediate
+        (self.0 & Self::IMMEDIATE_MASK) as Immediate
     }
 
-    #[cfg(test)]
+    pub const OPCODE_SHIFT: i32 = 56;
+    pub const IMMEDIATE_MASK: u64 = 0xFFFFFFFF;
+
+    #[allow(dead_code)]
     pub fn from_parts(opcode: u8, immediate: Immediate) -> Self {
-        let code = ((opcode as u64) << 56) | ((immediate as u64) & 0xFFFFFFFF);
+        let code =
+            ((opcode as u64) << Self::OPCODE_SHIFT) | ((immediate as u64) & Self::IMMEDIATE_MASK);
         Self(code)
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub fn as_u64(&self) -> u64 {
         self.0
     }
