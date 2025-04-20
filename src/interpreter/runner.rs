@@ -27,10 +27,6 @@ impl OperationStream {
         Instruction::from_u64(self.instructions[ip]).try_into()
     }
 
-    fn advance(&mut self) {
-        
-    }
-
     fn switch_frame(&mut self, offset: i32) {
         self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
     }
@@ -45,32 +41,64 @@ pub struct Runner {
 
 impl Runner {
     pub fn evaluate_next_instruction(&mut self) -> Result<()> {
+        use Operation::*;
         match self.stream.next_instruction()? {
-            Operation::Add => {
+            Add => {
                 let op1 = self.pop();
                 let op2 = self.pop();
                 self.push(op1 + op2);
             }
-            Operation::PushLiteral { value } => {
+            PushLiteral { value } => {
                 self.push(value);
             }
-            Operation::Pop => {
+            Pop => {
                 let _ = self.pop();
             }
-            Operation::Jump { offset } => {
+            // Comparison
+            Equal => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 == op1 { 1 } else { 0 });
+            }
+            NotEqual => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 != op1 { 1 } else { 0 });
+            }
+            LessThan => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 < op1 { 1 } else { 0 });
+            }
+            GreaterThan => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 > op1 { 1 } else { 0 });
+            }
+            LessThanOrEqual => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 <= op1 { 1 } else { 0 });
+            }
+            GreaterThanOrEqual => {
+                let op1 = self.pop();
+                let op2 = self.pop();
+                self.push(if op2 >= op1 { 1 } else { 0 });
+            }
+            // Jump
+            Jump { offset } => {
                 self.stream.switch_frame(offset - 1);
             }
-            Operation::JumpIf { offset } => {
+            JumpIf { offset } => {
                 if self.pop() != 0 {
                     self.stream.switch_frame(offset - 1);
                 }
             }
-            Operation::JumpIfNot { offset } => {
+            JumpIfNot { offset } => {
                 if self.pop() == 0 {
                     self.stream.switch_frame(offset - 1);
                 }
             }
-            _ => panic!("123"),
         }
         Ok(())
     }
