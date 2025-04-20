@@ -13,10 +13,10 @@ pub const OP_LE: OpCode = 0x84; // Less than or equal
 pub const OP_GE: OpCode = 0x85; // Greater than or equal
 
 // Jump opcodes
-// 63       56 55                                             0
-// +----------+-----------------------------------------------+
-// | 0x90-92  |                 Jump Offset                   |
-// +----------+-----------------------------------------------+
+// 63       56 55              32 31                           0
+// +----------+------------------+-----------------------------+
+// | 0x90-92  |      Unused      |         Jump Offset         |
+// +----------+------------------+-----------------------------+
 pub const OP_JMP: OpCode = 0x90; // Unconditional jump
 pub const OP_JMP_IF: OpCode = 0x91; // Jump if true
 pub const OP_JMP_IF_NOT: OpCode = 0x92; // Jump if false
