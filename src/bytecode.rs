@@ -1,10 +1,14 @@
 use crate::error::*;
 
+pub type Offset = i32;
+pub type Literal = i32;
+pub type Immediate = i32;
+
 pub struct Instruction(u64);
 
 impl Instruction {
-    pub fn as_u64(&self) -> u64 {
-        self.0
+    pub fn from_u64(code: u64) -> Self {
+        Self(code)
     }
 
     fn extract_word(&self, idx: usize) -> u8 {
@@ -15,40 +19,77 @@ impl Instruction {
         self.extract_word(7)
     }
 
-    pub fn extract_immediate(&self) -> i32 {
-        (self.0 & 0xFFFFFFFF) as i32
+    pub fn extract_immediate(&self) -> Immediate {
+        (self.0 & Self::IMMEDIATE_MASK) as Immediate
     }
 
-    pub fn from_u64(code: u64) -> Self {
+    pub const OPCODE_SHIFT: i32 = 56;
+    pub const IMMEDIATE_MASK: u64 = 0xFFFFFFFF;
+
+    #[allow(dead_code)]
+    pub fn from_parts(opcode: u8, immediate: Immediate) -> Self {
+        let code =
+            ((opcode as u64) << Self::OPCODE_SHIFT) | ((immediate as u64) & Self::IMMEDIATE_MASK);
         Self(code)
     }
-}
 
-pub type Offset = i32;
-pub type Literal = i32;
+    #[allow(dead_code)]
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
 
 pub enum Operation {
     Add,
     PushLiteral { value: Literal }, // pushing i64 literals requires three commands:  https://github.com/Ismaxis/trombone-lang/pull/4#discussion_r2051408913
-    Jump { offset: Offset },
     Pop,
+
+    // Comparison
+    Equal,
+    NotEqual,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+
+    // Jump
+    Jump { offset: Offset },
+    JumpIf { offset: Offset },
+    JumpIfNot { offset: Offset },
 }
 
 impl TryFrom<Instruction> for Operation {
     fn try_from(value: Instruction) -> Result<Self> {
-        // TODO: add checks for instructions that not uses immediate
-        let x = match value.as_u64() {
-            _ if value.extract_opcode() == 1 => Operation::Add,
-            _ if value.extract_opcode() == 2 => Operation::PushLiteral {
+        use crate::opcode::*;
+        use Operation::*;
+        let x = match value.extract_opcode() {
+            1 => Add,
+            2 => PushLiteral {
                 value: value.extract_immediate(),
             },
-            _ if value.extract_opcode() == 3 => Operation::Pop,
-            _ if value.extract_opcode() == 4 => Operation::Jump {
+            3 => Pop,
+
+            // Comparison operations
+            OP_EQ => Equal,
+            OP_NE => NotEqual,
+            OP_LT => LessThan,
+            OP_GT => GreaterThan,
+            OP_LE => LessThanOrEqual,
+            OP_GE => GreaterThanOrEqual,
+
+            // Jump operations
+            OP_JMP => Jump {
                 offset: value.extract_immediate(),
             },
-            _ => return Err(format!("{:x} is incorrect opcode", value.extract_opcode(),).into()),
+            OP_JMP_IF => JumpIf {
+                offset: value.extract_immediate(),
+            },
+            OP_JMP_IF_NOT => JumpIfNot {
+                offset: value.extract_immediate(),
+            },
+            opcode => return Err(format!("unknown opcode: {:x}", opcode).into()),
         };
-        return Ok(x);
+        Ok(x)
     }
 
     type Error = Error;
