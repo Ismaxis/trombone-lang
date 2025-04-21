@@ -47,13 +47,11 @@ mod tests {
             (Operation::Add,    opcode::OP_ADD, Box::new(|x, y| { x + y })),
             (Operation::Sub,    opcode::OP_SUB, Box::new(|x, y| { x - y })),
             (Operation::Mul,    opcode::OP_MUL, Box::new(|x, y| { x * y })),
-            // TODO: cover with tests division by zero
             (Operation::Div,    opcode::OP_DIV, Box::new(|x, y| { x / y })), 
             (Operation::Mod,    opcode::OP_MOD, Box::new(|x, y| { x % y })),
             (Operation::And,    opcode::OP_AND, Box::new(|x, y| { x & y })),
             (Operation::Or,     opcode::OP_OR,  Box::new(|x, y| { x | y })),
             (Operation::Xor,    opcode::OP_XOR, Box::new(|x, y| { x ^ y })),
-            // TODO: cover situation when lsh or rsh second argument is extremely large
             (Operation::Lsh,    opcode::OP_LSH, Box::new(|x, y| { x << y })),
             (Operation::Rsh,    opcode::OP_RSH, Box::new(|x, y| { x >> y })),
         ];
@@ -83,6 +81,30 @@ mod tests {
 
             assert_eq!(runner.sp, 1);
             assert_eq!(runner.stack[runner.sp - 1], res_fun(op1, op2));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_corner_case_arithmetic() -> Result<()> {
+        for opcode in [opcode::OP_DIV, opcode::OP_MOD] {
+            let mut instructions = [0u64; 1024];
+
+            instructions[0] = Instruction::from_parts(opcode::OP_PUSH, 42).as_u64();
+            instructions[1] = Instruction::from_parts(opcode::OP_PUSH, 0).as_u64();
+            instructions[2] = Instruction::from_parts(opcode, 0x0DEDBEEF).as_u64();
+
+            let stream = OperationStream::new(&instructions);
+            let mut runner = Runner::new(stream);
+
+            runner.evaluate_next_instruction()?;
+            runner.evaluate_next_instruction()?;
+
+            assert!(
+                runner.evaluate_next_instruction().is_err(),
+                "expected error due to division by zero"
+            );
         }
 
         Ok(())

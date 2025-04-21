@@ -61,8 +61,20 @@ impl<'a> Runner<'a> {
             Add => self.binary_op(|a, b| a + b),
             Sub => self.binary_op(|a, b| a - b),
             Mul => self.binary_op(|a, b| a * b),
-            Div => self.binary_op(|a, b| a / b),
-            Mod => self.binary_op(|a, b| a % b),
+            Div => self.try_binary_op(|a, b| {
+                if b == 0 {
+                    Err("Zero division encountered".into())
+                } else {
+                    Ok(a / b)
+                }
+            })?,
+            Mod => self.try_binary_op(|a, b| {
+                if b == 0 {
+                    Err("Zero division encountered".into())
+                } else {
+                    Ok(a % b)
+                }
+            })?,
             And => self.binary_op(|a, b| a & b),
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
@@ -120,15 +132,14 @@ impl<'a> Runner<'a> {
         self.push(op(op2, op1));
     }
 
-    fn multibinary_op<F>(&mut self, op: F)
+    fn try_binary_op<F>(&mut self, op: F) -> Result<()>
     where
-        F: FnOnce(TrombValue, TrombValue) -> (TrombValue, TrombValue),
+        F: FnOnce(TrombValue, TrombValue) -> Result<TrombValue>,
     {
         let op1 = self.pop();
         let op2 = self.pop();
-        let (res1, res2) = op(op2, op1);
-        self.push(res1);
-        self.push(res2);
+        self.push(op(op2, op1)?);
+        Ok(())
     }
 
     fn comparison<F>(&mut self, op: F)
