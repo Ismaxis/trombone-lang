@@ -89,48 +89,6 @@ mod tests {
     }
 
     #[test]
-    fn test_multibinary_arithmetic() -> Result<()> {
-        #[rustfmt::skip]
-        let tests: [(_, _, Box<dyn Fn(i32, i32) -> (i32, i32)>); 2]= [
-            (Operation::ExtMul,    opcode::OP_EXTMUL, Box::new(|x, y| { (((x as i64) * (y as i64) >> 32) as i32, x * y) })), 
-            // TODO cover with tests division by zero
-            (Operation::DivMod,    opcode::OP_DIVMOD, Box::new(|x, y| { (x / y, x % y)})),
-        ];
-
-        let op1 = 42;
-        let op2 = 5;
-        for (op, opcode, res_fun) in tests {
-            let mut instructions = [0u64; 1024];
-
-            // Check if mapping from Opcode to Operation is correct
-            let instruction = Instruction::from_parts(opcode, 0x0DEDBEEF);
-            let operation: Operation = instruction.try_into()?;
-            assert_eq!(operation, op);
-
-            // Check result
-            instructions[0] = Instruction::from_parts(opcode::OP_PUSH, op1).as_u64();
-            instructions[1] = Instruction::from_parts(opcode::OP_PUSH, op2).as_u64();
-            instructions[2] = Instruction::from_parts(opcode, 0x0DEDBEEF).as_u64();
-
-            let stream = OperationStream::new(&instructions);
-
-            let mut runner = Runner::new(stream);
-
-            runner.evaluate_next_instruction()?;
-            runner.evaluate_next_instruction()?;
-            runner.evaluate_next_instruction()?;
-
-            assert_eq!(runner.sp, 2);
-            assert_eq!(
-                (runner.stack[runner.sp - 2], runner.stack[runner.sp - 1]),
-                res_fun(op1, op2)
-            );
-        }
-
-        Ok(())
-    }
-
-    #[test]
     fn test_jump_operations() -> Result<()> {
         // Test for jump operations
         let mut instructions = [0u64; 1024];

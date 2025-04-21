@@ -61,12 +61,8 @@ impl<'a> Runner<'a> {
             Add => self.binary_op(|a, b| a + b),
             Sub => self.binary_op(|a, b| a - b),
             Mul => self.binary_op(|a, b| a * b),
-            ExtMul => {
-                self.multibinary_op(|a, b| (((a as i64) * (b as i64) >> 32) as TrombValue, a * b))
-            }
             Div => self.binary_op(|a, b| a / b),
             Mod => self.binary_op(|a, b| a % b),
-            DivMod => self.multibinary_op(|a, b| (a / b, a % b)),
             And => self.binary_op(|a, b| a & b),
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
