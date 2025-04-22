@@ -50,38 +50,47 @@ impl<'a> Runner<'a> {
     pub fn evaluate_next_instruction(&mut self) -> Result<()> {
         use Operation::*;
         match self.stream.next_instruction()? {
-            Add => {
-                self.binary_op(|a, b| a + b);
-            }
-            PushLiteral { value } => {
-                self.push(value);
-            }
+            // Stack operations
+            PushLiteral { value } => self.push(value),
             Pop => {
-                let _ = self.pop();
+                self.pop();
             }
+            // Arithmetic
+            Neg => self.unary_op(|a| -a),
+            Not => self.unary_op(|a| !a),
+            Add => self.binary_op(|a, b| a + b),
+            Sub => self.binary_op(|a, b| a - b),
+            Mul => self.binary_op(|a, b| a * b),
+            Div => self.try_binary_op(|a, b| {
+                if b == 0 {
+                    Err("Zero division encountered".into())
+                } else {
+                    Ok(a / b)
+                }
+            })?,
+            Mod => self.try_binary_op(|a, b| {
+                if b == 0 {
+                    Err("Zero division encountered".into())
+                } else {
+                    Ok(a % b)
+                }
+            })?,
+            And => self.binary_op(|a, b| a & b),
+            Or => self.binary_op(|a, b| a | b),
+            Xor => self.binary_op(|a, b| a ^ b),
+            Lsh => self.binary_op(|a, b| a << b),
+            Rsh => self.binary_op(|a, b| a >> b),
+
             // Comparison
-            Equal => {
-                self.comparison(|a, b| a == b);
-            }
-            NotEqual => {
-                self.comparison(|a, b| a != b);
-            }
-            LessThan => {
-                self.comparison(|a, b| a < b);
-            }
-            GreaterThan => {
-                self.comparison(|a, b| a > b);
-            }
-            LessThanOrEqual => {
-                self.comparison(|a, b| a <= b);
-            }
-            GreaterThanOrEqual => {
-                self.comparison(|a, b| a >= b);
-            }
+            Equal => self.comparison(|a, b| a == b),
+            NotEqual => self.comparison(|a, b| a != b),
+            LessThan => self.comparison(|a, b| a < b),
+            GreaterThan => self.comparison(|a, b| a > b),
+            LessThanOrEqual => self.comparison(|a, b| a <= b),
+            GreaterThanOrEqual => self.comparison(|a, b| a >= b),
+
             // Jump
-            Jump { offset } => {
-                self.stream.switch_frame(offset - 1);
-            }
+            Jump { offset } => self.stream.switch_frame(offset - 1),
             JumpIf { offset } => {
                 if self.pop() != 0 {
                     self.stream.switch_frame(offset - 1);
@@ -106,6 +115,14 @@ impl<'a> Runner<'a> {
         self.stack[self.sp]
     }
 
+    fn unary_op<F>(&mut self, op: F)
+    where
+        F: FnOnce(TrombValue) -> TrombValue,
+    {
+        let oper = self.pop();
+        self.push(op(oper));
+    }
+
     fn binary_op<F>(&mut self, op: F)
     where
         F: FnOnce(TrombValue, TrombValue) -> TrombValue,
@@ -113,6 +130,16 @@ impl<'a> Runner<'a> {
         let op1 = self.pop();
         let op2 = self.pop();
         self.push(op(op2, op1));
+    }
+
+    fn try_binary_op<F>(&mut self, op: F) -> Result<()>
+    where
+        F: FnOnce(TrombValue, TrombValue) -> Result<TrombValue>,
+    {
+        let op1 = self.pop();
+        let op2 = self.pop();
+        self.push(op(op2, op1)?);
+        Ok(())
     }
 
     fn comparison<F>(&mut self, op: F)

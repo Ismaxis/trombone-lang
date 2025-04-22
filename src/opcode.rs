@@ -1,5 +1,37 @@
 pub type OpCode = u8;
 
+// Push instructions
+// 63       56 55              32 31                           0
+// +----------+------------------+-----------------------------+
+// |   0x01   |      Unused      |       Immediate value       |
+// +----------+------------------+-----------------------------+
+pub const OP_PUSH: OpCode = 0x01;
+
+// Pop instruction
+//  63       56 55                                             0
+//  +----------+-----------------------------------------------+
+//  |   0x02   |                   Unused                      |
+//  +----------+-----------------------------------------------+
+pub const OP_POP: OpCode = 0x02;
+
+// Arithmetic instructions
+//  63       56 55                                             0
+//  +----------+-----------------------------------------------+
+//  | 0x03-0e  |                   Unused                      |
+//  +----------+-----------------------------------------------+
+pub const OP_NEG: OpCode = 0x03;
+pub const OP_NOT: OpCode = 0x04;
+pub const OP_ADD: OpCode = 0x05;
+pub const OP_SUB: OpCode = 0x06;
+pub const OP_MUL: OpCode = 0x07;
+pub const OP_DIV: OpCode = 0x08;
+pub const OP_MOD: OpCode = 0x09;
+pub const OP_AND: OpCode = 0x0a;
+pub const OP_OR: OpCode = 0x0b;
+pub const OP_XOR: OpCode = 0x0c;
+pub const OP_LSH: OpCode = 0x0d;
+pub const OP_RSH: OpCode = 0x0e;
+
 // Comparison instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+

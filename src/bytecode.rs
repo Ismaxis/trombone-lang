@@ -39,10 +39,24 @@ impl Instruction {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Operation {
-    Add,
     PushLiteral { value: Literal }, // pushing i64 literals requires three commands:  https://github.com/Ismaxis/trombone-lang/pull/4#discussion_r2051408913
     Pop,
+
+    // Arithmetic
+    Neg,
+    Not,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Xor,
+    Lsh,
+    Rsh,
 
     // Comparison
     Equal,
@@ -63,11 +77,24 @@ impl TryFrom<Instruction> for Operation {
         use crate::opcode::*;
         use Operation::*;
         let x = match value.extract_opcode() {
-            1 => Add,
-            2 => PushLiteral {
+            OP_PUSH => PushLiteral {
                 value: value.extract_immediate(),
             },
-            3 => Pop,
+            OP_POP => Pop,
+
+            // Arithmetic operations
+            OP_NEG => Neg,
+            OP_NOT => Not,
+            OP_ADD => Add,
+            OP_SUB => Sub,
+            OP_MUL => Mul,
+            OP_DIV => Div,
+            OP_MOD => Mod,
+            OP_AND => And,
+            OP_OR => Or,
+            OP_XOR => Xor,
+            OP_LSH => Lsh,
+            OP_RSH => Rsh,
 
             // Comparison operations
             OP_EQ => Equal,
