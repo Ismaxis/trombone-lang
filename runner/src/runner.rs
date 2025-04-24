@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use crate::bytecode::Instruction;
-use crate::bytecode::Operation;
-use crate::error::*;
+use trombone_common::bytecode::Instruction;
+use trombone_common::bytecode::Operation;
+use trombone_common::error::*;
 
 type TrombValue = i32;
 

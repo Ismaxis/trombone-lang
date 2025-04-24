@@ -1,10 +1,6 @@
-mod bytecode;
-mod error;
-mod interpreter;
-mod jit;
-mod opcode;
+pub use trombone_common::error::{Error, Result};
+use trombone_jit::CodeGen;
 
-pub use error::{Error, Result};
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 
@@ -19,7 +15,7 @@ fn jit_example() -> Result<()> {
     let module = context.create_module("example_funcs");
     let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
 
-    let codegen = jit::CodeGen::new(&context, module, context.create_builder(), execution_engine);
+    let codegen = CodeGen::new(&context, module, context.create_builder(), execution_engine);
     let inc = codegen
         .jit_compile_inc()
         .ok_or_else(|| "Unable to JIT compile `increment`".to_string())?;
