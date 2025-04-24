@@ -1,0 +1,23 @@
+on: push
+
+name: main
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rustfmt
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: mbrobbel/rustfmt-check@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker testing
+        uses: ./docker/fedora/docker-action
+
+        
