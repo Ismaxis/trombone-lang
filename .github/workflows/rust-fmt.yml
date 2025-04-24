@@ -6,8 +6,7 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - name: Rustfmt
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -18,6 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Docker testing
-        uses: ./docker/fedora/docker-action
+        uses: ./docker/fedora/
 
         
