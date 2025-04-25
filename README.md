@@ -1,3 +1,9 @@
+## Update cargo
+```shell
+rustup update stable
+```
+
+## Run with LLVM [DOCKER]
 Installation on Ubuntu 22.04:
 ```shell
 sudo wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 18
@@ -9,7 +15,7 @@ https://gitlab.com/taricorp/llvm-sys.rs/-/issues/13
 Using docker on x86_64 machine:
 ```shell
 docker build --tag "trombone-lang-env" -f ./docker/ubuntu/Dockerfile . && \
-docker run --rm trombone-lang-env 
+docker run --rm trombone-lang-env
 ```
 
 Installation on Fedora 41:

@@ -1,0 +1,8 @@
+[package]
+name = "trombone-common"
+version = "0.1.0"
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+derive_more = { version = "1.0", features = ["from"] }

@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::bytecode::{Instruction, Operation};
-    use crate::error::Result;
-    use crate::interpreter::runner::{OperationStream, Runner};
-    use crate::opcode;
+    use trombone_common::bytecode::{Instruction, Operation};
+    use trombone_common::error::Result;
+    use crate::runner::{OperationStream, Runner};
+    use trombone_common::opcode;
 
     #[test]
     fn test_unary_arithmetic() -> Result<()> {
