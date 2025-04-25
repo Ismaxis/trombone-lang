@@ -5,7 +5,7 @@ mod tests {
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
-    use trombone_common::opcode::{self, OP_LOCAL_STORE};
+    use trombone_common::opcode::{self};
 
     struct TestOperationStream {
         instructions: std::vec::Vec<u64>,
@@ -103,7 +103,6 @@ mod tests {
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.stack[0..runner.sp], vec![42, 42]);
 
-
         // ===========
 
         runner.stream.emplace_instruction(opcode::OP_PUSH, 1000);
@@ -115,7 +114,6 @@ mod tests {
         runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 0);
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.stack[0..runner.sp], vec![42, 1000]);
-
 
         Ok(())
     }
