@@ -3,29 +3,30 @@ mod tests {
     use std::vec;
 
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
-    use trombone_common::bytecode::{Instruction, Operation};
+    use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
-    use trombone_common::opcode;
+    use trombone_common::opcode::{self, OP_LOCAL_STORE};
 
-    struct DynamicOperationStream {
+    struct TestOperationStream {
         instructions: std::vec::Vec<u64>,
         instruction_pointer: usize,
     }
 
-    impl DynamicOperationStream {
-        fn new() -> DynamicOperationStream {
-            DynamicOperationStream {
+    impl TestOperationStream {
+        fn new() -> TestOperationStream {
+            TestOperationStream {
                 instructions: std::vec::Vec::new().into(),
                 instruction_pointer: 0,
             }
         }
 
-        fn set_next_instruction(&mut self, instruction: Instruction) {
-            self.instructions.push(instruction.as_u64());
+        fn emplace_instruction(&mut self, opcode: u8, immediate: Immediate) {
+            self.instructions
+                .push(Instruction::from_parts(opcode, immediate).as_u64());
         }
     }
 
-    impl OperationStream for DynamicOperationStream {
+    impl OperationStream for TestOperationStream {
         fn next_instruction(&mut self) -> Result<Operation> {
             let res = self.instructions[self.instruction_pointer];
             self.instruction_pointer += 1;
@@ -38,23 +39,22 @@ mod tests {
     }
 
     #[test]
-    #[rustfmt::skip]
     fn test_stack_operations() -> Result<()> {
-        let mut runner = Runner::new(DynamicOperationStream::new());
+        let mut runner = Runner::new(TestOperationStream::new());
 
         // let x = 42;
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_PUSH, 42));
+        runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
         runner.evaluate_next_instruction()?;
         // let y = 54;
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_PUSH, 54));
+        runner.stream.emplace_instruction(opcode::OP_PUSH, 54);
         runner.evaluate_next_instruction()?;
         // let y = 68;
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_PUSH, 68));
+        runner.stream.emplace_instruction(opcode::OP_PUSH, 68);
         runner.evaluate_next_instruction()?;
 
-        // add more depth
-        for _ in 3..8 {
-            runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_PUSH, 0));
+        // add five zeros
+        for _ in 0..5 {
+            runner.stream.emplace_instruction(opcode::OP_PUSH, 0);
             runner.evaluate_next_instruction()?;
         }
 
@@ -62,32 +62,60 @@ mod tests {
         // let y1 = y;
         // let z1 = z;
         for _ in 9..12 {
-            runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_LOCAL_COPY, 8));
+            runner.stream.emplace_instruction(opcode::OP_LOCAL_COPY, 7);
             runner.evaluate_next_instruction()?;
         }
 
         // checking correctness of stack
         let stack_should_be = vec![42, 54, 68, 0, 0, 0, 0, 0, 42, 54, 68];
-        for i in 0..runner.sp {
-            assert_eq!(stack_should_be[i], runner.stack[i])
-        }
+        assert_eq!(stack_should_be, runner.stack[0..runner.sp]);
 
         // y1 = y1 + z1
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_ADD, 0));
+        runner.stream.emplace_instruction(opcode::OP_ADD, 0);
         runner.evaluate_next_instruction()?;
 
         // x1 = x1 + y1
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_ADD, 0));
+        runner.stream.emplace_instruction(opcode::OP_ADD, 0);
         runner.evaluate_next_instruction()?;
 
         // x = x1
-        runner.stream.set_next_instruction(Instruction::from_parts(opcode::OP_LOCAL_STORE, 8));
+        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 7);
         runner.evaluate_next_instruction()?;
 
-        let stack_should_be = vec![42 + 54 + 68, 54, 68, 0, 0, 0, 0, 0, 0, 0];
-        for i in 0..runner.sp {
-            assert_eq!(stack_should_be[i], runner.stack[i])
-        }
+        let stack_should_be = vec![42 + 54 + 68, 54, 68, 0, 0, 0, 0, 0];
+        assert_eq!(stack_should_be, runner.stack[0..runner.sp]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_corner_cases_stack_operations() -> Result<()> {
+        let mut runner = Runner::new(TestOperationStream::new());
+
+        // let x = 42;
+        runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.stack[0..runner.sp], vec![42]);
+
+        // OP_LOCAL_COPY {with offset zero} means "put top value on top"
+        // let x1 = x;
+        runner.stream.emplace_instruction(opcode::OP_LOCAL_COPY, 0);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.stack[0..runner.sp], vec![42, 42]);
+
+
+        // ===========
+
+        runner.stream.emplace_instruction(opcode::OP_PUSH, 1000);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.stack[0..runner.sp], vec![42, 42, 1000]);
+
+        // OP_LOCAL_STORE {with offset zero} means "put top value on next after top value"
+        // or, in some absurd sense "pop second value"
+        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 0);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.stack[0..runner.sp], vec![42, 1000]);
+
 
         Ok(())
     }

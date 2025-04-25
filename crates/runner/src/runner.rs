@@ -132,7 +132,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
     }
 
     fn get_variable(&mut self, variable: Variable) -> &mut TrombValue {
-        &mut self.stack[self.sp - variable as usize]
+        &mut self.stack[self.sp - 1 - variable as usize]
     }
 
     fn unary_op<F>(&mut self, op: F)
