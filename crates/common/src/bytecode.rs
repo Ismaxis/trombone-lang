@@ -121,9 +121,3 @@ impl TryFrom<Instruction> for Operation {
 
     type Error = Error;
 }
-
-#[cfg(test)]
-#[test]
-fn test_() -> Result<()> {
-    return Ok(())
-}
