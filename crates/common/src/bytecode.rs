@@ -3,6 +3,7 @@ use crate::error::*;
 pub type Offset = i32;
 pub type Literal = i32;
 pub type Immediate = i32;
+pub type Variable = i32;
 
 pub struct Instruction(u64);
 
@@ -43,6 +44,8 @@ impl Instruction {
 pub enum Operation {
     PushLiteral { value: Literal }, // pushing i64 literals requires three commands:  https://github.com/Ismaxis/trombone-lang/pull/4#discussion_r2051408913
     Pop,
+    LocalCopy { variable: Literal },
+    LocalStore { variable: Literal },
 
     // Arithmetic
     Neg,
@@ -81,6 +84,12 @@ impl TryFrom<Instruction> for Operation {
                 value: value.extract_immediate(),
             },
             OP_POP => Pop,
+            OP_LOCAL_COPY => LocalCopy {
+                variable: value.extract_immediate(),
+            },
+            OP_LOCAL_STORE => LocalStore {
+                variable: value.extract_immediate(),
+            },
 
             // Arithmetic operations
             OP_NEG => Neg,
@@ -120,4 +129,10 @@ impl TryFrom<Instruction> for Operation {
     }
 
     type Error = Error;
+}
+
+#[cfg(test)]
+#[test]
+fn test_() -> Result<()> {
+    return Ok(());
 }

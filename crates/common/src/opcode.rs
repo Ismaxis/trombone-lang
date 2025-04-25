@@ -14,23 +14,31 @@ pub const OP_PUSH: OpCode = 0x01;
 //  +----------+-----------------------------------------------+
 pub const OP_POP: OpCode = 0x02;
 
+// Copy and Store instructions
+// 63       56 55              32 31                           0
+// +----------+------------------+-----------------------------+
+// |  0x03-04 |      Unused      |      Offset to variable     |
+// +----------+------------------+-----------------------------+
+pub const OP_LOCAL_COPY: OpCode = 0x03; // Reads Nth (N = offset) value from top of stack and pushes it on top of stack
+pub const OP_LOCAL_STORE: OpCode = 0x04; // Pops top of stack and store it to Nth (N = offset) value from top of stack 
+
 // Arithmetic instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+
-//  | 0x03-0e  |                   Unused                      |
+//  | 0x10-1b  |                   Unused                      |
 //  +----------+-----------------------------------------------+
-pub const OP_NEG: OpCode = 0x03;
-pub const OP_NOT: OpCode = 0x04;
-pub const OP_ADD: OpCode = 0x05;
-pub const OP_SUB: OpCode = 0x06;
-pub const OP_MUL: OpCode = 0x07;
-pub const OP_DIV: OpCode = 0x08;
-pub const OP_MOD: OpCode = 0x09;
-pub const OP_AND: OpCode = 0x0a;
-pub const OP_OR: OpCode = 0x0b;
-pub const OP_XOR: OpCode = 0x0c;
-pub const OP_LSH: OpCode = 0x0d;
-pub const OP_RSH: OpCode = 0x0e;
+pub const OP_NEG: OpCode = 0x10;
+pub const OP_NOT: OpCode = 0x11;
+pub const OP_ADD: OpCode = 0x12;
+pub const OP_SUB: OpCode = 0x13;
+pub const OP_MUL: OpCode = 0x14;
+pub const OP_DIV: OpCode = 0x15;
+pub const OP_MOD: OpCode = 0x16;
+pub const OP_AND: OpCode = 0x17;
+pub const OP_OR: OpCode = 0x18;
+pub const OP_XOR: OpCode = 0x19;
+pub const OP_LSH: OpCode = 0x1a;
+pub const OP_RSH: OpCode = 0x1b;
 
 // Comparison instructions
 //  63       56 55                                             0

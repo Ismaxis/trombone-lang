@@ -2,6 +2,7 @@
 
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
+use trombone_common::bytecode::Variable;
 use trombone_common::error::*;
 
 type TrombValue = i32;
@@ -54,6 +55,14 @@ impl<'a> Runner<'a> {
             PushLiteral { value } => self.push(value),
             Pop => {
                 self.pop();
+            }
+            LocalCopy { variable } => {
+                let op = *self.get_variable(variable);
+                self.push(op);
+            }
+            LocalStore { variable } => {
+                let value = self.pop();
+                *self.get_variable(variable) = value;
             }
             // Arithmetic
             Neg => self.unary_op(|a| -a),
@@ -113,6 +122,10 @@ impl<'a> Runner<'a> {
     fn pop(&mut self) -> TrombValue {
         self.sp -= 1;
         self.stack[self.sp]
+    }
+
+    fn get_variable(&mut self, variable: Variable) -> &mut TrombValue {
+        &mut self.stack[self.sp - variable as usize]
     }
 
     fn unary_op<F>(&mut self, op: F)
