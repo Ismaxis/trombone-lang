@@ -3,7 +3,7 @@ use crate::error::*;
 pub type Offset = i32;
 pub type Literal = i32;
 pub type Immediate = i32;
-pub type Variable = i32;
+pub type VariableOffset = i32;
 
 pub struct Instruction(u64);
 

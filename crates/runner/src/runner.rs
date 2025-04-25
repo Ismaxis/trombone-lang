@@ -2,7 +2,7 @@
 
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
-use trombone_common::bytecode::Variable;
+use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
 
 type TrombValue = i32;
@@ -131,7 +131,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
         self.stack[self.sp]
     }
 
-    fn get_variable(&mut self, variable: Variable) -> &mut TrombValue {
+    fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
         &mut self.stack[self.sp - 1 - variable as usize]
     }
 
