@@ -44,8 +44,8 @@ impl Instruction {
 pub enum Operation {
     PushLiteral { value: Literal }, // pushing i64 literals requires three commands:  https://github.com/Ismaxis/trombone-lang/pull/4#discussion_r2051408913
     Pop,
-    LocalCopy { variable: Literal },
-    LocalStore { variable: Literal },
+    LocalCopy { variable_offset: Literal },
+    LocalStore { variable_offset: Literal },
 
     // Arithmetic
     Neg,
@@ -85,10 +85,10 @@ impl TryFrom<Instruction> for Operation {
             },
             OP_POP => Pop,
             OP_LOCAL_COPY => LocalCopy {
-                variable: value.extract_immediate(),
+                variable_offset: value.extract_immediate(),
             },
             OP_LOCAL_STORE => LocalStore {
-                variable: value.extract_immediate(),
+                variable_offset: value.extract_immediate(),
             },
 
             // Arithmetic operations
@@ -129,10 +129,4 @@ impl TryFrom<Instruction> for Operation {
     }
 
     type Error = Error;
-}
-
-#[cfg(test)]
-#[test]
-fn test_() -> Result<()> {
-    return Ok(());
 }
