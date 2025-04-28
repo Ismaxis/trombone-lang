@@ -18,5 +18,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Docker testing
-        uses: ./docker/fedora/
+        uses: ./docker/nollvm/
 
