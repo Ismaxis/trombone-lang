@@ -20,4 +20,3 @@ jobs:
       - name: Docker testing
         uses: ./docker/fedora/
 
-        
