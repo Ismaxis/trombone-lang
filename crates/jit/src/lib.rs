@@ -5,7 +5,6 @@ use inkwell::module::Module;
 use inkwell::values::{BasicValueEnum, PointerValue};
 use trombone_common::bytecode::Operation;
 
-pub type IncrementFunc = unsafe extern "C" fn(i32) -> i32;
 type Rsp = *mut u64;
 pub type VmExecuteFunc = unsafe extern "C" fn(Rsp) -> Rsp;
 
@@ -31,23 +30,6 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn jit_compile_inc(&self) -> Option<JitFunction<IncrementFunc>> {
-        let i32_type = self.context.i32_type();
-        let fn_type = i32_type.fn_type(&[i32_type.into()], false);
-        let function = self.module.add_function("increment", fn_type, None);
-        let basic_block = self.context.append_basic_block(function, "entry");
-        self.builder.position_at_end(basic_block);
-
-        let x = function.get_nth_param(0)?.into_int_value();
-        let inc = self
-            .builder
-            .build_int_add(x, i32_type.const_int(1, false), "increment")
-            .ok()?;
-        self.builder.build_return(Some(&inc)).ok()?;
-
-        unsafe { self.execution_engine.get_function("increment").ok() }
-    }
-
     pub fn jit_compile_basic_block(
         &self,
         block_id: usize,
@@ -56,37 +38,24 @@ impl<'ctx> CodeGen<'ctx> {
         let module_name = format!("block_module_{}", block_id);
         let module = self.context.create_module(&module_name);
 
-        // Define VM state pointer type (u64*)
         let state_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-
-        // Return type is (u64*)
         let ret_type = state_ptr_type;
 
-        // Create function signature: (u64*) -> (u64*)
         let fn_type = ret_type.fn_type(&[state_ptr_type.into()], false);
-
-        // Create function with unique name based on block ID
         let function = module.add_function(&module_name, fn_type, None);
-
-        // Create entry basic block
         let entry_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(entry_block);
 
-        // Get the VM state pointer argument
         let rsp = function.get_nth_param(0)?.into_pointer_value();
 
-        // Compile each operation in the block
         if let Some(result) = self.compile_operations(operations, rsp) {
-            // Return the result
             self.builder.build_return(Some(&result)).ok()?;
         } else {
-            // Default return if no operations or compilation failed
             self.builder
                 .build_return(Some(&ret_type.const_zero()))
                 .ok()?;
         }
 
-        // Verify the function for correctness
         function.verify(true).then(|| ())?;
 
         self.execution_engine.add_module(&module).ok()?;
@@ -124,10 +93,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
                     self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
                 }
-
-                // Operation::Add => {}
-                // Operation::Sub => {}
-                // Operation::LocalStore { variable_offset } => {}
+                // break on non-supported operations
                 _ => {
                     return None;
                 }
@@ -139,6 +105,19 @@ impl<'ctx> CodeGen<'ctx> {
             .build_load(rsp.get_type(), stack_ptr_alloca, "final_stack_ptr")
             .ok()?;
         Some(final_stack_ptr)
+    }
+
+    fn get_current_stack_pointer(
+        &self,
+        rsp: PointerValue<'ctx>,
+        stack_ptr_alloca: PointerValue<'ctx>,
+    ) -> Option<PointerValue<'_>> {
+        let current_stack_ptr = self
+            .builder
+            .build_load(rsp.get_type(), stack_ptr_alloca, "current_stack_ptr")
+            .ok()?
+            .into_pointer_value();
+        Some(current_stack_ptr)
     }
 
     fn update_stack_pointer(
@@ -168,19 +147,6 @@ impl<'ctx> CodeGen<'ctx> {
         Some(())
     }
 
-    fn get_current_stack_pointer(
-        &self,
-        rsp: PointerValue<'ctx>,
-        stack_ptr_alloca: PointerValue<'ctx>,
-    ) -> Option<PointerValue<'_>> {
-        let current_stack_ptr = self
-            .builder
-            .build_load(rsp.get_type(), stack_ptr_alloca, "current_stack_ptr")
-            .ok()?
-            .into_pointer_value();
-        Some(current_stack_ptr)
-    }
-
     #[allow(dead_code)]
     pub fn inspect_ir(&self) -> String {
         self.module.print_to_string().to_string()
@@ -200,7 +166,7 @@ mod tests {
 
         let push_literal_jit = codegen
             .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
-            .expect("Failed to compile increment function");
+            .expect("Failed to compile push function");
 
         let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
         let mut stack_ptr = stack.as_ptr() as *mut u64;
@@ -223,7 +189,7 @@ mod tests {
 
         let pop_jit = codegen
             .jit_compile_basic_block(0, &[Operation::Pop])
-            .expect("Failed to compile increment function");
+            .expect("Failed to compile pop function");
 
         let mut stack: [trombone_common::TrombValue; 16] =
             [trombone_common::TrombValue::default(); 16];
