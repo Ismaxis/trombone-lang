@@ -98,24 +98,18 @@ impl<'ctx> CodeGen<'ctx> {
         rsp: PointerValue<'ctx>,
     ) -> Option<BasicValueEnum<'ctx>> {
         let i64_type = self.context.i64_type();
-
-        // Create a mutable pointer to track our stack position
         let stack_ptr_alloca = self
             .builder
             .build_alloca(rsp.get_type(), "stack_ptr_var")
             .ok()?;
-
-        // Initialize it with the input stack pointer
         self.builder.build_store(stack_ptr_alloca, rsp).ok()?;
 
         for op in operations {
             match op {
                 Operation::PushLiteral { value } => {
-                    // 1. Load current stack pointer
                     let current_stack_ptr =
                         self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
 
-                    // 2. Store value at current stack position
                     let const_val = i64_type.const_int(*value as u64, false);
                     self.builder
                         .build_store(current_stack_ptr, const_val)
@@ -137,6 +131,13 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_store(stack_ptr_alloca, new_stack_ptr)
                         .ok()?;
                 }
+                Operation::Pop => {
+                    let current_stack_ptr =
+                        self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
+
+                    self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
+                }
+
                 // Operation::Add => {}
                 // Operation::Sub => {}
                 // Operation::LocalStore { variable_offset } => {}
@@ -151,6 +152,33 @@ impl<'ctx> CodeGen<'ctx> {
             .build_load(rsp.get_type(), stack_ptr_alloca, "final_stack_ptr")
             .ok()?;
         Some(final_stack_ptr)
+    }
+
+    fn update_stack_pointer(
+        &self,
+        offset: i64,
+        stack_ptr_alloca: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'_>,
+    ) -> Option<()> {
+        let i64_type = self.context.i64_type();
+        let offset_const = if offset < 0 {
+            i64_type.const_int((-offset) as u64, true).const_neg()
+        } else {
+            i64_type.const_int(offset as u64, false)
+        };
+        let new_stack_ptr = unsafe {
+            self.builder.build_in_bounds_gep(
+                i64_type,
+                current_stack_ptr,
+                &[offset_const],
+                "new_stack_ptr",
+            )
+        }
+        .ok()?;
+        self.builder
+            .build_store(stack_ptr_alloca, new_stack_ptr)
+            .ok()?;
+        Some(())
     }
 
     fn get_current_stack_pointer(
@@ -173,34 +201,66 @@ impl<'ctx> CodeGen<'ctx> {
 }
 
 #[cfg(test)]
-#[test]
-fn test_jit_compile_inc() {
-    let context = Context::create();
-    let module = context.create_module("test_module");
-    let builder = context.create_builder();
-    let execution_engine = module
-        .create_jit_execution_engine(OptimizationLevel::None)
-        .expect("Failed to create JIT execution engine");
+mod tests {
+    use super::*;
 
-    let codegen = CodeGen::new(&context, module, builder, execution_engine);
+    // https://stackoverflow.com/a/52843365/17826620
+    #[test]
+    fn push_operation() {
+        let context = Context::create();
+        let codegen = init(&context);
 
-    // TEST
+        let push_literal_jit = codegen
+            .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
+            .expect("Failed to compile increment function");
 
-    let push_literal_jit = codegen
-        .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
-        .expect("Failed to compile increment function");
+        let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
+        let mut stack_ptr = stack.as_ptr() as *mut u64;
 
-    let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
-    let mut stack_ptr = stack.as_ptr() as *mut u64;
-
-    assert_eq!(stack, [0; 16]);
-    unsafe {
-        stack_ptr = push_literal_jit.call(stack_ptr);
+        unsafe {
+            stack_ptr = push_literal_jit.call(stack_ptr);
+        }
+        assert_eq!(
+            stack_ptr as usize - std::mem::size_of::<usize>(),
+            stack.as_ptr() as usize
+        );
+        assert_eq!(stack[..1], [42]);
+        assert_eq!(stack[1..], [0; 15]);
     }
-    assert_eq!(
-        stack_ptr as usize - std::mem::size_of::<usize>(),
-        stack.as_ptr() as usize
-    );
-    assert_eq!(stack[..1], [42]);
-    assert_eq!(stack[1..], [0; 15]);
+
+    #[test]
+    fn pop_operation() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let pop_jit = codegen
+            .jit_compile_basic_block(0, &[Operation::Pop])
+            .expect("Failed to compile increment function");
+
+        let mut stack: [trombone_common::TrombValue; 16] =
+            [trombone_common::TrombValue::default(); 16];
+        stack[0] = 42;
+        let mut stack_ptr = (stack.as_ptr() as usize + std::mem::size_of::<u64>()) as *mut u64;
+
+        unsafe {
+            stack_ptr = pop_jit.call(stack_ptr);
+        }
+        assert_eq!(stack_ptr as usize, stack.as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_jit_compile_multiple() {
+        // TODO:
+    }
+
+    fn init(context: &Context) -> CodeGen {
+        let module = context.create_module("test_module");
+        let builder = context.create_builder();
+        let execution_engine = module
+            .create_jit_execution_engine(OptimizationLevel::None)
+            .expect("Failed to create JIT execution engine");
+
+        let codegen = CodeGen::new(&context, module, builder, execution_engine);
+        codegen
+    }
 }
