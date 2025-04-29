@@ -1,6 +1,6 @@
 pub type OpCode = u8;
 
-// Push instructions
+// Push instruction
 // 63       56 55              32 31                           0
 // +----------+------------------+-----------------------------+
 // |   0x01   |      Unused      |       Immediate value       |
@@ -14,41 +14,49 @@ pub const OP_PUSH: OpCode = 0x01;
 //  +----------+-----------------------------------------------+
 pub const OP_POP: OpCode = 0x02;
 
+// Copy and Store instructions
+// 63       56 55              32 31                           0
+// +----------+------------------+-----------------------------+
+// |  0x03-04 |      Unused      |      Offset to variable     |
+// +----------+------------------+-----------------------------+
+pub const OP_LOCAL_COPY: OpCode = 0x03; // Reads Nth (N = offset) value from top of stack and pushes it on top of stack
+pub const OP_LOCAL_STORE: OpCode = 0x04; // Pops top of stack and store it to Nth (N = offset) value from top of stack 
+
 // Arithmetic instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+
-//  | 0x03-0e  |                   Unused                      |
+//  | 0xa0-ab  |                   Unused                      |
 //  +----------+-----------------------------------------------+
-pub const OP_NEG: OpCode = 0x03;
-pub const OP_NOT: OpCode = 0x04;
-pub const OP_ADD: OpCode = 0x05;
-pub const OP_SUB: OpCode = 0x06;
-pub const OP_MUL: OpCode = 0x07;
-pub const OP_DIV: OpCode = 0x08;
-pub const OP_MOD: OpCode = 0x09;
-pub const OP_AND: OpCode = 0x0a;
-pub const OP_OR: OpCode = 0x0b;
-pub const OP_XOR: OpCode = 0x0c;
-pub const OP_LSH: OpCode = 0x0d;
-pub const OP_RSH: OpCode = 0x0e;
+pub const OP_NEG: OpCode = 0xa0;
+pub const OP_NOT: OpCode = 0xa1;
+pub const OP_ADD: OpCode = 0xa2;
+pub const OP_SUB: OpCode = 0xa3;
+pub const OP_MUL: OpCode = 0xa4;
+pub const OP_DIV: OpCode = 0xa5;
+pub const OP_MOD: OpCode = 0xa6;
+pub const OP_AND: OpCode = 0xa7;
+pub const OP_OR: OpCode = 0xa8;
+pub const OP_XOR: OpCode = 0xa9;
+pub const OP_LSH: OpCode = 0xaa;
+pub const OP_RSH: OpCode = 0xab;
 
 // Comparison instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+
-//  | 0x80-85  |                   Unused                      |
+//  | 0xc0-c5  |                   Unused                      |
 //  +----------+-----------------------------------------------+
-pub const OP_EQ: OpCode = 0x80; // Equal
-pub const OP_NE: OpCode = 0x81; // Not equal
-pub const OP_LT: OpCode = 0x82; // Less than
-pub const OP_GT: OpCode = 0x83; // Greater than
-pub const OP_LE: OpCode = 0x84; // Less than or equal
-pub const OP_GE: OpCode = 0x85; // Greater than or equal
+pub const OP_EQ: OpCode = 0xc0; // Equal
+pub const OP_NE: OpCode = 0xc1; // Not equal
+pub const OP_LT: OpCode = 0xc2; // Less than
+pub const OP_GT: OpCode = 0xc3; // Greater than
+pub const OP_LE: OpCode = 0xc4; // Less than or equal
+pub const OP_GE: OpCode = 0xc5; // Greater than or equal
 
 // Jump instructions
 // 63       56 55              32 31                           0
 // +----------+------------------+-----------------------------+
-// | 0x90-92  |      Unused      |         Jump Offset         |
+// | 0xd0-d2  |      Unused      |         Jump Offset         |
 // +----------+------------------+-----------------------------+
-pub const OP_JMP: OpCode = 0x90; // Unconditional jump
-pub const OP_JMP_IF: OpCode = 0x91; // Jump if true
-pub const OP_JMP_IF_NOT: OpCode = 0x92; // Jump if false
+pub const OP_JMP: OpCode = 0xd0; // Unconditional jump
+pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true
+pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false
