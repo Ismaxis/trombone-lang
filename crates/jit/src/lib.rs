@@ -1,4 +1,3 @@
-use inkwell::OptimizationLevel;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
@@ -54,6 +53,9 @@ impl<'ctx> CodeGen<'ctx> {
         block_id: usize,
         operations: &[Operation],
     ) -> Option<JitFunction<VmExecuteFunc>> {
+        let module_name = format!("block_module_{}", block_id);
+        let module = self.context.create_module(&module_name);
+
         // Define VM state pointer type (u64*)
         let state_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
@@ -64,8 +66,7 @@ impl<'ctx> CodeGen<'ctx> {
         let fn_type = ret_type.fn_type(&[state_ptr_type.into()], false);
 
         // Create function with unique name based on block ID
-        let fn_name = format!("block_{}", block_id);
-        let function = self.module.add_function(&fn_name, fn_type, None);
+        let function = module.add_function(&module_name, fn_type, None);
 
         // Create entry basic block
         let entry_block = self.context.append_basic_block(function, "entry");
@@ -88,8 +89,9 @@ impl<'ctx> CodeGen<'ctx> {
         // Verify the function for correctness
         function.verify(true).then(|| ())?;
 
-        // Get compiled function
-        unsafe { self.execution_engine.get_function(&fn_name).ok() }
+        self.execution_engine.add_module(&module).ok()?;
+
+        unsafe { self.execution_engine.get_function(&module_name).ok() }
     }
 
     fn compile_operations(
@@ -115,26 +117,11 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_store(current_stack_ptr, const_val)
                         .ok()?;
 
-                    // 3. Advance stack pointer
-                    let new_stack_ptr = unsafe {
-                        self.builder.build_in_bounds_gep(
-                            i64_type,
-                            current_stack_ptr,
-                            &[i64_type.const_int(1, false)],
-                            "new_stack_ptr",
-                        )
-                    }
-                    .ok()?;
-
-                    // 4. Save updated stack pointer
-                    self.builder
-                        .build_store(stack_ptr_alloca, new_stack_ptr)
-                        .ok()?;
+                    self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr);
                 }
                 Operation::Pop => {
                     let current_stack_ptr =
                         self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
-
                     self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
                 }
 
@@ -203,6 +190,7 @@ impl<'ctx> CodeGen<'ctx> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use inkwell::OptimizationLevel;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
@@ -250,11 +238,47 @@ mod tests {
 
     #[test]
     fn test_jit_compile_multiple() {
-        // TODO:
+        let context = Context::create();
+        let codegen = init(&context);
+
+        // First
+
+        let push_jit = codegen
+            .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
+            .expect("Failed to compile push function");
+
+        let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
+        let mut stack_ptr = stack.as_ptr() as *mut u64;
+
+        unsafe {
+            stack_ptr = push_jit.call(stack_ptr);
+        }
+        assert_eq!(
+            stack_ptr as usize - std::mem::size_of::<usize>(),
+            stack.as_ptr() as usize
+        );
+        assert_eq!(stack[..1], [42]);
+        assert_eq!(stack[1..], [0; 15]);
+
+        // Second
+
+        let pop_jit = codegen
+            .jit_compile_basic_block(1, &[Operation::Pop])
+            .expect("Failed to compile pop function");
+
+        let mut stack: [trombone_common::TrombValue; 16] =
+            [trombone_common::TrombValue::default(); 16];
+        stack[0] = 42;
+        let mut stack_ptr = (stack.as_ptr() as usize + std::mem::size_of::<u64>()) as *mut u64;
+
+        unsafe {
+            stack_ptr = pop_jit.call(stack_ptr);
+        }
+        assert_eq!(stack_ptr as usize, stack.as_ptr() as usize);
     }
 
     fn init(context: &Context) -> CodeGen {
-        let module = context.create_module("test_module");
+        let module = context.create_module("unused_module");
         let builder = context.create_builder();
         let execution_engine = module
             .create_jit_execution_engine(OptimizationLevel::None)
