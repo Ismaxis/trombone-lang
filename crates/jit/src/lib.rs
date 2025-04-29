@@ -431,24 +431,18 @@ impl<'ctx> CodeGen<'ctx> {
         rsp: PointerValue<'ctx>,
     ) -> Option<BasicValueEnum<'ctx>> {
         let i64_type = self.context.i64_type();
-
-        // Create a mutable pointer to track our stack position
         let stack_ptr_alloca = self
             .builder
             .build_alloca(rsp.get_type(), "stack_ptr_var")
             .ok()?;
-
-        // Initialize it with the input stack pointer
         self.builder.build_store(stack_ptr_alloca, rsp).ok()?;
 
         for op in operations {
             match op {
                 Operation::PushLiteral { value } => {
-                    // 1. Load current stack pointer
                     let current_stack_ptr =
                         self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
 
-                    // 2. Store value at current stack position
                     let const_val = i64_type.const_int(*value as u64, false);
                     self.builder
                         .build_store(current_stack_ptr, const_val)
@@ -470,6 +464,13 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_store(stack_ptr_alloca, new_stack_ptr)
                         .ok()?;
                 }
+                Operation::Pop => {
+                    let current_stack_ptr =
+                        self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
+
+                    self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
+                }
+
                 // Operation::Add => {}
                 // Operation::Sub => {}
                 // Operation::LocalStore { variable_offset } => {}
@@ -484,6 +485,33 @@ impl<'ctx> CodeGen<'ctx> {
             .build_load(rsp.get_type(), stack_ptr_alloca, "final_stack_ptr")
             .ok()?;
         Some(final_stack_ptr)
+    }
+
+    fn update_stack_pointer(
+        &self,
+        offset: i64,
+        stack_ptr_alloca: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'_>,
+    ) -> Option<()> {
+        let i64_type = self.context.i64_type();
+        let offset_const = if offset < 0 {
+            i64_type.const_int((-offset) as u64, true).const_neg()
+        } else {
+            i64_type.const_int(offset as u64, false)
+        };
+        let new_stack_ptr = unsafe {
+            self.builder.build_in_bounds_gep(
+                i64_type,
+                current_stack_ptr,
+                &[offset_const],
+                "new_stack_ptr",
+            )
+        }
+        .ok()?;
+        self.builder
+            .build_store(stack_ptr_alloca, new_stack_ptr)
+            .ok()?;
+        Some(())
     }
 
     fn get_current_stack_pointer(
