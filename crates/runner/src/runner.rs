@@ -63,11 +63,15 @@ impl<OpStream: OperationStream> Runner<OpStream> {
             Pop => {
                 self.pop();
             }
-            LocalCopy { variable_offset: variable } => {
+            LocalCopy {
+                variable_offset: variable,
+            } => {
                 let op = *self.get_variable(variable);
                 self.push(op);
             }
-            LocalStore { variable_offset: variable } => {
+            LocalStore {
+                variable_offset: variable,
+            } => {
                 let value = self.pop();
                 *self.get_variable(variable) = value;
             }
