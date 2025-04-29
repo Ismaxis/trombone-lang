@@ -3,6 +3,7 @@ mod tests {
     use std::vec;
 
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
+    use trombone_common::TrombValue;
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
     use trombone_common::opcode::{self};
@@ -121,8 +122,8 @@ mod tests {
     #[test]
     fn test_unary_arithmetic() -> Result<()> {
         #[rustfmt::skip]
-        let tests: [(_, _, Box<dyn Fn(i32) -> i32>); 2] = [
-            (Operation::Neg, opcode::OP_NEG, Box::new(|x| -x)),
+        let tests: [(_, _, Box<dyn Fn(TrombValue) -> TrombValue>); 2] = [
+            (Operation::Neg, opcode::OP_NEG, Box::new(|x| -(x as i64) as TrombValue)),
             (Operation::Not, opcode::OP_NOT, Box::new(|x| !x)),
         ];
 
@@ -147,7 +148,7 @@ mod tests {
             runner.evaluate_next_instruction()?;
 
             assert_eq!(runner.sp, 1);
-            assert_eq!(runner.stack[runner.sp - 1], res_fun(operand));
+            assert_eq!(runner.stack[runner.sp - 1], res_fun(operand as TrombValue));
         }
 
         Ok(())
@@ -156,7 +157,7 @@ mod tests {
     #[test]
     fn test_binary_arithmetic() -> Result<()> {
         #[rustfmt::skip]
-        let tests: [(_, _, Box<dyn Fn(i32, i32) -> i32>); 10]= [
+        let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10]= [
             (Operation::Add,    opcode::OP_ADD, Box::new(|x, y| { x + y })),
             (Operation::Sub,    opcode::OP_SUB, Box::new(|x, y| { x - y })),
             (Operation::Mul,    opcode::OP_MUL, Box::new(|x, y| { x * y })),
@@ -193,7 +194,10 @@ mod tests {
             runner.evaluate_next_instruction()?;
 
             assert_eq!(runner.sp, 1);
-            assert_eq!(runner.stack[runner.sp - 1], res_fun(op1, op2));
+            assert_eq!(
+                runner.stack[runner.sp - 1],
+                res_fun(op1 as TrombValue, op2 as TrombValue)
+            );
         }
 
         Ok(())

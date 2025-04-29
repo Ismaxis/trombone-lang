@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 
+use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
-
-type TrombValue = i32;
 
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
@@ -59,7 +58,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
         use Operation::*;
         match self.stream.next_instruction()? {
             // Stack operations
-            PushLiteral { value } => self.push(value),
+            PushLiteral { value } => self.push(value as TrombValue),
             Pop => {
                 self.pop();
             }
@@ -76,7 +75,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                 *self.get_variable(variable) = value;
             }
             // Arithmetic
-            Neg => self.unary_op(|a| -a),
+            Neg => self.unary_op(|a| -(a as i64) as TrombValue),
             Not => self.unary_op(|a| !a),
             Add => self.binary_op(|a, b| a + b),
             Sub => self.binary_op(|a, b| a - b),
