@@ -1,8 +1,8 @@
 pub use trombone_common::error::{Error, Result};
 use trombone_jit::CodeGen;
 
-use inkwell::context::Context;
 use inkwell::OptimizationLevel;
+use inkwell::context::Context;
 
 fn main() -> Result<()> {
     jit_example()?;

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use crate::runner::{OperationStream, Runner};
     use trombone_common::bytecode::{Instruction, Operation};
     use trombone_common::error::Result;
-    use crate::runner::{OperationStream, Runner};
     use trombone_common::opcode;
 
     #[test]
