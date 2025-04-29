@@ -54,7 +54,7 @@ mod tests {
         runner.evaluate_next_instruction()?;
 
         // add five zeros
-        for _ in 0..5 {
+        for _ in 3..8 {
             runner.stream.emplace_instruction(opcode::OP_PUSH, 0);
             runner.evaluate_next_instruction()?;
         }
@@ -62,7 +62,7 @@ mod tests {
         // let x1 = x;
         // let y1 = y;
         // let z1 = z;
-        for _ in 9..12 {
+        for _ in 8..11 {
             runner.stream.emplace_instruction(opcode::OP_LOCAL_COPY, 7);
             runner.evaluate_next_instruction()?;
         }

@@ -34,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         block_id: usize,
         operations: &[Operation],
-    ) -> Option<JitFunction<VmExecuteFunc>> {
+    ) -> Option<JitFunction<VmExecuteFunc>> /* TODO: result */ {
         let module_name = format!("block_module_{}", block_id);
         let module = self.context.create_module(&module_name);
 
@@ -67,7 +67,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         operations: &[Operation],
         rsp: PointerValue<'ctx>,
-    ) -> Option<BasicValueEnum<'ctx>> {
+    ) -> Option<BasicValueEnum<'ctx>> /* TODO: result */ {
         let i64_type = self.context.i64_type();
         let stack_ptr_alloca = self
             .builder
@@ -76,11 +76,9 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.build_store(stack_ptr_alloca, rsp).ok()?;
 
         for op in operations {
+            let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
             match op {
                 Operation::PushLiteral { value } => {
-                    let current_stack_ptr =
-                        self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
-
                     let const_val = i64_type.const_int(*value as u64, false);
                     self.builder
                         .build_store(current_stack_ptr, const_val)
@@ -89,10 +87,40 @@ impl<'ctx> CodeGen<'ctx> {
                     self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr);
                 }
                 Operation::Pop => {
-                    let current_stack_ptr =
-                        self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
                     self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
                 }
+                Operation::LocalCopy { variable_offset } => {
+                    let offset = -*variable_offset - 1;
+                    let variable_ptr =
+                        self.ptr_with_offset(offset as i64, "variable_to_copy", current_stack_ptr)?;
+                    let variable_value = self
+                        .builder
+                        .build_load(variable_ptr.get_type(), variable_ptr, "value_to_copy")
+                        .ok()?;
+                    self.builder
+                        .build_store(current_stack_ptr, variable_value)
+                        .ok()?;
+                    self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr)?;
+                }
+                Operation::LocalStore { variable_offset } => {
+                    let offset = -*variable_offset - 1;
+                    let moved_stack_ptr =
+                        self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
+                    let variable_ptr =
+                        self.ptr_with_offset(offset as i64, "variable_to_update", moved_stack_ptr)?;
+                    let value = self
+                        .builder
+                        .build_load(variable_ptr.get_type(), moved_stack_ptr, "value_to_store")
+                        .ok()?;
+                    self.builder.build_store(variable_ptr, value).ok()?;
+                }
+
+                // Arithmetic
+                // ...
+
+                // Comparison
+                // ...
+
                 // break on non-supported operations
                 _ => {
                     return None;
@@ -111,7 +139,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         rsp: PointerValue<'ctx>,
         stack_ptr_alloca: PointerValue<'ctx>,
-    ) -> Option<PointerValue<'_>> {
+    ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
         let current_stack_ptr = self
             .builder
             .build_load(rsp.get_type(), stack_ptr_alloca, "current_stack_ptr")
@@ -124,27 +152,32 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         offset: i64,
         stack_ptr_alloca: PointerValue<'ctx>,
-        current_stack_ptr: PointerValue<'_>,
-    ) -> Option<()> {
+        current_stack_ptr: PointerValue<'ctx>,
+    ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
+        let new_stack_ptr = self.ptr_with_offset(offset, "new_stack_ptr", current_stack_ptr)?;
+        self.builder
+            .build_store(stack_ptr_alloca, new_stack_ptr)
+            .ok()
+            .map(|_| new_stack_ptr)
+    }
+
+    fn ptr_with_offset(
+        &self,
+        offset: i64,
+        name: &str,
+        current_ptr: PointerValue<'ctx>,
+    ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
         let i64_type = self.context.i64_type();
         let offset_const = if offset < 0 {
             i64_type.const_int((-offset) as u64, true).const_neg()
         } else {
             i64_type.const_int(offset as u64, false)
         };
-        let new_stack_ptr = unsafe {
-            self.builder.build_in_bounds_gep(
-                i64_type,
-                current_stack_ptr,
-                &[offset_const],
-                "new_stack_ptr",
-            )
+        unsafe {
+            self.builder
+                .build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name)
         }
-        .ok()?;
-        self.builder
-            .build_store(stack_ptr_alloca, new_stack_ptr)
-            .ok()?;
-        Some(())
+        .ok()
     }
 
     #[allow(dead_code)]
@@ -160,50 +193,77 @@ mod tests {
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
-    fn push_operation() {
+    fn jit_push_pop() {
         let context = Context::create();
         let codegen = init(&context);
 
+        // Push
         let push_literal_jit = codegen
             .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
             .expect("Failed to compile push function");
 
-        let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
-        let mut stack_ptr = stack.as_ptr() as *mut u64;
+        let mut stack: [trombone_common::TrombValue; 16] =
+            [trombone_common::TrombValue::default(); 16];
+        let stack_ptr = stack.as_mut_ptr();
 
-        unsafe {
-            stack_ptr = push_literal_jit.call(stack_ptr);
-        }
-        assert_eq!(
-            stack_ptr as usize - std::mem::size_of::<usize>(),
-            stack.as_ptr() as usize
-        );
+        let modified_stack_ptr = unsafe { push_literal_jit.call(stack_ptr) };
+
+        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 1));
         assert_eq!(stack[..1], [42]);
         assert_eq!(stack[1..], [0; 15]);
+
+        // Pop
+        let pop_jit = codegen
+            .jit_compile_basic_block(1, &[Operation::Pop])
+            .expect("Failed to compile pop function");
+
+        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 1);
+
+        let modified_stack_ptr = unsafe { pop_jit.call(stack_ptr) };
+
+        assert_eq!(modified_stack_ptr, stack.as_mut_ptr());
     }
 
     #[test]
-    fn pop_operation() {
+    fn jit_local_variables() {
         let context = Context::create();
         let codegen = init(&context);
 
-        let pop_jit = codegen
-            .jit_compile_basic_block(0, &[Operation::Pop])
-            .expect("Failed to compile pop function");
+        // LocalCop
+        let localcopy_jit = codegen
+            .jit_compile_basic_block(0, &[Operation::LocalCopy { variable_offset: 7 }; 3])
+            .expect("Failed to compile local_copy function");
 
         let mut stack: [trombone_common::TrombValue; 16] =
             [trombone_common::TrombValue::default(); 16];
         stack[0] = 42;
-        let mut stack_ptr = (stack.as_ptr() as usize + std::mem::size_of::<u64>()) as *mut u64;
+        stack[1] = 54;
+        stack[2] = 68;
+        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 8);
 
-        unsafe {
-            stack_ptr = pop_jit.call(stack_ptr);
-        }
-        assert_eq!(stack_ptr as usize, stack.as_ptr() as usize);
+        let modified_stack_ptr = unsafe { localcopy_jit.call(stack_ptr) };
+
+        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 11));
+        assert_eq!(stack[..11], [42, 54, 68, 0, 0, 0, 0, 0, 42, 54, 68]);
+
+        // LocalStore
+        let localstore_jit = codegen
+            .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 7 }; 3])
+            .expect("Failed to compile local_store function");
+
+        stack[8] = 11;
+        stack[9] = 12;
+        stack[10] = 13;
+        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 11);
+
+        let modified_stack_ptr = unsafe { localstore_jit.call(stack_ptr) };
+
+        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 8));
+        assert_eq!(stack[..8], [11, 12, 13, 0, 0, 0, 0, 0]);
     }
 
     #[test]
-    fn test_jit_compile_multiple() {
+    fn jit_compile_multiple() {
         let context = Context::create();
         let codegen = init(&context);
 
@@ -252,5 +312,9 @@ mod tests {
 
         let codegen = CodeGen::new(&context, module, builder, execution_engine);
         codegen
+    }
+
+    fn offset_ptr(ptr: *mut u64, offset: i64) -> *mut u64 {
+        (ptr as i64 + offset * std::mem::size_of::<u64>() as i64) as *mut u64
     }
 }
