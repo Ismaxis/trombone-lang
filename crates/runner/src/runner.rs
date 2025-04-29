@@ -2,25 +2,33 @@
 
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
+use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
 
 type TrombValue = i32;
 
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
-pub struct OperationStream<'a> {
+pub trait OperationStream {
+    fn next_instruction(&mut self) -> Result<Operation>;
+    fn switch_frame(&mut self, offset: i32);
+}
+
+pub struct ArrayOperationStream<'a> {
     pub instructions: &'a [u64],
     pub instruction_pointer: usize,
 }
 
-impl<'a> OperationStream<'a> {
+impl<'a> ArrayOperationStream<'a> {
     pub fn new(instructions: &'a [u64]) -> Self {
         Self {
             instructions,
             instruction_pointer: 0,
         }
     }
+}
 
+impl<'a> OperationStream for ArrayOperationStream<'a> {
     fn next_instruction(&mut self) -> Result<Operation> {
         let ip = self.instruction_pointer;
         self.instruction_pointer += 1;
@@ -32,14 +40,14 @@ impl<'a> OperationStream<'a> {
     }
 }
 
-pub struct Runner<'a> {
-    pub stream: OperationStream<'a>,
+pub struct Runner<OpStream: OperationStream> {
+    pub stream: OpStream,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
 }
 
-impl<'a> Runner<'a> {
-    pub fn new(stream: OperationStream<'a>) -> Self {
+impl<OpStream: OperationStream> Runner<OpStream> {
+    pub fn new(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
@@ -54,6 +62,18 @@ impl<'a> Runner<'a> {
             PushLiteral { value } => self.push(value),
             Pop => {
                 self.pop();
+            }
+            LocalCopy {
+                variable_offset: variable,
+            } => {
+                let op = *self.get_variable(variable);
+                self.push(op);
+            }
+            LocalStore {
+                variable_offset: variable,
+            } => {
+                let value = self.pop();
+                *self.get_variable(variable) = value;
             }
             // Arithmetic
             Neg => self.unary_op(|a| -a),
@@ -113,6 +133,10 @@ impl<'a> Runner<'a> {
     fn pop(&mut self) -> TrombValue {
         self.sp -= 1;
         self.stack[self.sp]
+    }
+
+    fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
+        &mut self.stack[self.sp - 1 - variable as usize]
     }
 
     fn unary_op<F>(&mut self, op: F)
