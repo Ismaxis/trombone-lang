@@ -387,6 +387,9 @@ impl<'ctx> CodeGen<'ctx> {
         block_id: usize,
         operations: &[Operation],
     ) -> Option<JitFunction<VmExecuteFunc>> {
+        let module_name = format!("block_module_{}", block_id);
+        let module = self.context.create_module(&module_name);
+
         // Define VM state pointer type (u64*)
         let state_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
@@ -397,8 +400,7 @@ impl<'ctx> CodeGen<'ctx> {
         let fn_type = ret_type.fn_type(&[state_ptr_type.into()], false);
 
         // Create function with unique name based on block ID
-        let fn_name = format!("block_{}", block_id);
-        let function = self.module.add_function(&fn_name, fn_type, None);
+        let function = module.add_function(&module_name, fn_type, None);
 
         // Create entry basic block
         let entry_block = self.context.append_basic_block(function, "entry");
@@ -421,8 +423,9 @@ impl<'ctx> CodeGen<'ctx> {
         // Verify the function for correctness
         function.verify(true).then(|| ())?;
 
-        // Get compiled function
-        unsafe { self.execution_engine.get_function(&fn_name).ok() }
+        self.execution_engine.add_module(&module).ok()?;
+
+        unsafe { self.execution_engine.get_function(&module_name).ok() }
     }
 
     fn compile_operations(
@@ -448,26 +451,11 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_store(current_stack_ptr, const_val)
                         .ok()?;
 
-                    // 3. Advance stack pointer
-                    let new_stack_ptr = unsafe {
-                        self.builder.build_in_bounds_gep(
-                            i64_type,
-                            current_stack_ptr,
-                            &[i64_type.const_int(1, false)],
-                            "new_stack_ptr",
-                        )
-                    }
-                    .ok()?;
-
-                    // 4. Save updated stack pointer
-                    self.builder
-                        .build_store(stack_ptr_alloca, new_stack_ptr)
-                        .ok()?;
+                    self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr);
                 }
                 Operation::Pop => {
                     let current_stack_ptr =
                         self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
-
                     self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
                 }
 
