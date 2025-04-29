@@ -62,17 +62,13 @@ impl<OpStream: OperationStream> Runner<OpStream> {
             Pop => {
                 self.pop();
             }
-            LocalCopy {
-                variable_offset: variable,
-            } => {
-                let op = *self.get_variable(variable);
+            LocalCopy { variable_offset } => {
+                let op = *self.get_variable(variable_offset);
                 self.push(op);
             }
-            LocalStore {
-                variable_offset: variable,
-            } => {
+            LocalStore { variable_offset } => {
                 let value = self.pop();
-                *self.get_variable(variable) = value;
+                *self.get_variable(variable_offset) = value;
             }
             // Arithmetic
             Neg => self.unary_op(|a| -(a as i64) as TrombValue),
