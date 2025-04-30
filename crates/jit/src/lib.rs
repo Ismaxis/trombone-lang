@@ -432,7 +432,7 @@ impl<'ctx> CodeGen<'ctx> {
                         current_stack_ptr,
                         i64_type.const_int(*value as u64, false),
                     )?;
-                    self.update_stack_pointer(1, stack_ptr, current_stack_ptr);
+                    self.update_stack_pointer(1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::Pop => {
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
