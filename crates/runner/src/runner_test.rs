@@ -122,6 +122,7 @@ mod tests {
     #[test]
     fn test_unary_arithmetic() -> Result<()> {
         #[rustfmt::skip]
+        #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue) -> TrombValue>); 2] = [
             (Operation::Neg, opcode::OP_NEG, Box::new(|x| -(x as i64) as TrombValue)),
             (Operation::Not, opcode::OP_NOT, Box::new(|x| !x)),
@@ -157,6 +158,7 @@ mod tests {
     #[test]
     fn test_binary_arithmetic() -> Result<()> {
         #[rustfmt::skip]
+        #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10]= [
             (Operation::Add,    opcode::OP_ADD, Box::new(|x, y| { x + y })),
             (Operation::Sub,    opcode::OP_SUB, Box::new(|x, y| { x - y })),

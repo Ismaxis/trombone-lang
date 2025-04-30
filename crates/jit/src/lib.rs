@@ -74,6 +74,7 @@ impl<'ctx> CodeGen<'ctx> {
         for op in operations {
             let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr)?;
             match op {
+                // Stack operations
                 Operation::PushLiteral { value } => {
                     self.stack_put(
                         0,
@@ -277,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn test_jit_local_variables() {
+    fn test_jit_stack_operations() {
         let context = Context::create();
         let codegen = init(&context);
 
