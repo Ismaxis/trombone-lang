@@ -561,6 +561,7 @@ fn ptr_with_offset<'ctx>(
 mod tests {
     use super::*;
     use inkwell::OptimizationLevel;
+    use trombone_common::TrombValue;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
