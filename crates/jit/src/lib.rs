@@ -86,14 +86,14 @@ impl<'ctx> CodeGen<'ctx> {
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalCopy { variable_offset } => {
-                    let offset = -(*variable_offset as i64) - 1;
+                    let offset = calc_stack_offset(variable_offset);
                     let value = self.stack_get(offset, current_stack_ptr)?;
                     self.stack_put(0, current_stack_ptr, value.into_int_value())?;
                     self.update_stack_pointer(1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalStore { variable_offset } => {
                     let value = self.stack_get(-1, current_stack_ptr)?;
-                    let offset = -(*variable_offset as i64) - 1;
+                    let offset = calc_stack_offset(variable_offset);
                     self.stack_put(offset - 1, current_stack_ptr, value.into_int_value())?;
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
@@ -108,9 +108,20 @@ impl<'ctx> CodeGen<'ctx> {
                 Operation::NotEqual => {
                     self.comparison(stack_ptr, current_stack_ptr, IntPredicate::NE)?;
                 }
-                // ...
+                Operation::LessThan => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SLT)?; // TODO: signed ???
+                }
+                Operation::GreaterThan => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SGT)?; // TODO: signed ???
+                }
+                Operation::LessThanOrEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SLE)?; // TODO: signed ???
+                }
+                Operation::GreaterThanOrEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SGE)?; // TODO: signed ???
+                }
 
-                // break on non-supported operations
+                // TODO: maybe break on non-supported operations
                 _ => {
                     return None;
                 }
@@ -202,8 +213,8 @@ impl<'ctx> CodeGen<'ctx> {
         current_stack_ptr: PointerValue<'ctx>,
         op: IntPredicate,
     ) -> Option<()> {
-        let lhs = self.stack_get(-1, current_stack_ptr)?;
-        let rhs = self.stack_get(-2, current_stack_ptr)?;
+        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        let lhs = self.stack_get(-2, current_stack_ptr)?;
 
         assert!(lhs.is_int_value()); // TODO: return Err
         assert!(rhs.is_int_value()); // TODO: return Err
@@ -221,6 +232,10 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn inspect_ir(&self) -> String {
         self.module.print_to_string().to_string()
     }
+}
+
+fn calc_stack_offset(variable_offset: &i32) -> i64 {
+    -(*variable_offset as i64) - 1
 }
 
 #[cfg(test)]
@@ -347,12 +362,36 @@ mod tests {
         let not_eq_jit = codegen
             .jit_compile_basic_block(1, &[Operation::NotEqual])
             .expect("Failed to compile not_equal function");
+        let lt_jit = codegen
+            .jit_compile_basic_block(2, &[Operation::LessThan])
+            .expect("Failed to compile less function");
+        let gt_jit = codegen
+            .jit_compile_basic_block(3, &[Operation::GreaterThan])
+            .expect("Failed to compile greater function");
+        let le_jit = codegen
+            .jit_compile_basic_block(4, &[Operation::LessThanOrEqual])
+            .expect("Failed to compile less_or_equal function");
+        let ge_jit = codegen
+            .jit_compile_basic_block(5, &[Operation::GreaterThanOrEqual])
+            .expect("Failed to compile greater_or_equal function");
 
         let tests = [
             ("5 == 5 -> 1", &eq_jit, [5, 5], [1]),
             ("5 == 3 -> 0", &eq_jit, [5, 3], [0]),
             ("5 != 5 -> 0", &not_eq_jit, [5, 5], [0]),
             ("5 != 3 -> 1", &not_eq_jit, [5, 3], [1]),
+            ("3 < 5 -> 1", &lt_jit, [3, 5], [1]),
+            ("5 < 3 -> 0", &lt_jit, [5, 3], [0]),
+            ("5 < 5 -> 0", &lt_jit, [5, 5], [0]),
+            ("3 > 5 -> 0", &gt_jit, [3, 5], [0]),
+            ("5 > 3 -> 1", &gt_jit, [5, 3], [1]),
+            ("5 > 5 -> 0", &gt_jit, [5, 5], [0]),
+            ("3 <= 5 -> 1", &le_jit, [3, 5], [1]),
+            ("5 <= 3 -> 0", &le_jit, [5, 3], [0]),
+            ("5 <= 5 -> 1", &le_jit, [5, 5], [1]),
+            ("3 >= 5 -> 0", &ge_jit, [3, 5], [0]),
+            ("5 >= 3 -> 1", &ge_jit, [5, 3], [1]),
+            ("5 >= 5 -> 1", &ge_jit, [5, 5], [1]),
         ];
 
         for (name, func, initial_stack, final_stack) in tests {
