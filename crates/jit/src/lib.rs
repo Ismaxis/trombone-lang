@@ -190,117 +190,110 @@ impl<'ctx> CodeGen<'ctx> {
 mod tests {
     use super::*;
     use inkwell::OptimizationLevel;
+    use trombone_common::TrombValue;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
-    fn jit_push_pop() {
+    fn test_jit_push_pop() {
         let context = Context::create();
         let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
 
         // Push
         let push_literal_jit = codegen
             .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
             .expect("Failed to compile push function");
+        {
+            let modified_stack_ptr = unsafe { push_literal_jit.call(stack_base) };
 
-        let mut stack: [trombone_common::TrombValue; 16] =
-            [trombone_common::TrombValue::default(); 16];
-        let stack_ptr = stack.as_mut_ptr();
-
-        let modified_stack_ptr = unsafe { push_literal_jit.call(stack_ptr) };
-
-        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 1));
-        assert_eq!(stack[..1], [42]);
-        assert_eq!(stack[1..], [0; 15]);
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 1));
+            assert_eq!(stack[..1], [42]);
+            assert_eq!(stack[1..], [0; 15]);
+        }
 
         // Pop
         let pop_jit = codegen
             .jit_compile_basic_block(1, &[Operation::Pop])
             .expect("Failed to compile pop function");
+        {
+            let modified_stack_ptr = unsafe { pop_jit.call(offset_ptr(stack_base, 1)) };
 
-        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 1);
-
-        let modified_stack_ptr = unsafe { pop_jit.call(stack_ptr) };
-
-        assert_eq!(modified_stack_ptr, stack.as_mut_ptr());
+            assert_eq!(modified_stack_ptr, stack_base);
+        }
     }
 
     #[test]
-    fn jit_local_variables() {
+    fn test_jit_local_variables() {
         let context = Context::create();
         let codegen = init(&context);
 
-        // LocalCop
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        // LocalCopy
         let localcopy_jit = codegen
             .jit_compile_basic_block(0, &[Operation::LocalCopy { variable_offset: 7 }; 3])
             .expect("Failed to compile local_copy function");
+        {
+            stack[0] = 42;
+            stack[1] = 54;
+            stack[2] = 68;
 
-        let mut stack: [trombone_common::TrombValue; 16] =
-            [trombone_common::TrombValue::default(); 16];
-        stack[0] = 42;
-        stack[1] = 54;
-        stack[2] = 68;
-        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 8);
+            let modified_stack_ptr = unsafe { localcopy_jit.call(offset_ptr(stack_base, 8)) };
 
-        let modified_stack_ptr = unsafe { localcopy_jit.call(stack_ptr) };
-
-        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 11));
-        assert_eq!(stack[..11], [42, 54, 68, 0, 0, 0, 0, 0, 42, 54, 68]);
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 11));
+            assert_eq!(stack[..11], [42, 54, 68, 0, 0, 0, 0, 0, 42, 54, 68]);
+        }
 
         // LocalStore
         let localstore_jit = codegen
             .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 7 }; 3])
             .expect("Failed to compile local_store function");
+        {
+            stack[8] = 11;
+            stack[9] = 12;
+            stack[10] = 13;
 
-        stack[8] = 11;
-        stack[9] = 12;
-        stack[10] = 13;
-        let stack_ptr = offset_ptr(stack.as_mut_ptr(), 11);
+            let modified_stack_ptr = unsafe { localstore_jit.call(offset_ptr(stack_base, 11)) };
 
-        let modified_stack_ptr = unsafe { localstore_jit.call(stack_ptr) };
-
-        assert_eq!(modified_stack_ptr, offset_ptr(stack.as_mut_ptr(), 8));
-        assert_eq!(stack[..8], [11, 12, 13, 0, 0, 0, 0, 0]);
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 8));
+            assert_eq!(stack[..8], [11, 12, 13, 0, 0, 0, 0, 0]);
+        }
     }
 
     #[test]
-    fn jit_compile_multiple() {
+    fn test_jit_advanced_stack_operations() {
         let context = Context::create();
         let codegen = init(&context);
 
-        // First
+        let localcopy_jit_zero = codegen
+            .jit_compile_basic_block(0, &[Operation::LocalCopy { variable_offset: 0 }])
+            .expect("Failed to compile local_copy function");
+        let localstore_jit_zero = codegen
+            .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 0 }])
+            .expect("Failed to compile local_store function");
 
-        let push_jit = codegen
-            .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }])
-            .expect("Failed to compile push function");
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
 
-        let stack: [trombone_common::TrombValue; 16] = [trombone_common::TrombValue::default(); 16];
-        let mut stack_ptr = stack.as_ptr() as *mut u64;
+        {
+            stack[0] = 42;
 
-        unsafe {
-            stack_ptr = push_jit.call(stack_ptr);
+            let modified_stack_ptr = unsafe { localcopy_jit_zero.call(offset_ptr(stack_base, 1)) };
+
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 2));
+            assert_eq!(stack[..2], [42, 42]);
         }
-        assert_eq!(
-            stack_ptr as usize - std::mem::size_of::<usize>(),
-            stack.as_ptr() as usize
-        );
-        assert_eq!(stack[..1], [42]);
-        assert_eq!(stack[1..], [0; 15]);
+        {
+            stack[2] = 1000;
 
-        // Second
+            let modified_stack_ptr = unsafe { localstore_jit_zero.call(offset_ptr(stack_base, 3)) };
 
-        let pop_jit = codegen
-            .jit_compile_basic_block(1, &[Operation::Pop])
-            .expect("Failed to compile pop function");
-
-        let mut stack: [trombone_common::TrombValue; 16] =
-            [trombone_common::TrombValue::default(); 16];
-        stack[0] = 42;
-        let mut stack_ptr = (stack.as_ptr() as usize + std::mem::size_of::<u64>()) as *mut u64;
-
-        unsafe {
-            stack_ptr = pop_jit.call(stack_ptr);
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 2));
+            assert_eq!(stack[..2], [42, 1000]);
         }
-        assert_eq!(stack_ptr as usize, stack.as_ptr() as usize);
     }
 
     fn init(context: &Context) -> CodeGen {
