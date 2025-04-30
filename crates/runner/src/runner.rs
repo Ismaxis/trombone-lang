@@ -27,7 +27,7 @@ impl<'a> ArrayOperationStream<'a> {
     }
 }
 
-impl<'a> OperationStream for ArrayOperationStream<'a> {
+impl OperationStream for ArrayOperationStream<'_> {
     fn next_instruction(&mut self) -> Result<Operation> {
         let ip = self.instruction_pointer;
         self.instruction_pointer += 1;
