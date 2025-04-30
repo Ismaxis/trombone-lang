@@ -454,24 +454,10 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Comparison
                 Operation::Equal => {
-                    let lhs = self.stack_get(-1, current_stack_ptr)?;
-                    let rhs = self.stack_get(-2, current_stack_ptr)?;
-
-                    assert!(lhs.is_int_value()); // TODO: return Err
-                    assert!(rhs.is_int_value()); // TODO: return Err
-
-                    let eq = self
-                        .builder
-                        .build_int_compare(
-                            inkwell::IntPredicate::EQ,
-                            lhs.into_int_value(),
-                            rhs.into_int_value(),
-                            "cmp_result",
-                        )
-                        .ok()?;
-
-                    self.stack_put(-2, current_stack_ptr, eq)?;
-                    self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::EQ)?;
+                }
+                Operation::NotEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::NE)?;
                 }
                 // ...
 
@@ -559,6 +545,27 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name)
         }
         .ok()
+    }
+
+    fn comparison(
+        &self,
+        stack_ptr: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'ctx>,
+        op: IntPredicate,
+    ) -> Option<()> {
+        let lhs = self.stack_get(-1, current_stack_ptr)?;
+        let rhs = self.stack_get(-2, current_stack_ptr)?;
+
+        assert!(lhs.is_int_value()); // TODO: return Err
+        assert!(rhs.is_int_value()); // TODO: return Err
+
+        let eq = self
+            .builder
+            .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp_result")
+            .ok()?;
+        self.stack_put(-2, current_stack_ptr, eq)?;
+        self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+        Some(())
     }
 
     #[allow(dead_code)]
