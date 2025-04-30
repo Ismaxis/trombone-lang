@@ -425,6 +425,7 @@ impl<'ctx> CodeGen<'ctx> {
         for op in operations {
             let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr)?;
             match op {
+                // Stack operations
                 Operation::PushLiteral { value } => {
                     self.stack_put(
                         0,
