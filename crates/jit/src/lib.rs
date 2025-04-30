@@ -437,14 +437,14 @@ impl<'ctx> CodeGen<'ctx> {
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalCopy { variable_offset } => {
-                    let offset = -(*variable_offset as i64) - 1;
+                    let offset = calc_stack_offset(variable_offset);
                     let value = self.stack_get(offset, current_stack_ptr)?;
                     self.stack_put(0, current_stack_ptr, value.into_int_value())?;
                     self.update_stack_pointer(1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalStore { variable_offset } => {
                     let value = self.stack_get(-1, current_stack_ptr)?;
-                    let offset = -(*variable_offset as i64) - 1;
+                    let offset = calc_stack_offset(variable_offset);
                     self.stack_put(offset - 1, current_stack_ptr, value.into_int_value())?;
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
@@ -459,9 +459,20 @@ impl<'ctx> CodeGen<'ctx> {
                 Operation::NotEqual => {
                     self.comparison(stack_ptr, current_stack_ptr, IntPredicate::NE)?;
                 }
-                // ...
+                Operation::LessThan => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SLT)?; // TODO: signed ???
+                }
+                Operation::GreaterThan => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SGT)?; // TODO: signed ???
+                }
+                Operation::LessThanOrEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SLE)?; // TODO: signed ???
+                }
+                Operation::GreaterThanOrEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::SGE)?; // TODO: signed ???
+                }
 
-                // break on non-supported operations
+                // TODO: maybe break on non-supported operations
                 _ => {
                     return None;
                 }
@@ -553,8 +564,8 @@ impl<'ctx> CodeGen<'ctx> {
         current_stack_ptr: PointerValue<'ctx>,
         op: IntPredicate,
     ) -> Option<()> {
-        let lhs = self.stack_get(-1, current_stack_ptr)?;
-        let rhs = self.stack_get(-2, current_stack_ptr)?;
+        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        let lhs = self.stack_get(-2, current_stack_ptr)?;
 
         assert!(lhs.is_int_value()); // TODO: return Err
         assert!(rhs.is_int_value()); // TODO: return Err
