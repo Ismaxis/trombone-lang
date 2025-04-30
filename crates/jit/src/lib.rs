@@ -1,3 +1,4 @@
+use inkwell::IntPredicate;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
@@ -102,24 +103,10 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Comparison
                 Operation::Equal => {
-                    let lhs = self.stack_get(-1, current_stack_ptr)?;
-                    let rhs = self.stack_get(-2, current_stack_ptr)?;
-
-                    assert!(lhs.is_int_value()); // TODO: return Err
-                    assert!(rhs.is_int_value()); // TODO: return Err
-
-                    let eq = self
-                        .builder
-                        .build_int_compare(
-                            inkwell::IntPredicate::EQ,
-                            lhs.into_int_value(),
-                            rhs.into_int_value(),
-                            "cmp_result",
-                        )
-                        .ok()?;
-
-                    self.stack_put(-2, current_stack_ptr, eq)?;
-                    self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::EQ)?;
+                }
+                Operation::NotEqual => {
+                    self.comparison(stack_ptr, current_stack_ptr, IntPredicate::NE)?;
                 }
                 // ...
 
@@ -207,6 +194,27 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name)
         }
         .ok()
+    }
+
+    fn comparison(
+        &self,
+        stack_ptr: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'ctx>,
+        op: IntPredicate,
+    ) -> Option<()> {
+        let lhs = self.stack_get(-1, current_stack_ptr)?;
+        let rhs = self.stack_get(-2, current_stack_ptr)?;
+
+        assert!(lhs.is_int_value()); // TODO: return Err
+        assert!(rhs.is_int_value()); // TODO: return Err
+
+        let eq = self
+            .builder
+            .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp_result")
+            .ok()?;
+        self.stack_put(-2, current_stack_ptr, eq)?;
+        self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+        Some(())
     }
 
     #[allow(dead_code)]
@@ -336,18 +344,26 @@ mod tests {
         let eq_jit = codegen
             .jit_compile_basic_block(0, &[Operation::Equal])
             .expect("Failed to compile equal function");
+        let not_eq_jit = codegen
+            .jit_compile_basic_block(1, &[Operation::NotEqual])
+            .expect("Failed to compile not_equal function");
 
-        let tests: &[(&[TrombValue], &[TrombValue])] = &[(&[5, 5], &[1]), (&[5, 3], &[0])];
+        let tests = [
+            ("5 == 5 -> 1", &eq_jit, [5, 5], [1]),
+            ("5 == 3 -> 0", &eq_jit, [5, 3], [0]),
+            ("5 != 5 -> 0", &not_eq_jit, [5, 5], [0]),
+            ("5 != 3 -> 1", &not_eq_jit, [5, 3], [1]),
+        ];
 
-        for (initial_stack, final_stack) in tests {
+        for (name, func, initial_stack, final_stack) in tests {
             for (i, v) in initial_stack.iter().enumerate() {
                 stack[i] = *v;
             }
 
-            let modified_stack_ptr = unsafe { eq_jit.call(offset_ptr(stack_base, 2)) };
+            let modified_stack_ptr = unsafe { func.call(offset_ptr(stack_base, 2)) };
 
-            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 1));
-            assert_eq!(stack[..final_stack.len()], **final_stack);
+            assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 1), "{name}");
+            assert_eq!(stack[..final_stack.len()], final_stack, "{name}");
         }
     }
 
