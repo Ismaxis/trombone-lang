@@ -16,7 +16,7 @@ mod tests {
     impl TestOperationStream {
         fn new() -> TestOperationStream {
             TestOperationStream {
-                instructions: std::vec::Vec::new().into(),
+                instructions: std::vec::Vec::new(),
                 instruction_pointer: 0,
             }
         }

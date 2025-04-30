@@ -358,7 +358,7 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .expect("Failed to create JIT execution engine");
 
-        let codegen = CodeGen::new(&context, module, builder, execution_engine);
+        let codegen = CodeGen::new(context, module, builder, execution_engine);
         codegen
     }
 
