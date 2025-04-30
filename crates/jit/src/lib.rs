@@ -400,17 +400,13 @@ impl<'ctx> CodeGen<'ctx> {
 
         let rsp = function.get_nth_param(0)?.into_pointer_value();
 
-        if let Some(result) = self.compile_operations(operations, rsp) {
-            self.builder.build_return(Some(&result)).ok()?;
-        } else {
-            self.builder
-                .build_return(Some(&ret_type.const_zero()))
-                .ok()?;
-        }
+        let result = self.compile_operations(operations, rsp)?;
+        self.builder.build_return(Some(&result)).ok()?;
 
-        function.verify(true).then(|| ())?;
+        function.verify(true).then_some(())?;
 
         self.execution_engine.add_module(&module).ok()?;
+        eprintln!("{}", module.print_to_string());
 
         unsafe { self.execution_engine.get_function(&module_name).ok() }
     }
@@ -421,14 +417,14 @@ impl<'ctx> CodeGen<'ctx> {
         rsp: PointerValue<'ctx>,
     ) -> Option<BasicValueEnum<'ctx>> /* TODO: result */ {
         let i64_type = self.context.i64_type();
-        let stack_ptr_alloca = self
+        let stack_ptr = self
             .builder
             .build_alloca(rsp.get_type(), "stack_ptr_var")
             .ok()?;
-        self.builder.build_store(stack_ptr_alloca, rsp).ok()?;
+        self.builder.build_store(stack_ptr, rsp).ok()?;
 
         for op in operations {
-            let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr_alloca)?;
+            let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr)?;
             match op {
                 Operation::PushLiteral { value } => {
                     let const_val = i64_type.const_int(*value as u64, false);
@@ -436,10 +432,10 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_store(current_stack_ptr, const_val)
                         .ok()?;
 
-                    self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr);
+                    self.update_stack_pointer(1, stack_ptr, current_stack_ptr);
                 }
                 Operation::Pop => {
-                    self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
+                    self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalCopy { variable_offset } => {
                     let offset = -*variable_offset - 1;
@@ -452,18 +448,23 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder
                         .build_store(current_stack_ptr, variable_value)
                         .ok()?;
-                    self.update_stack_pointer(1, stack_ptr_alloca, current_stack_ptr)?;
+                    self.update_stack_pointer(1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalStore { variable_offset } => {
+                    // TODO: optimize
                     let offset = -*variable_offset - 1;
                     let moved_stack_ptr =
-                        self.update_stack_pointer(-1, stack_ptr_alloca, current_stack_ptr)?;
-                    let variable_ptr =
-                        self.ptr_with_offset(offset as i64, "variable_to_update", moved_stack_ptr)?;
+                        self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                     let value = self
                         .builder
-                        .build_load(variable_ptr.get_type(), moved_stack_ptr, "value_to_store")
+                        .build_load(
+                            moved_stack_ptr.get_type(),
+                            moved_stack_ptr,
+                            "value_to_store",
+                        )
                         .ok()?;
+                    let variable_ptr =
+                        self.ptr_with_offset(offset as i64, "variable_to_update", moved_stack_ptr)?;
                     self.builder.build_store(variable_ptr, value).ok()?;
                 }
 
@@ -471,6 +472,26 @@ impl<'ctx> CodeGen<'ctx> {
                 // ...
 
                 // Comparison
+                Operation::Equal => {
+                    let lhs = self.stack_get(-1, current_stack_ptr)?;
+                    let rhs = self.stack_get(-2, current_stack_ptr)?;
+
+                    assert!(lhs.is_int_value()); // TODO: return Err
+                    assert!(rhs.is_int_value()); // TODO: return Err
+
+                    let eq = self
+                        .builder
+                        .build_int_compare(
+                            inkwell::IntPredicate::EQ,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "eq_result",
+                        )
+                        .ok()?;
+
+                    self.stack_put(-2, current_stack_ptr, eq)?;
+                    self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+                }
                 // ...
 
                 // break on non-supported operations
@@ -482,19 +503,48 @@ impl<'ctx> CodeGen<'ctx> {
 
         let final_stack_ptr = self
             .builder
-            .build_load(rsp.get_type(), stack_ptr_alloca, "final_stack_ptr")
+            .build_load(rsp.get_type(), stack_ptr, "final_stack_ptr")
             .ok()?;
         Some(final_stack_ptr)
+    }
+
+    fn stack_put(
+        &self,
+        offset: i64,
+        current_stack_ptr: PointerValue<'ctx>,
+        value: IntValue<'_>,
+    ) -> Option<()> /* TODO: result */ {
+        self.builder
+            .build_store(
+                self.ptr_with_offset(offset, "store_stack_ptr", current_stack_ptr)?,
+                value,
+            )
+            .ok()
+            .map(|_| ())
+    }
+
+    fn stack_get(
+        &self,
+        offset: i64,
+        current_stack_ptr: PointerValue<'ctx>,
+    ) -> Option<BasicValueEnum<'ctx>> /* TODO: result */ {
+        self.builder
+            .build_load(
+                self.context.i64_type(),
+                self.ptr_with_offset(offset, "load_stack_ptr", current_stack_ptr)?,
+                "value_on_stack",
+            )
+            .ok()
     }
 
     fn get_current_stack_pointer(
         &self,
         rsp: PointerValue<'ctx>,
-        stack_ptr_alloca: PointerValue<'ctx>,
+        stack_ptr: PointerValue<'ctx>,
     ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
         let current_stack_ptr = self
             .builder
-            .build_load(rsp.get_type(), stack_ptr_alloca, "current_stack_ptr")
+            .build_load(rsp.get_type(), stack_ptr, "current_stack_ptr")
             .ok()?
             .into_pointer_value();
         Some(current_stack_ptr)
@@ -503,12 +553,12 @@ impl<'ctx> CodeGen<'ctx> {
     fn update_stack_pointer(
         &self,
         offset: i64,
-        stack_ptr_alloca: PointerValue<'ctx>,
+        stack_ptr: PointerValue<'ctx>,
         current_stack_ptr: PointerValue<'ctx>,
     ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
         let new_stack_ptr = self.ptr_with_offset(offset, "new_stack_ptr", current_stack_ptr)?;
         self.builder
-            .build_store(stack_ptr_alloca, new_stack_ptr)
+            .build_store(stack_ptr, new_stack_ptr)
             .ok()
             .map(|_| new_stack_ptr)
     }
