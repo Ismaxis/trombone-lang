@@ -51,10 +51,9 @@ impl<'ctx> CodeGen<'ctx> {
         let result = self.compile_operations(operations, rsp)?;
         self.builder.build_return(Some(&result)).ok()?;
 
-        function.verify(true).then_some(())?;
+        function.verify(true).then_some(())?; // TODO: return Err
 
         self.execution_engine.add_module(&module).ok()?;
-        eprintln!("{}", module.print_to_string());
 
         unsafe { self.execution_engine.get_function(&module_name).ok() }
     }
@@ -75,45 +74,27 @@ impl<'ctx> CodeGen<'ctx> {
             let current_stack_ptr = self.get_current_stack_pointer(rsp, stack_ptr)?;
             match op {
                 Operation::PushLiteral { value } => {
-                    let const_val = i64_type.const_int(*value as u64, false);
-                    self.builder
-                        .build_store(current_stack_ptr, const_val)
-                        .ok()?;
-
+                    self.stack_put(
+                        0,
+                        current_stack_ptr,
+                        i64_type.const_int(*value as u64, false),
+                    )?;
                     self.update_stack_pointer(1, stack_ptr, current_stack_ptr);
                 }
                 Operation::Pop => {
                     self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalCopy { variable_offset } => {
-                    let offset = -*variable_offset - 1;
-                    let variable_ptr =
-                        self.ptr_with_offset(offset as i64, "variable_to_copy", current_stack_ptr)?;
-                    let variable_value = self
-                        .builder
-                        .build_load(variable_ptr.get_type(), variable_ptr, "value_to_copy")
-                        .ok()?;
-                    self.builder
-                        .build_store(current_stack_ptr, variable_value)
-                        .ok()?;
+                    let offset = -(*variable_offset as i64) - 1;
+                    let value = self.stack_get(offset, current_stack_ptr)?;
+                    self.stack_put(0, current_stack_ptr, value.into_int_value())?;
                     self.update_stack_pointer(1, stack_ptr, current_stack_ptr)?;
                 }
                 Operation::LocalStore { variable_offset } => {
-                    // TODO: optimize
-                    let offset = -*variable_offset - 1;
-                    let moved_stack_ptr =
-                        self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
-                    let value = self
-                        .builder
-                        .build_load(
-                            moved_stack_ptr.get_type(),
-                            moved_stack_ptr,
-                            "value_to_store",
-                        )
-                        .ok()?;
-                    let variable_ptr =
-                        self.ptr_with_offset(offset as i64, "variable_to_update", moved_stack_ptr)?;
-                    self.builder.build_store(variable_ptr, value).ok()?;
+                    let value = self.stack_get(-1, current_stack_ptr)?;
+                    let offset = -(*variable_offset as i64) - 1;
+                    self.stack_put(offset - 1, current_stack_ptr, value.into_int_value())?;
+                    self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
                 }
 
                 // Arithmetic
@@ -133,7 +114,7 @@ impl<'ctx> CodeGen<'ctx> {
                             inkwell::IntPredicate::EQ,
                             lhs.into_int_value(),
                             rhs.into_int_value(),
-                            "eq_result",
+                            "cmp_result",
                         )
                         .ok()?;
 
@@ -167,8 +148,8 @@ impl<'ctx> CodeGen<'ctx> {
                 self.ptr_with_offset(offset, "store_stack_ptr", current_stack_ptr)?,
                 value,
             )
-            .ok()
-            .map(|_| ())
+            .ok()?;
+        Some(())
     }
 
     fn stack_get(
@@ -205,10 +186,8 @@ impl<'ctx> CodeGen<'ctx> {
         current_stack_ptr: PointerValue<'ctx>,
     ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
         let new_stack_ptr = self.ptr_with_offset(offset, "new_stack_ptr", current_stack_ptr)?;
-        self.builder
-            .build_store(stack_ptr, new_stack_ptr)
-            .ok()
-            .map(|_| new_stack_ptr)
+        self.builder.build_store(stack_ptr, new_stack_ptr).ok()?;
+        Some(new_stack_ptr)
     }
 
     fn ptr_with_offset(
