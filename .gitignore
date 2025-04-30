@@ -14,6 +14,8 @@ target/
 c/
 cpp/
 
+# coverage
+lcov.info
 
 # Added by cargo
 
