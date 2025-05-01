@@ -1,5 +1,5 @@
 use inkwell::IntPredicate;
-use inkwell::builder::Builder;
+use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
@@ -100,6 +100,55 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 // Arithmetic
+                Operation::Neg => {
+                    self.unary_op(stack_ptr, current_stack_ptr, Builder::build_int_neg, "neg")?
+                }
+                Operation::Not => {
+                    self.unary_op(stack_ptr, current_stack_ptr, Builder::build_not, "not")?
+                }
+
+                Operation::Add => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_int_add, "add")?
+                }
+                Operation::Sub => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_int_sub, "sub")?
+                }
+                Operation::Mul => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_int_mul, "mul")?
+                }
+                Operation::Div => self.binary_op(
+                    stack_ptr,
+                    current_stack_ptr,
+                    Builder::build_int_signed_div,
+                    "div",
+                )?,
+                Operation::Mod => self.binary_op(
+                    stack_ptr,
+                    current_stack_ptr,
+                    Builder::build_int_signed_rem,
+                    "mod",
+                )?,
+                Operation::And => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_and, "and")?
+                }
+                Operation::Or => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_or, "or")?
+                }
+                Operation::Xor => {
+                    self.binary_op(stack_ptr, current_stack_ptr, Builder::build_xor, "xor")?
+                }
+                Operation::Lsh => self.binary_op(
+                    stack_ptr,
+                    current_stack_ptr,
+                    Builder::build_left_shift,
+                    "lsh",
+                )?,
+                Operation::Rsh => self.binary_op(
+                    stack_ptr,
+                    current_stack_ptr,
+                    |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, false, name),
+                    "rsh",
+                )?,
                 // ...
 
                 // Comparison
@@ -226,6 +275,58 @@ impl<'ctx> CodeGen<'ctx> {
             .ok()?;
         self.stack_put(-2, current_stack_ptr, eq)?;
         self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+        Some(())
+    }
+
+    fn unary_op<F>(
+        &self,
+        _stack_ptr: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'ctx>,
+        op: F,
+        unary_str: &str,
+    ) -> Option<()>
+    where
+        F: FnOnce(&Builder<'ctx>, IntValue<'ctx>, &str) -> Result<IntValue<'ctx>, BuilderError>,
+    {
+        let val = self.stack_get(-1, current_stack_ptr)?;
+        assert!(val.is_int_value());
+
+        let unary_op = op(&self.builder, val.into_int_value(), unary_str).ok()?;
+        self.stack_put(-1, current_stack_ptr, unary_op)?;
+
+        Some(())
+    }
+
+    fn binary_op<F>(
+        &self,
+        stack_ptr: PointerValue<'ctx>,
+        current_stack_ptr: PointerValue<'ctx>,
+        op: F,
+        binary_str: &str,
+    ) -> Option<()>
+    where
+        F: FnOnce(
+            &Builder<'ctx>,
+            IntValue<'ctx>,
+            IntValue<'ctx>,
+            &str,
+        ) -> Result<IntValue<'ctx>, BuilderError>,
+    {
+        let lhs = self.stack_get(-1, current_stack_ptr)?;
+        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        assert!(lhs.is_int_value()); // TODO return err
+        assert!(rhs.is_int_value()); // TODO return err
+
+        let binary_op = op(
+            &self.builder,
+            lhs.into_int_value(),
+            rhs.into_int_value(),
+            binary_str,
+        )
+        .ok()?;
+        self.stack_put(-2, current_stack_ptr, binary_op)?;
+        self.update_stack_pointer(-1, stack_ptr, current_stack_ptr)?;
+
         Some(())
     }
 
