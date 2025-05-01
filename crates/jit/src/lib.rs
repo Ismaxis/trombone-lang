@@ -313,7 +313,7 @@ impl<'ctx> CodeGen<'ctx> {
         ) -> Result<IntValue<'ctx>, BuilderError>,
     {
         let lhs = self.stack_get(-1, current_stack_ptr)?;
-        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        let rhs = self.stack_get(-2, current_stack_ptr)?;
         assert!(lhs.is_int_value()); // TODO return err
         assert!(rhs.is_int_value()); // TODO return err
 
@@ -505,6 +505,44 @@ mod tests {
 
             assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 1), "{name}");
             assert_eq!(stack[..final_stack.len()], final_stack, "{name}");
+        }
+    }
+
+    #[test]
+    fn test_jit_binary_arithmetic() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10] = [
+            ("add", Operation::Add, Box::new(|x, y| x + y)),
+            ("sub", Operation::Sub, Box::new(|x, y| y - x)), // TODO !!
+            ("mul", Operation::Mul, Box::new(|x, y| x * y)),
+            ("div", Operation::Div, Box::new(|x, y| y / x)), // TODO !!
+            ("mod", Operation::Mod, Box::new(|x, y| y % x)), // TODO !!
+            ("and", Operation::And, Box::new(|x, y| x & y)),
+            ("or", Operation::Or, Box::new(|x, y| x | y)),
+            ("xor", Operation::Xor, Box::new(|x, y| x ^ y)),
+            ("lsh", Operation::Lsh, Box::new(|x, y| y << x)), // TODO !!
+            ("rsh", Operation::Rsh, Box::new(|x, y| y >> x)), // TODO !!
+        ];
+
+        let rhs = 77;
+        let lhs = 4;
+
+        for (idx, (op_str, op, f)) in tests.iter().enumerate() {
+            stack[0] = lhs;
+            stack[1] = rhs;
+
+            let jitted = codegen
+                .jit_compile_basic_block(idx, &[op.clone()])
+                .expect(&format!("Failed to compile {}", op_str));
+
+            let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 2)) };
+            assert_eq!(stack[0], f(lhs, rhs), "{}", op_str);
+            assert_eq!(new_stack_ptr, offset_ptr(stack_base, 1));
         }
     }
 
