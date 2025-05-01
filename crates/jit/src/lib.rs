@@ -103,6 +103,7 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
+    // Много переменных и деление на ноль
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -261,10 +262,10 @@ impl<'ctx> CodeGen<'ctx> {
             .builder
             .build_int_compare(op, lhs, rhs, "cmp_result")
             .unwrap();
-        // let eq = self
-        //     .builder
-        //     .build_int_z_extend(eq, self.context.i64_type(), "")
-        //     .unwrap();
+        let eq = self
+            .builder
+            .build_int_z_extend(eq, self.context.i64_type(), "")
+            .unwrap();
         vstack.push(eq);
     }
 
@@ -481,6 +482,54 @@ mod tests {
 
             assert_eq!(modified_stack_ptr, offset_ptr(stack_base, 1), "{name}");
             assert_eq!(stack[..final_stack.len()], final_stack, "{name}");
+        }
+    }
+
+    #[test]
+    fn test_megusta() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        let jitted = codegen
+            .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }, Operation::PushLiteral { value: 42 }, Operation::NotEqual, Operation::Not])
+            .unwrap_or_else(|_| panic!("Failed to compile"));
+
+        eprintln!("{:?}", codegen.inspect_ir());
+
+        let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 0)) };
+        assert_eq!(stack[0], -1);
+        assert_eq!(new_stack_ptr, offset_ptr(stack_base, 1));
+    }
+
+    #[test]
+    fn test_jit_unary_arithmetic() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        #[allow(clippy::type_complexity)]
+        let tests: [(_, _, Box<dyn Fn(TrombValue) -> TrombValue>); 2] = [
+            ("neg", Operation::Neg, Box::new(|x| -x)),
+            ("not", Operation::Not, Box::new(|x| std::ops::Not::not(x))),
+        ];
+
+        let lhs = 0;
+
+        for (idx, (op_str, op, f)) in tests.iter().enumerate() {
+            stack[0] = lhs;
+
+            let jitted = codegen
+                .jit_compile_basic_block(idx, &[*op])
+                .unwrap_or_else(|_| panic!("Failed to compile {}", op_str));
+
+            let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 1)) };
+            assert_eq!(stack[0], f(lhs), "{}", op_str);
+            assert_eq!(new_stack_ptr, offset_ptr(stack_base, 1));
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::error::*;
+use crate::{error::*, opcode::*};
 
 pub type Offset = i32;
 pub type Literal = i32;
@@ -129,4 +129,41 @@ impl TryFrom<Instruction> for Operation {
     }
 
     type Error = Error;
+}
+
+impl From<Operation> for Instruction {
+    fn from(value: Operation) -> Self {
+        use Operation::*;
+        match value {
+            PushLiteral { value } => Instruction::from_parts(OP_PUSH, value),
+            Pop => Instruction::from_parts(OP_POP, 0),
+            LocalCopy { variable_offset } => {
+                Instruction::from_parts(OP_LOCAL_COPY, variable_offset)
+            }
+            LocalStore { variable_offset } => {
+                Instruction::from_parts(OP_LOCAL_STORE, variable_offset)
+            }
+            Neg => Instruction::from_parts(OP_NEG, 0),
+            Not => Instruction::from_parts(OP_NOT, 0),
+            Add => Instruction::from_parts(OP_ADD, 0),
+            Sub => Instruction::from_parts(OP_SUB, 0),
+            Mul => Instruction::from_parts(OP_MUL, 0),
+            Div => Instruction::from_parts(OP_DIV, 0),
+            Mod => Instruction::from_parts(OP_MOD, 0),
+            And => Instruction::from_parts(OP_AND, 0),
+            Or => Instruction::from_parts(OP_OR, 0),
+            Xor => Instruction::from_parts(OP_XOR, 0),
+            Lsh => Instruction::from_parts(OP_LSH, 0),
+            Rsh => Instruction::from_parts(OP_RSH, 0),
+            Equal => Instruction::from_parts(OP_EQ, 0),
+            NotEqual => Instruction::from_parts(OP_NE, 0),
+            LessThan => Instruction::from_parts(OP_LT, 0),
+            GreaterThan => Instruction::from_parts(OP_GT, 0),
+            LessThanOrEqual => Instruction::from_parts(OP_LE, 0),
+            GreaterThanOrEqual => Instruction::from_parts(OP_GE, 0),
+            Jump { offset } => Instruction::from_parts(OP_JMP, offset),
+            JumpIf { offset } => Instruction::from_parts(OP_JMP_IF, offset),
+            JumpIfNot { offset } => Instruction::from_parts(OP_JMP_IF_NOT, offset),
+        }
+    }
 }
