@@ -664,7 +664,7 @@ impl<'ctx> CodeGen<'ctx> {
         ) -> Result<IntValue<'ctx>, BuilderError>,
     {
         let lhs = self.stack_get(-1, current_stack_ptr)?;
-        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        let rhs = self.stack_get(-2, current_stack_ptr)?;
         assert!(lhs.is_int_value()); // TODO return err
         assert!(rhs.is_int_value()); // TODO return err
 
