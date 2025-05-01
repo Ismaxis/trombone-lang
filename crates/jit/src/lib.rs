@@ -146,10 +146,9 @@ impl<'ctx> CodeGen<'ctx> {
                 Operation::Rsh => self.binary_op(
                     stack_ptr,
                     current_stack_ptr,
-                    |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, false, name),
+                    |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, true, name), // TODO true, false? shall we need to add different rsh like in Java?
                     "rsh",
                 )?,
-                // ...
 
                 // Comparison
                 Operation::Equal => {
@@ -312,8 +311,8 @@ impl<'ctx> CodeGen<'ctx> {
             &str,
         ) -> Result<IntValue<'ctx>, BuilderError>,
     {
-        let lhs = self.stack_get(-1, current_stack_ptr)?;
-        let rhs = self.stack_get(-2, current_stack_ptr)?;
+        let rhs = self.stack_get(-1, current_stack_ptr)?;
+        let lhs = self.stack_get(-2, current_stack_ptr)?;
         assert!(lhs.is_int_value()); // TODO return err
         assert!(rhs.is_int_value()); // TODO return err
 
@@ -518,19 +517,19 @@ mod tests {
 
         let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10] = [
             ("add", Operation::Add, Box::new(|x, y| x + y)),
-            ("sub", Operation::Sub, Box::new(|x, y| y - x)), // TODO !!
+            ("sub", Operation::Sub, Box::new(|x, y| x - y)),
             ("mul", Operation::Mul, Box::new(|x, y| x * y)),
-            ("div", Operation::Div, Box::new(|x, y| y / x)), // TODO !!
-            ("mod", Operation::Mod, Box::new(|x, y| y % x)), // TODO !!
+            ("div", Operation::Div, Box::new(|x, y| x / y)),
+            ("mod", Operation::Mod, Box::new(|x, y| x % y)),
             ("and", Operation::And, Box::new(|x, y| x & y)),
             ("or", Operation::Or, Box::new(|x, y| x | y)),
             ("xor", Operation::Xor, Box::new(|x, y| x ^ y)),
-            ("lsh", Operation::Lsh, Box::new(|x, y| y << x)), // TODO !!
-            ("rsh", Operation::Rsh, Box::new(|x, y| y >> x)), // TODO !!
+            ("lsh", Operation::Lsh, Box::new(|x, y| x << y)),
+            ("rsh", Operation::Rsh, Box::new(|x, y| x >> y)),
         ];
 
-        let rhs = 77;
-        let lhs = 4;
+        let lhs = 77;
+        let rhs = 4;
 
         for (idx, (op_str, op, f)) in tests.iter().enumerate() {
             stack[0] = lhs;
