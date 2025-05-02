@@ -431,23 +431,18 @@ impl<'ctx> CodeGen<'ctx> {
             match op {
                 // Stack operations
                 Operation::PushLiteral { value } => {
-                    self.stack_put(0, stack_ptr, i64_type.const_int(*value as u64, false));
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
+                    vstack.push(i64_type.const_int(*value as u64, false));
                 }
                 Operation::Pop => {
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
+                    vstack.pop();
                 }
                 Operation::LocalCopy { variable_offset } => {
-                    let offset = calc_stack_offset(variable_offset);
-                    let value = self.stack_get(offset, stack_ptr);
-                    self.stack_put(0, stack_ptr, value.into_int_value());
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
+                    let value = vstack.get(calc_stack_offset(variable_offset));
+                    vstack.push(value);
                 }
                 Operation::LocalStore { variable_offset } => {
-                    let value = self.stack_get(-1, stack_ptr);
-                    let offset = calc_stack_offset(variable_offset);
-                    self.stack_put(offset - 1, stack_ptr, value.into_int_value());
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
+                    let value = vstack.pop();
+                    vstack.set(calc_stack_offset(variable_offset), value);
                 }
 
                 // Arithmetic
