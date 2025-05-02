@@ -496,7 +496,7 @@ mod tests {
 
         let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
         let stack_base = stack.as_mut_ptr();
-        
+
         #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10] = [
             ("add", Operation::Add, Box::new(|x, y| x + y)),
