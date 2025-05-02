@@ -542,7 +542,7 @@ impl<'ctx> CodeGen<'ctx> {
         )
     }
 
-    fn comparison<'s>(&'s self, vstack: &mut VirtualStack<'s, 's>, op: IntPredicate) {
+    fn comparison<'s>(&'s self, vstack: &mut VirtualStack<'s>, op: IntPredicate) {
         let rhs = vstack.pop();
         let lhs = vstack.pop();
 
