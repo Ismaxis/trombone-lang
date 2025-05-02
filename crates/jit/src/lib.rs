@@ -9,9 +9,9 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::types::IntType;
 use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
-use trombone_common::bytecode::Operation;
+use trombone_common::{TrombValue, bytecode::Operation};
 
-type Rsp = *mut u64;
+type Rsp = *mut TrombValue;
 pub type VmExecuteFunc = unsafe extern "C" fn(Rsp) -> Rsp;
 
 pub struct CodeGen<'ctx> {
@@ -231,15 +231,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         vstack.finalize();
 
-        BasicValueEnum::PointerValue(self.update_stack_pointer(vstack.get_offset(), stack_ptr))
-    }
-
-    fn update_stack_pointer(
-        &self,
-        offset: i64,
-        stack_ptr: PointerValue<'ctx>,
-    ) -> PointerValue<'ctx> {
-        self.ptr_with_offset(offset, "new_stack_ptr", stack_ptr)
+        BasicValueEnum::PointerValue(self.ptr_with_offset(vstack.get_offset(), "new_stack_ptr", stack_ptr))
     }
 
     fn ptr_with_offset(
@@ -265,10 +257,10 @@ impl<'ctx> CodeGen<'ctx> {
             .builder
             .build_int_compare(op, lhs, rhs, "cmp_result")
             .unwrap();
-        let eq = self
-            .builder
-            .build_int_z_extend(eq, self.context.i64_type(), "")
-            .unwrap();
+        // let eq = self
+        //     .builder
+        //     .build_int_z_extend(eq, self.context.i64_type(), "")
+        //     .unwrap();
         vstack.push(eq);
     }
 
@@ -325,7 +317,6 @@ fn ptr_with_offset<'ctx>(
 mod tests {
     use super::*;
     use inkwell::OptimizationLevel;
-    use trombone_common::TrombValue;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
@@ -550,6 +541,7 @@ mod tests {
         assert_eq!(modified, offset_ptr(stack_base, 1));
         assert_eq!(stack[0], N as TrombValue);
 
+        println!("Elapsed time: {:?}", elapsed);
         assert!(elapsed.as_nanos() < 1000);
         // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
     }
@@ -565,7 +557,7 @@ mod tests {
         codegen
     }
 
-    fn offset_ptr(ptr: *mut u64, offset: i64) -> *mut u64 {
-        (ptr as i64 + offset * std::mem::size_of::<u64>() as i64) as *mut u64
+    fn offset_ptr(ptr: Rsp, offset: i64) -> Rsp {
+        (ptr as i64 + offset * std::mem::size_of::<Rsp>() as i64) as Rsp
     }
 }

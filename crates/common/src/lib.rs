@@ -2,4 +2,4 @@ pub mod bytecode;
 pub mod error;
 pub mod opcode;
 
-pub type TrombValue = u64;
+pub type TrombValue = i64;
