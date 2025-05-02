@@ -403,7 +403,7 @@ impl<'ctx> CodeGen<'ctx> {
         let result = self.compile_operations(operations, rsp);
         self.builder.build_return(Some(&result)).unwrap();
 
-        // eprintln!("{}", module.print_to_string()); // TODO: remove
+        eprintln!("{}", module.print_to_string()); // TODO: remove
         function
             .verify(true)
             .then_some(())
