@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+mod errors;
+
+use errors::Error;
 use inkwell::IntPredicate;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
@@ -123,7 +126,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         block_id: usize,
         operations: &[Operation],
-    ) -> Option<JitFunction<VmExecuteFunc>> /* TODO: result */ {
+    ) -> errors::Result<JitFunction<VmExecuteFunc>> /* TODO: result */ {
         let module_name = format!("block_module_{}", block_id);
         let module = self.context.create_module(&module_name);
 
@@ -135,17 +138,22 @@ impl<'ctx> CodeGen<'ctx> {
         let entry_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(entry_block);
 
-        let rsp = function.get_nth_param(0)?.into_pointer_value();
+        let rsp = function.get_nth_param(0).unwrap().into_pointer_value();
 
-        let result = self.compile_operations(operations, rsp)?;
-        self.builder.build_return(Some(&result)).ok()?;
+        let result = self
+            .compile_operations(operations, rsp)
+            .ok_or(Error::CompilationError)?;
+        self.builder.build_return(Some(&result)).unwrap();
 
-        eprintln!("{}", module.print_to_string());
-        function.verify(true).then_some(())?; // TODO: return Err
+        eprintln!("{}", module.print_to_string()); // TODO: remove
+        function
+            .verify(true)
+            .then_some(())
+            .ok_or(Error::VerificationError)?;
 
-        self.execution_engine.add_module(&module).ok()?;
+        self.execution_engine.add_module(&module).unwrap();
 
-        unsafe { self.execution_engine.get_function(&module_name).ok() }
+        Ok(unsafe { self.execution_engine.get_function(&module_name).unwrap() })
     }
 
     fn compile_operations(
@@ -207,30 +215,22 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // Comparison
                 Operation::Equal => {
-                    let rhs = vstack.pop();
-                    let lhs = vstack.pop();
-
-                    let eq = self
-                        .builder
-                        .build_int_compare(IntPredicate::EQ, lhs, rhs, "cmp_result")
-                        .ok()?;
-
-                    vstack.push(eq);
+                    self.comparison(&mut vstack, IntPredicate::EQ);
                 }
                 Operation::NotEqual => {
-                    self.comparison(&mut stack_ptr, IntPredicate::NE)?;
+                    self.comparison(&mut vstack, IntPredicate::NE);
                 }
                 Operation::LessThan => {
-                    self.comparison(&mut stack_ptr, IntPredicate::SLT)?; // TODO: signed ???
+                    self.comparison(&mut vstack, IntPredicate::SLT); // TODO: signed ???
                 }
                 Operation::GreaterThan => {
-                    self.comparison(&mut stack_ptr, IntPredicate::SGT)?; // TODO: signed ???
+                    self.comparison(&mut vstack, IntPredicate::SGT); // TODO: signed ???
                 }
                 Operation::LessThanOrEqual => {
-                    self.comparison(&mut stack_ptr, IntPredicate::SLE)?; // TODO: signed ???
+                    self.comparison(&mut vstack, IntPredicate::SLE); // TODO: signed ???
                 }
                 Operation::GreaterThanOrEqual => {
-                    self.comparison(&mut stack_ptr, IntPredicate::SGE)?; // TODO: signed ???
+                    self.comparison(&mut vstack, IntPredicate::SGE); // TODO: signed ???
                 }
 
                 // TODO: maybe break on non-supported operations
@@ -299,20 +299,19 @@ impl<'ctx> CodeGen<'ctx> {
         )
     }
 
-    fn comparison(&self, stack_ptr: &mut PointerValue<'ctx>, op: IntPredicate) -> Option<()> {
-        let rhs = self.stack_get(-1, *stack_ptr)?;
-        let lhs = self.stack_get(-2, *stack_ptr)?;
-
-        assert!(lhs.is_int_value()); // TODO: return Err
-        assert!(rhs.is_int_value()); // TODO: return Err
+    fn comparison<'s>(&'s self, vstack: &mut VirtualStack<'s, 's>, op: IntPredicate) {
+        let rhs = vstack.pop();
+        let lhs = vstack.pop();
 
         let eq = self
             .builder
-            .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp_result")
-            .ok()?;
-        self.stack_put(-2, *stack_ptr, eq)?;
-        *stack_ptr = self.update_stack_pointer(-1, *stack_ptr)?;
-        Some(())
+            .build_int_compare(op, lhs, rhs, "cmp_result")
+            .unwrap();
+        let eq = self
+            .builder
+            .build_int_z_extend(eq, self.context.i64_type(), "")
+            .unwrap();
+        vstack.push(eq);
     }
 
     fn unary_op<F>(&self, stack_ptr: PointerValue<'ctx>, op: F, unary_str: &str) -> Option<()>
@@ -504,41 +503,41 @@ mod tests {
         let stack_base = stack.as_mut_ptr();
 
         let eq_jit = codegen
-            .jit_compile_basic_block(0, &[Operation::Equal, Operation::Equal])
+            .jit_compile_basic_block(0, &[Operation::Equal])
             .expect("Failed to compile equal function");
-        // let not_eq_jit = codegen
-        //     .jit_compile_basic_block(1, &[Operation::NotEqual])
-        //     .expect("Failed to compile not_equal function");
-        // let lt_jit = codegen
-        //     .jit_compile_basic_block(2, &[Operation::LessThan])
-        //     .expect("Failed to compile less function");
-        // let gt_jit = codegen
-        //     .jit_compile_basic_block(3, &[Operation::GreaterThan])
-        //     .expect("Failed to compile greater function");
-        // let le_jit = codegen
-        //     .jit_compile_basic_block(4, &[Operation::LessThanOrEqual])
-        //     .expect("Failed to compile less_or_equal function");
-        // let ge_jit = codegen
-        //     .jit_compile_basic_block(5, &[Operation::GreaterThanOrEqual])
-        //     .expect("Failed to compile greater_or_equal function");
+        let not_eq_jit = codegen
+            .jit_compile_basic_block(1, &[Operation::NotEqual])
+            .expect("Failed to compile not_equal function");
+        let lt_jit = codegen
+            .jit_compile_basic_block(2, &[Operation::LessThan])
+            .expect("Failed to compile less function");
+        let gt_jit = codegen
+            .jit_compile_basic_block(3, &[Operation::GreaterThan])
+            .expect("Failed to compile greater function");
+        let le_jit = codegen
+            .jit_compile_basic_block(4, &[Operation::LessThanOrEqual])
+            .expect("Failed to compile less_or_equal function");
+        let ge_jit = codegen
+            .jit_compile_basic_block(5, &[Operation::GreaterThanOrEqual])
+            .expect("Failed to compile greater_or_equal function");
 
         let tests = [
-            ("5 == 5 -> 1", &eq_jit, [5, 5, 5], [0]),
-            // ("5 == 3 -> 0", &eq_jit, [5, 3], [0]),
-            // ("5 != 5 -> 0", &not_eq_jit, [5, 5], [0]),
-            // ("5 != 3 -> 1", &not_eq_jit, [5, 3], [1]),
-            // ("3 < 5 -> 1", &lt_jit, [3, 5], [1]),
-            // ("5 < 3 -> 0", &lt_jit, [5, 3], [0]),
-            // ("5 < 5 -> 0", &lt_jit, [5, 5], [0]),
-            // ("3 > 5 -> 0", &gt_jit, [3, 5], [0]),
-            // ("5 > 3 -> 1", &gt_jit, [5, 3], [1]),
-            // ("5 > 5 -> 0", &gt_jit, [5, 5], [0]),
-            // ("3 <= 5 -> 1", &le_jit, [3, 5], [1]),
-            // ("5 <= 3 -> 0", &le_jit, [5, 3], [0]),
-            // ("5 <= 5 -> 1", &le_jit, [5, 5], [1]),
-            // ("3 >= 5 -> 0", &ge_jit, [3, 5], [0]),
-            // ("5 >= 3 -> 1", &ge_jit, [5, 3], [1]),
-            // ("5 >= 5 -> 1", &ge_jit, [5, 5], [1]),
+            ("5 == 5 -> 1", &eq_jit, [5, 5], [1]),
+            ("5 == 3 -> 0", &eq_jit, [5, 3], [0]),
+            ("5 != 5 -> 0", &not_eq_jit, [5, 5], [0]),
+            ("5 != 3 -> 1", &not_eq_jit, [5, 3], [1]),
+            ("3 < 5 -> 1", &lt_jit, [3, 5], [1]),
+            ("5 < 3 -> 0", &lt_jit, [5, 3], [0]),
+            ("5 < 5 -> 0", &lt_jit, [5, 5], [0]),
+            ("3 > 5 -> 0", &gt_jit, [3, 5], [0]),
+            ("5 > 3 -> 1", &gt_jit, [5, 3], [1]),
+            ("5 > 5 -> 0", &gt_jit, [5, 5], [0]),
+            ("3 <= 5 -> 1", &le_jit, [3, 5], [1]),
+            ("5 <= 3 -> 0", &le_jit, [5, 3], [0]),
+            ("5 <= 5 -> 1", &le_jit, [5, 5], [1]),
+            ("3 >= 5 -> 0", &ge_jit, [3, 5], [0]),
+            ("5 >= 3 -> 1", &ge_jit, [5, 3], [1]),
+            ("5 >= 5 -> 1", &ge_jit, [5, 5], [1]),
         ];
 
         for (name, func, initial_stack, final_stack) in tests {
