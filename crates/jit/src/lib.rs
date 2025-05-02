@@ -55,12 +55,21 @@ impl<'ctx> VirtualStack<'ctx, 'ctx> {
 
     fn pop(&mut self) -> IntValue<'ctx> {
         self.current_offset -= 1;
-        if let Some(v) = self.values.get(&self.current_offset) {
+        self.get(0)
+    }
+
+    fn set(&mut self, offset: i64, value: IntValue<'ctx>) {
+        self.values.insert(self.current_offset + offset, value);
+    }
+
+    fn get(&mut self, offset: i64) -> IntValue<'ctx> {
+        let offset = self.current_offset + offset;
+        if let Some(v) = self.values.get(&offset) {
             *v
         } else {
             let i64_type = self.context.i64_type();
             let ptr = ptr_with_offset(
-                self.current_offset,
+                offset,
                 "ptr_with_offset_pop",
                 self.stack_ptr,
                 i64_type,
@@ -71,7 +80,7 @@ impl<'ctx> VirtualStack<'ctx, 'ctx> {
                 .build_load(i64_type, ptr, "pop_value")
                 .expect("pop value")
                 .into_int_value();
-            self.values.insert(self.current_offset, value);
+            self.values.insert(offset, value);
             value
         }
     }
@@ -168,23 +177,18 @@ impl<'ctx> CodeGen<'ctx> {
             match op {
                 // Stack operations
                 Operation::PushLiteral { value } => {
-                    self.stack_put(0, stack_ptr, i64_type.const_int(*value as u64, false));
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
+                    vstack.push(i64_type.const_int(*value as u64, false));
                 }
                 Operation::Pop => {
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
+                    vstack.pop();
                 }
                 Operation::LocalCopy { variable_offset } => {
-                    let offset = calc_stack_offset(variable_offset);
-                    let value = self.stack_get(offset, stack_ptr);
-                    self.stack_put(0, stack_ptr, value.into_int_value());
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
+                    let value = vstack.get(calc_stack_offset(variable_offset));
+                    vstack.push(value);
                 }
                 Operation::LocalStore { variable_offset } => {
-                    let value = self.stack_get(-1, stack_ptr);
-                    let offset = calc_stack_offset(variable_offset);
-                    self.stack_put(offset - 1, stack_ptr, value.into_int_value());
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
+                    let value = vstack.pop();
+                    vstack.set(calc_stack_offset(variable_offset), value);
                 }
 
                 // Arithmetic
