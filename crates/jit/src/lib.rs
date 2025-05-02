@@ -551,7 +551,7 @@ mod tests {
         assert_eq!(stack[0], N as TrombValue);
 
         assert!(elapsed.as_nanos() < 1000);
-        // On my machine, it takes 400ns with correct impl and 1.5ms as is translation
+        // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
     }
 
     fn init(context: &Context) -> CodeGen {
