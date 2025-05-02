@@ -400,27 +400,29 @@ impl<'ctx> CodeGen<'ctx> {
 
         let rsp = function.get_nth_param(0).unwrap().into_pointer_value();
 
-        let result = self
-            .compile_operations(operations, rsp)
-            .ok_or(Error::CompilationError)?;
+        let result = self.compile_operations(operations, rsp);
         self.builder.build_return(Some(&result)).unwrap();
 
         eprintln!("{}", module.print_to_string()); // TODO: remove
         function
             .verify(true)
             .then_some(())
-            .ok_or(Error::VerificationError)?;
+            .ok_or("VerificationError".to_string())?;
 
         self.execution_engine.add_module(&module).unwrap();
 
-        Ok(unsafe { self.execution_engine.get_function(&module_name).unwrap() })
+        unsafe {
+            self.execution_engine
+                .get_function(&module_name)
+                .map_err(|err| format!("GetFunctionError: {}", err).into())
+        }
     }
 
     fn compile_operations(
         &self,
         operations: &[Operation],
         mut stack_ptr: PointerValue<'ctx>,
-    ) -> Option<BasicValueEnum<'ctx>> /* TODO: result */ {
+    ) -> BasicValueEnum<'ctx> {
         let i64_type = self.context.i64_type();
 
         let mut vstack = VirtualStack::new(self.context, &self.builder, stack_ptr);
@@ -429,49 +431,47 @@ impl<'ctx> CodeGen<'ctx> {
             match op {
                 // Stack operations
                 Operation::PushLiteral { value } => {
-                    self.stack_put(0, stack_ptr, i64_type.const_int(*value as u64, false))?;
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr)?;
+                    self.stack_put(0, stack_ptr, i64_type.const_int(*value as u64, false));
+                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
                 }
                 Operation::Pop => {
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr)?;
+                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
                 }
                 Operation::LocalCopy { variable_offset } => {
                     let offset = calc_stack_offset(variable_offset);
-                    let value = self.stack_get(offset, stack_ptr)?;
-                    self.stack_put(0, stack_ptr, value.into_int_value())?;
-                    stack_ptr = self.update_stack_pointer(1, stack_ptr)?;
+                    let value = self.stack_get(offset, stack_ptr);
+                    self.stack_put(0, stack_ptr, value.into_int_value());
+                    stack_ptr = self.update_stack_pointer(1, stack_ptr);
                 }
                 Operation::LocalStore { variable_offset } => {
-                    let value = self.stack_get(-1, stack_ptr)?;
+                    let value = self.stack_get(-1, stack_ptr);
                     let offset = calc_stack_offset(variable_offset);
-                    self.stack_put(offset - 1, stack_ptr, value.into_int_value())?;
-                    stack_ptr = self.update_stack_pointer(-1, stack_ptr)?;
+                    self.stack_put(offset - 1, stack_ptr, value.into_int_value());
+                    stack_ptr = self.update_stack_pointer(-1, stack_ptr);
                 }
 
                 // Arithmetic
-                Operation::Neg => self.unary_op(stack_ptr, Builder::build_int_neg, "neg")?,
-                Operation::Not => self.unary_op(stack_ptr, Builder::build_not, "not")?,
+                Operation::Neg => self.unary_op(stack_ptr, Builder::build_int_neg, "neg"),
+                Operation::Not => self.unary_op(stack_ptr, Builder::build_not, "not"),
 
-                Operation::Add => self.binary_op(&mut stack_ptr, Builder::build_int_add, "add")?,
-                Operation::Sub => self.binary_op(&mut stack_ptr, Builder::build_int_sub, "sub")?,
-                Operation::Mul => self.binary_op(&mut stack_ptr, Builder::build_int_mul, "mul")?,
+                Operation::Add => self.binary_op(&mut stack_ptr, Builder::build_int_add, "add"),
+                Operation::Sub => self.binary_op(&mut stack_ptr, Builder::build_int_sub, "sub"),
+                Operation::Mul => self.binary_op(&mut stack_ptr, Builder::build_int_mul, "mul"),
                 Operation::Div => {
-                    self.binary_op(&mut stack_ptr, Builder::build_int_signed_div, "div")?
+                    self.binary_op(&mut stack_ptr, Builder::build_int_signed_div, "div")
                 }
                 Operation::Mod => {
-                    self.binary_op(&mut stack_ptr, Builder::build_int_signed_rem, "mod")?
+                    self.binary_op(&mut stack_ptr, Builder::build_int_signed_rem, "mod")
                 }
-                Operation::And => self.binary_op(&mut stack_ptr, Builder::build_and, "and")?,
-                Operation::Or => self.binary_op(&mut stack_ptr, Builder::build_or, "or")?,
-                Operation::Xor => self.binary_op(&mut stack_ptr, Builder::build_xor, "xor")?,
-                Operation::Lsh => {
-                    self.binary_op(&mut stack_ptr, Builder::build_left_shift, "lsh")?
-                }
+                Operation::And => self.binary_op(&mut stack_ptr, Builder::build_and, "and"),
+                Operation::Or => self.binary_op(&mut stack_ptr, Builder::build_or, "or"),
+                Operation::Xor => self.binary_op(&mut stack_ptr, Builder::build_xor, "xor"),
+                Operation::Lsh => self.binary_op(&mut stack_ptr, Builder::build_left_shift, "lsh"),
                 Operation::Rsh => self.binary_op(
                     &mut stack_ptr,
                     |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, true, name), // TODO true, false? shall we need to add different rsh like in Java?
                     "rsh",
-                )?,
+                ),
 
                 // Comparison
                 Operation::Equal => {
@@ -495,53 +495,41 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // TODO: maybe break on non-supported operations
                 _ => {
-                    return None;
+                    panic!("unsupported operation");
                 }
             }
         }
 
         vstack.finalize();
 
-        Some(BasicValueEnum::PointerValue(
-            self.update_stack_pointer(vstack.get_offset(), stack_ptr)?,
-        ))
+        BasicValueEnum::PointerValue(self.update_stack_pointer(vstack.get_offset(), stack_ptr))
     }
 
-    fn stack_put(
-        &self,
-        offset: i64,
-        stack_ptr: PointerValue<'ctx>,
-        value: IntValue<'_>,
-    ) -> Option<()> /* TODO: result */ {
+    fn stack_put(&self, offset: i64, stack_ptr: PointerValue<'ctx>, value: IntValue<'_>) {
         self.builder
             .build_store(
-                self.ptr_with_offset(offset, "store_stack_ptr", stack_ptr)?,
+                self.ptr_with_offset(offset, "store_stack_ptr", stack_ptr),
                 value,
             )
-            .ok()?;
-        Some(())
+            .unwrap();
     }
 
-    fn stack_get(
-        &self,
-        offset: i64,
-        stack_ptr: PointerValue<'ctx>,
-    ) -> Option<BasicValueEnum<'ctx>> /* TODO: result */ {
+    fn stack_get(&self, offset: i64, stack_ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
         self.builder
             .build_load(
                 self.context.i64_type(),
-                self.ptr_with_offset(offset, "load_stack_ptr", stack_ptr)?,
+                self.ptr_with_offset(offset, "load_stack_ptr", stack_ptr),
                 "value_on_stack",
             )
-            .ok()
+            .unwrap()
     }
 
     fn update_stack_pointer(
         &self,
         offset: i64,
         stack_ptr: PointerValue<'ctx>,
-    ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
-        Some(self.ptr_with_offset(offset, "new_stack_ptr", stack_ptr)?)
+    ) -> PointerValue<'ctx> {
+        self.ptr_with_offset(offset, "new_stack_ptr", stack_ptr)
     }
 
     fn ptr_with_offset(
@@ -549,7 +537,7 @@ impl<'ctx> CodeGen<'ctx> {
         offset: i64,
         name: &str,
         current_ptr: PointerValue<'ctx>,
-    ) -> Option<PointerValue<'ctx>> /* TODO: result */ {
+    ) -> PointerValue<'ctx> {
         ptr_with_offset(
             offset,
             name,
@@ -574,25 +562,18 @@ impl<'ctx> CodeGen<'ctx> {
         vstack.push(eq);
     }
 
-    fn unary_op<F>(&self, stack_ptr: PointerValue<'ctx>, op: F, unary_str: &str) -> Option<()>
+    fn unary_op<F>(&self, stack_ptr: PointerValue<'ctx>, op: F, unary_str: &str)
     where
         F: FnOnce(&Builder<'ctx>, IntValue<'ctx>, &str) -> Result<IntValue<'ctx>, BuilderError>,
     {
-        let val = self.stack_get(-1, stack_ptr)?;
+        let val = self.stack_get(-1, stack_ptr);
         assert!(val.is_int_value());
 
-        let unary_op = op(&self.builder, val.into_int_value(), unary_str).ok()?;
-        self.stack_put(-1, stack_ptr, unary_op)?;
-
-        Some(())
+        let unary_op = op(&self.builder, val.into_int_value(), unary_str).unwrap();
+        self.stack_put(-1, stack_ptr, unary_op);
     }
 
-    fn binary_op<F>(
-        &self,
-        stack_ptr: &mut PointerValue<'ctx>,
-        op: F,
-        binary_str: &str,
-    ) -> Option<()>
+    fn binary_op<F>(&self, stack_ptr: &mut PointerValue<'ctx>, op: F, binary_str: &str)
     where
         F: FnOnce(
             &Builder<'ctx>,
@@ -601,8 +582,8 @@ impl<'ctx> CodeGen<'ctx> {
             &str,
         ) -> Result<IntValue<'ctx>, BuilderError>,
     {
-        let rhs = self.stack_get(-1, *stack_ptr)?;
-        let lhs = self.stack_get(-2, *stack_ptr)?;
+        let rhs = self.stack_get(-1, *stack_ptr);
+        let lhs = self.stack_get(-2, *stack_ptr);
         assert!(lhs.is_int_value()); // TODO return err
         assert!(rhs.is_int_value()); // TODO return err
 
@@ -612,11 +593,9 @@ impl<'ctx> CodeGen<'ctx> {
             rhs.into_int_value(),
             binary_str,
         )
-        .ok()?;
-        self.stack_put(-2, *stack_ptr, binary_op)?;
-        *stack_ptr = self.update_stack_pointer(-1, *stack_ptr)?;
-
-        Some(())
+        .unwrap();
+        self.stack_put(-2, *stack_ptr, binary_op);
+        *stack_ptr = self.update_stack_pointer(-1, *stack_ptr);
     }
 
     #[allow(dead_code)]
