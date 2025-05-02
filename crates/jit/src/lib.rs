@@ -21,15 +21,15 @@ pub struct CodeGen<'ctx> {
     execution_engine: ExecutionEngine<'ctx>,
 }
 
-struct VirtualStack<'ctx, 'bldr> {
+struct VirtualStack<'ctx> {
     context: &'ctx Context,
-    builder: &'bldr Builder<'ctx>,
+    builder: &'ctx Builder<'ctx>,
     stack_ptr: PointerValue<'ctx>,
     current_offset: i64,
     values: BTreeMap<i64, IntValue<'ctx>>,
 }
 
-impl<'ctx> VirtualStack<'ctx, 'ctx> {
+impl<'ctx> VirtualStack<'ctx> {
     fn new(
         context: &'ctx Context,
         builder: &'ctx Builder<'ctx>,
@@ -288,7 +288,7 @@ impl<'ctx> CodeGen<'ctx> {
         )
     }
 
-    fn comparison<'s>(&'s self, vstack: &mut VirtualStack<'s, 's>, op: IntPredicate) {
+    fn comparison<'s>(&'s self, vstack: &mut VirtualStack<'s>, op: IntPredicate) {
         let rhs = vstack.pop();
         let lhs = vstack.pop();
 
