@@ -124,7 +124,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         block_id: usize,
         operations: &[Operation],
-    ) -> errors::Result<JitFunction<VmExecuteFunc>> /* TODO: result */ {
+    ) -> errors::Result<JitFunction<VmExecuteFunc>> {
         let module_name = format!("block_module_{}", block_id);
         let module = self.context.create_module(&module_name);
 
@@ -141,7 +141,7 @@ impl<'ctx> CodeGen<'ctx> {
         let result = self.compile_operations(operations, rsp);
         self.builder.build_return(Some(&result)).unwrap();
 
-        // eprintln!("{}", module.print_to_string()); // TODO: remove
+        eprintln!("{}", module.print_to_string()); // TODO: remove
         function
             .verify(true)
             .then_some(())
@@ -312,7 +312,7 @@ fn ptr_with_offset<'ctx>(
     current_ptr: PointerValue<'ctx>,
     i64_type: IntType<'ctx>,
     builder: &Builder<'ctx>,
-) -> PointerValue<'ctx> /* TODO: result */ {
+) -> PointerValue<'ctx> {
     let offset_const = if offset < 0 {
         i64_type.const_int((-offset) as u64, true).const_neg()
     } else {
@@ -496,7 +496,8 @@ mod tests {
 
         let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
         let stack_base = stack.as_mut_ptr();
-
+        
+        #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue, TrombValue) -> TrombValue>); 10] = [
             ("add", Operation::Add, Box::new(|x, y| x + y)),
             ("sub", Operation::Sub, Box::new(|x, y| x - y)),
@@ -518,8 +519,8 @@ mod tests {
             stack[1] = rhs;
 
             let jitted = codegen
-                .jit_compile_basic_block(idx, &[op.clone()])
-                .expect(&format!("Failed to compile {}", op_str));
+                .jit_compile_basic_block(idx, &[*op])
+                .unwrap_or_else(|_| panic!("Failed to compile {}", op_str));
 
             let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 2)) };
             assert_eq!(stack[0], f(lhs, rhs), "{}", op_str);
@@ -532,21 +533,22 @@ mod tests {
         let context = Context::create();
         let codegen = init(&context);
 
-        let operations = Vec::from_iter((0..999).map(|_| Operation::Add));
+        const N: usize = 1000;
+
+        let operations = Vec::from_iter((0..N - 1).map(|_| Operation::Add));
 
         let jitted = codegen
             .jit_compile_basic_block(0, &operations)
             .expect("Failed to compile add");
 
-        let mut stack: [TrombValue; 1001] = [1; 1001];
-        stack[1000] = 1000;
+        let mut stack: [TrombValue; N + 1] = [1; N + 1];
         let stack_base = stack.as_mut_ptr();
 
         let start = std::time::Instant::now();
-        let modified = unsafe { jitted.call(offset_ptr(stack_base, 1000)) };
+        let modified = unsafe { jitted.call(offset_ptr(stack_base, N as i64)) };
         let elapsed = start.elapsed();
         assert_eq!(modified, offset_ptr(stack_base, 1));
-        assert_eq!(stack[0], 1000);
+        assert_eq!(stack[0], N as TrombValue);
 
         assert!(elapsed.as_nanos() < 1000);
         // On my machine, it takes 400ns with correct impl and 1.5ms as is translation
