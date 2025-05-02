@@ -493,7 +493,11 @@ impl<'ctx> CodeGen<'ctx> {
 
         vstack.finalize();
 
-        BasicValueEnum::PointerValue(self.ptr_with_offset(vstack.get_offset(), "new_stack_ptr", stack_ptr))
+        BasicValueEnum::PointerValue(self.ptr_with_offset(
+            vstack.get_offset(),
+            "new_stack_ptr",
+            stack_ptr,
+        ))
     }
 
     fn ptr_with_offset(
