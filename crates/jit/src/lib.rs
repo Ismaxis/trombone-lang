@@ -486,6 +486,40 @@ mod tests {
     }
 
     #[test]
+    fn test_jit_bool_to_int_cast() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        let bool_cast_jit = codegen
+            .jit_compile_basic_block(0, &[Operation::Equal, Operation::Mul])
+            .expect("Failed to compile function");
+
+        let tests = [
+            ("(5 == 5) * 10 -> 10", [10, 5, 5], [10]),
+            ("(5 == 3) * 10 -> 0", [10, 3, 5], [0]),
+        ];
+
+        for (name, initial_stack, final_stack) in tests {
+            for (i, v) in initial_stack.iter().enumerate() {
+                stack[i] = *v;
+            }
+
+            let modified_stack_ptr =
+                unsafe { bool_cast_jit.call(offset_ptr(stack_base, initial_stack.len() as i64)) };
+
+            assert_eq!(
+                modified_stack_ptr,
+                offset_ptr(stack_base, final_stack.len() as i64),
+                "{name}"
+            );
+            assert_eq!(stack[..final_stack.len()], final_stack, "{name}");
+        }
+    }
+
+    #[test]
     fn test_jit_unary_arithmetic() {
         let context = Context::create();
         let codegen = init(&context);
