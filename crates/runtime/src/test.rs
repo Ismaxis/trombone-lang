@@ -155,7 +155,7 @@ mod test {
         let context = Context::create();
         let (codegen, generator, operations) = init(&context);
 
-        for iter in 0..ITERATIONS {
+        'iteration: for iter in 0..ITERATIONS {
             // TODO: need more flexible test infrastructure
             let mut operations_as_u64 = [0; DEPTH];
             let mut operations_as_operations = Vec::new();
