@@ -76,26 +76,19 @@ impl<OpStream: OperationStream> Runner<OpStream> {
             Add => self.binary_op(|a, b| a.wrapping_add(b)),
             Sub => self.binary_op(|a, b| a.wrapping_sub(b)),
             Mul => self.binary_op(|a, b| a.wrapping_mul(b)),
-            Div => self.try_binary_op(|a, b| {
-                if b == 0 {
-                    Err("Zero division encountered".into())
-                } else {
-                    Ok(a / b)
-                }
-            })?,
-            Mod => self.try_binary_op(|a, b| {
-                if b == 0 {
-                    Err("Zero division encountered".into())
-                } else {
-                    Ok(a % b)
-                }
-            })?,
+            Div => self
+                .try_binary_op(|a, b| a.checked_div(b).ok_or("Zero division encountered".into()))?,
+            Mod => self
+                .try_binary_op(|a, b| a.checked_rem(b).ok_or("Zero division encountered".into()))?,
             And => self.binary_op(|a, b| a & b),
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
-            Lsh => self.binary_op(|a, b| a.checked_shl(std::cmp::max(b, 0) as u32).unwrap_or(0)),
-            // Rsh => self.binary_op(|a, b| a.checked_shr(std::cmp::max(b, 0) as u32).unwrap_or(if a < 0 {-1} else {0})),
-            Rsh => self.binary_op(|a, b| a.wrapping_shr(b as u32)),
+            Lsh => self.try_binary_op(|a, b| {
+                if b < 0 || b > u32::MAX as i64 { Err("Shift count must be in 0..u32::MAX".into()) } else { Ok(a.checked_shl(b as u32).unwrap_or(0)) }
+            })?,
+            Rsh => self.try_binary_op(|a, b| {
+                if b < 0 || b > u32::MAX as i64 { Err("Shift count must be in 0..u32::MAX".into()) } else { Ok(a.checked_shr(b as u32).unwrap_or(0)) }
+            })?,
 
             // Comparison
             Equal => self.comparison(|a, b| a == b),

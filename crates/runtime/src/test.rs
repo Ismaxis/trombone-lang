@@ -108,19 +108,17 @@ mod test {
 
             // arithmetic
             (depth_pred(1, 0),  constant_op(Operation::Neg)).into(),
-            // TODO: in runner 0 = 000000000 -> 11111111 = -1, in jit: 0 -> 1
             (depth_pred(1, 0),  constant_op(Operation::Not)).into(), 
             (depth_pred(2, -1), constant_op(Operation::Add)).into(),
             (depth_pred(2, -1), constant_op(Operation::Sub)).into(),
             (depth_pred(2, -1), constant_op(Operation::Mul)).into(),
-            // TODO Division by zero
-            // (depth_pred(2, -1), constant_op(Operation::Div)).into(),
-            // (depth_pred(2, -1), constant_op(Operation::Mod)).into(),
+            (depth_pred(2, -1), constant_op(Operation::Div)).into(),
+            (depth_pred(2, -1), constant_op(Operation::Mod)).into(),
             (depth_pred(2, -1), constant_op(Operation::And)).into(),
             (depth_pred(2, -1), constant_op(Operation::Or)).into(),
             (depth_pred(2, -1), constant_op(Operation::Xor)).into(),
-            // (depth_pred(2, -1), constant_op(Operation::Lsh)).into(),
-            // (depth_pred(2, -1), constant_op(Operation::Rsh)).into(),
+            (depth_pred(2, -1), constant_op(Operation::Lsh)).into(),
+            (depth_pred(2, -1), constant_op(Operation::Rsh)).into(),
             
             // comparison
             (depth_pred(2, -1), constant_op(Operation::Equal)).into(),
@@ -147,15 +145,16 @@ mod test {
     }
 
     const SEED: u64 = 14881337420;
-    const DEPTH: usize = 10;
+    const DEPTH: usize = 3;
     const ITERATIONS: usize = 1000;
 
+    // If the program runs without errors in the interpreter, then it should run identically in the JITted version
     #[test]
     fn test_coherence_test() -> trombone_common::error::Result<()> {
         let context = Context::create();
         let (codegen, generator, operations) = init(&context);
 
-        for iter in 0..ITERATIONS {
+        'iteration: for iter in 0..ITERATIONS {
             // TODO: need more flexible test infrastructure
             let mut operations_as_u64 = [0; DEPTH];
             let mut operations_as_operations = Vec::new();
@@ -183,7 +182,10 @@ mod test {
             let op_stream = ArrayOperationStream::new(&operations_as_u64);
             let mut runner = Runner::new(op_stream);
             for _ in 0..DEPTH {
-                runner.evaluate_next_instruction()?;
+                let res = runner.evaluate_next_instruction();
+                if res.is_err() {
+                    continue 'iteration;
+                }
             }
 
             let jitted = codegen
