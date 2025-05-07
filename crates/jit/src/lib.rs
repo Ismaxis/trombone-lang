@@ -104,6 +104,7 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
+    // Много переменных и деление на ноль
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -523,10 +524,10 @@ impl<'ctx> CodeGen<'ctx> {
             .builder
             .build_int_compare(op, lhs, rhs, "cmp_result")
             .unwrap();
-        // let eq = self
-        //     .builder
-        //     .build_int_z_extend(eq, self.context.i64_type(), "")
-        //     .unwrap();
+        let eq = self
+            .builder
+            .build_int_z_extend(eq, self.context.i64_type(), "")
+            .unwrap();
         vstack.push(eq);
     }
 
