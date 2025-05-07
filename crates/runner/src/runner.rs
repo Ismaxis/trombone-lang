@@ -71,11 +71,11 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                 *self.get_variable(variable_offset) = value;
             }
             // Arithmetic
-            Neg => self.unary_op(|a| -(a as i64) as TrombValue),
+            Neg => self.unary_op(|a| a.wrapping_neg()),
             Not => self.unary_op(|a| !a),
-            Add => self.binary_op(|a, b| a + b),
-            Sub => self.binary_op(|a, b| a - b),
-            Mul => self.binary_op(|a, b| a * b),
+            Add => self.binary_op(|a, b| a.wrapping_add(b)),
+            Sub => self.binary_op(|a, b| a.wrapping_sub(b)),
+            Mul => self.binary_op(|a, b| a.wrapping_mul(b)),
             Div => self.try_binary_op(|a, b| {
                 if b == 0 {
                     Err("Zero division encountered".into())
@@ -93,8 +93,9 @@ impl<OpStream: OperationStream> Runner<OpStream> {
             And => self.binary_op(|a, b| a & b),
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
-            Lsh => self.binary_op(|a, b| a << b),
-            Rsh => self.binary_op(|a, b| a >> b),
+            Lsh => self.binary_op(|a, b| a.checked_shl(std::cmp::max(b, 0) as u32).unwrap_or(0)),
+            // Rsh => self.binary_op(|a, b| a.checked_shr(std::cmp::max(b, 0) as u32).unwrap_or(if a < 0 {-1} else {0})),
+            Rsh => self.binary_op(|a, b| a.wrapping_shr(b as u32)),
 
             // Comparison
             Equal => self.comparison(|a, b| a == b),
