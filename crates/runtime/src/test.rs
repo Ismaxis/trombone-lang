@@ -195,8 +195,20 @@ mod test {
             let jit_new_stack_ptr = unsafe { jitted.call(jit_stack_base) };
             let jit_sp = unsafe { jit_new_stack_ptr.offset_from(jit_stack_base) };
 
-            assert_eq!(runner.sp, jit_sp.try_into().unwrap(), "Pointers are not same, iter = {}, ops = {:?}", iter, operations_as_operations);
-            assert_eq!(runner.stack[0..runner.sp], jit_stack[0..runner.sp], "Stacks are not same, iter = {}, ops = {:?}", iter, operations_as_operations);
+            assert_eq!(
+                runner.sp,
+                jit_sp.try_into().unwrap(),
+                "Pointers are not same, iter = {}, ops = {:?}",
+                iter,
+                operations_as_operations
+            );
+            assert_eq!(
+                runner.stack[0..runner.sp],
+                jit_stack[0..runner.sp],
+                "Stacks are not same, iter = {}, ops = {:?}",
+                iter,
+                operations_as_operations
+            );
         }
 
         Ok(())

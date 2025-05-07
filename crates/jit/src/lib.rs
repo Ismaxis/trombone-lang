@@ -494,7 +494,15 @@ mod tests {
         let stack_base = stack.as_mut_ptr();
 
         let jitted = codegen
-            .jit_compile_basic_block(0, &[Operation::PushLiteral { value: 42 }, Operation::PushLiteral { value: 42 }, Operation::NotEqual, Operation::Not])
+            .jit_compile_basic_block(
+                0,
+                &[
+                    Operation::PushLiteral { value: 42 },
+                    Operation::PushLiteral { value: 42 },
+                    Operation::NotEqual,
+                    Operation::Not,
+                ],
+            )
             .unwrap_or_else(|_| panic!("Failed to compile"));
 
         eprintln!("{:?}", codegen.inspect_ir());
