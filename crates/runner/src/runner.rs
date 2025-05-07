@@ -84,10 +84,18 @@ impl<OpStream: OperationStream> Runner<OpStream> {
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
             Lsh => self.try_binary_op(|a, b| {
-                if b < 0 || b > u32::MAX as i64 { Err("Shift count must be in 0..u32::MAX".into()) } else { Ok(a.checked_shl(b as u32).unwrap_or(0)) }
+                if b < 0 || b > u32::MAX as i64 {
+                    Err("Shift count must be in 0..u32::MAX".into())
+                } else {
+                    Ok(a.checked_shl(b as u32).unwrap_or(0))
+                }
             })?,
             Rsh => self.try_binary_op(|a, b| {
-                if b < 0 || b > u32::MAX as i64 { Err("Shift count must be in 0..u32::MAX".into()) } else { Ok(a.checked_shr(b as u32).unwrap_or(0)) }
+                if b < 0 || b > u32::MAX as i64 {
+                    Err("Shift count must be in 0..u32::MAX".into())
+                } else {
+                    Ok(a.checked_shr(b as u32).unwrap_or(0))
+                }
             })?,
 
             // Comparison
