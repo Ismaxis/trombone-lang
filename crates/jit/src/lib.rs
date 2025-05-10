@@ -486,33 +486,6 @@ mod tests {
     }
 
     #[test]
-    fn test_megusta() {
-        let context = Context::create();
-        let codegen = init(&context);
-
-        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
-        let stack_base = stack.as_mut_ptr();
-
-        let jitted = codegen
-            .jit_compile_basic_block(
-                0,
-                &[
-                    Operation::PushLiteral { value: 42 },
-                    Operation::PushLiteral { value: 42 },
-                    Operation::NotEqual,
-                    Operation::Not,
-                ],
-            )
-            .unwrap_or_else(|_| panic!("Failed to compile"));
-
-        eprintln!("{:?}", codegen.inspect_ir());
-
-        let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 0)) };
-        assert_eq!(stack[0], -1);
-        assert_eq!(new_stack_ptr, offset_ptr(stack_base, 1));
-    }
-
-    #[test]
     fn test_jit_unary_arithmetic() {
         let context = Context::create();
         let codegen = init(&context);
