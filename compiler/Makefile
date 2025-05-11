@@ -4,7 +4,7 @@
 #   make test PRESET=release JOBS=8
 
 PRESET ?= debug
-JOBS ?= 8
+JOBS ?= 2
 
 .PHONY: build test clean
 
