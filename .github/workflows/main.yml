@@ -14,9 +14,24 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
   test:
+    needs: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Docker testing
         uses: ./docker/nollvm/
-
+  test-compiler:
+    needs: format
+    runs-on: ubuntu-latest
+    container:
+      image: mishasychev/trombone:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Debug
+        run: |
+          make -C compiler build
+          make -C compiler test
+      - name: Test Release
+        run: |
+          make -C compiler build PRESET=release
+          make -C compiler test PRESET=release
