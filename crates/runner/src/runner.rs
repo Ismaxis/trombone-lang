@@ -6,6 +6,7 @@ use std::io::{Stdin, Stdout, Write};
 use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
+use trombone_common::bytecode::OperationStream;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
 

@@ -28,8 +28,7 @@ impl<'a> OperationStream<'a> {
         self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
     }
 
-    pub fn emit(&mut self, value: u64) {
-    }
+    pub fn emit(&mut self, value: u64) {}
 }
 
 pub struct Instruction(u64);

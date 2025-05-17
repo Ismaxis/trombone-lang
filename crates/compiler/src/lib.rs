@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use trombone_common::{bytecode::{Instruction, OperationStream}, opcode};
+use trombone_common::{
+    bytecode::{Instruction, OperationStream},
+    opcode,
+};
 
 pub enum Operation {
     Add,
@@ -30,7 +33,7 @@ enum Token {
 
 pub fn compile(s: &str) -> OperationStream<'_> {
     let ast = make_ast_tree(s);
-    
+
     let mut instructions = [0u64; 1024];
     OperationStream::new(&instructions);
 }
@@ -100,7 +103,9 @@ fn parse_param(tokens: &[Token], pos: &mut usize) -> Param {
                 *pos += 1;
                 if let Some(Token::Ident(var_name)) = tokens.get(*pos) {
                     *pos += 1;
-                    Param::Var { value: var_name.clone() }
+                    Param::Var {
+                        value: var_name.clone(),
+                    }
                 } else {
                     panic!("Expected identifier after Var");
                 }
@@ -159,7 +164,6 @@ pub fn make_ast_tree(s: &str) -> Vec<MinimalAstNode> {
         })
         .collect()
 }
-
 
 // Visitor trait defines methods for visiting nodes and parameters
 pub trait Visitor {
@@ -227,7 +231,6 @@ impl<'a> Visitor for BytecodeGenerator<'a> {
     fn visit_add(&mut self, left: &Param, right: &Param) -> Self::Output {
         left.accept(self);
         right.accept(self);
-        
     }
 
     fn visit_sub(&mut self, left: &Param, right: &Param) -> Self::Output {
@@ -263,7 +266,8 @@ impl<'a> Visitor for BytecodeGenerator<'a> {
     }
 
     fn visit_var(&mut self, name: &str) -> Self::Output {
-        let var_addr = *self.env
+        let var_addr = *self
+            .env
             .get(name)
             .unwrap_or_else(|| panic!("Undefined variable: {}", name));
         self.emit(Instruction::from_parts(opcode::OP_LOCAL_COPY, var_addr).as_u64());
