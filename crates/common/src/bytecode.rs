@@ -5,32 +5,6 @@ pub type Literal = i32;
 pub type Immediate = i32;
 pub type VariableOffset = i32;
 
-pub struct OperationStream<'a> {
-    pub instructions: &'a [u64],
-    pub instruction_pointer: usize,
-}
-
-impl<'a> OperationStream<'a> {
-    pub fn new(instructions: &'a [u64]) -> Self {
-        Self {
-            instructions,
-            instruction_pointer: 0,
-        }
-    }
-
-    pub fn next_instruction(&mut self) -> Result<Operation> {
-        let ip = self.instruction_pointer;
-        self.instruction_pointer += 1;
-        Instruction::from_u64(self.instructions[ip]).try_into()
-    }
-
-    pub fn switch_frame(&mut self, offset: i32) {
-        self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
-    }
-
-    pub fn emit(&mut self, value: u64) {}
-}
-
 pub struct Instruction(u64);
 
 impl Instruction {
