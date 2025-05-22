@@ -1,4 +1,8 @@
 #include <iostream>
+#include "antlr4-runtime.h"
+#include "antlr/TromboneBaseVisitor.h"
+#include "antlr/TromboneLexer.h"
+#include "antlr/TromboneParser.h"
 
 #include "antlr/TromboneBaseListener.h"
 #include "antlr/TromboneParser.h"

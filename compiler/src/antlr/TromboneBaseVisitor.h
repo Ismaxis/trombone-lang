@@ -1,5 +1,5 @@
 
-// Generated from antlr/Trombone.g4 by ANTLR 4.13.2
+// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -48,6 +48,9 @@ public:
   }
 
   virtual std::any visitVarDecl(TromboneParser::VarDeclContext *ctx) override {
+    auto identifier = ctx->IDENTIFIER();
+    auto name = identifier->getText();
+    std::cout << name << std::endl;
     return visitChildren(ctx);
   }
 
