@@ -383,7 +383,7 @@ mod tests {
         assert_ne!(runner.stack[runner.sp - 1], 0);
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
         assert_eq!(runner.stream.instruction_pointer, 1);
-        
+
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.sp, 0);
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);

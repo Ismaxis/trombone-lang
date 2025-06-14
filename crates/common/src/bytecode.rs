@@ -188,9 +188,15 @@ impl From<Operation> for Instruction {
             JumpIfNot { offset } => Instruction::from_parts(OP_JMP_IF_NOT, offset),
             HeapAlloc => Instruction::from_parts(OP_HEAP_ALLOC, 0),
             HeapPopPtr => Instruction::from_parts(OP_HEAP_POP_PTR, 0),
-            HeapCopyPtr { variable_offset } => Instruction::from_parts(OP_HEAP_COPY_PTR, variable_offset),
-            HeapLoad { variable_offset } => Instruction::from_parts(OP_HEAP_LOAD_PTR, variable_offset),
-            HeapStore { variable_offset } => Instruction::from_parts(OP_HEAP_STORE_PTR, variable_offset),
+            HeapCopyPtr { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_COPY_PTR, variable_offset)
+            }
+            HeapLoad { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_LOAD_PTR, variable_offset)
+            }
+            HeapStore { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_STORE_PTR, variable_offset)
+            }
         }
     }
 }
