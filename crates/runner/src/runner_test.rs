@@ -3,10 +3,28 @@ mod tests {
     use std::vec;
 
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use trombone_common::TrombValue;
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
     use trombone_common::opcode::{self};
+
+    struct MockAllocator {
+        alloc_count: AtomicUsize,
+        // TODO: track allocations and deallocations more precisely
+    }
+
+    unsafe impl GlobalAlloc for MockAllocator {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            self.alloc_count.fetch_add(1, Ordering::SeqCst);
+            unsafe { System.alloc(layout) }
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            self.alloc_count.fetch_sub(1, Ordering::SeqCst);
+            unsafe { System.dealloc(ptr, layout) }
+        }
+    }
 
     struct TestOperationStream {
         instructions: std::vec::Vec<u64>,
@@ -346,10 +364,14 @@ mod tests {
 
         stack[0] = 1; // Bytes to allocate
         instructions[0] = Instruction::from_parts(OP_HEAP_ALLOC, IGNORED).as_u64();
-        
+        instructions[1] = Instruction::from_parts(OP_HEAP_POP_PTR, IGNORED).as_u64();
+
         let stream = ArrayOperationStream::new(&instructions);
-        let mut runner = Runner::new(stream);
-        
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+        let mut runner = Runner::new_with_allocator(stream, &mock_allocator);
+
         for v in stack.iter().take(1) {
             runner.stack[runner.sp] = *v as i64;
             runner.sp += 1;
@@ -359,7 +381,13 @@ mod tests {
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.sp, 1);
         assert_ne!(runner.stack[runner.sp - 1], 0);
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
         assert_eq!(runner.stream.instruction_pointer, 1);
+        
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.sp, 0);
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+        assert_eq!(runner.stream.instruction_pointer, 2);
 
         Ok(())
     }
