@@ -1,10 +1,13 @@
 #![allow(dead_code)]
+use std::alloc::{GlobalAlloc, Layout};
 
 use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
+
+use crate::control_block::ControlBlock;
 
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
@@ -39,18 +42,30 @@ impl OperationStream for ArrayOperationStream<'_> {
     }
 }
 
-pub struct Runner<OpStream: OperationStream> {
+pub struct Runner<'alloc, OpStream: OperationStream> {
     pub stream: OpStream,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
+
+    pub allocator: &'alloc dyn GlobalAlloc,
 }
 
-impl<OpStream: OperationStream> Runner<OpStream> {
+impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
     pub fn new(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
+            allocator: &std::alloc::System,
+        }
+    }
+
+    pub fn new_with_allocator(stream: OpStream, allocator: &'alloc dyn GlobalAlloc) -> Self {
+        Self {
+            stream,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+            allocator,
         }
     }
 
@@ -116,15 +131,32 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                     return Ok(());
                 }
 
-                let ptr = Self::allocate_heap_memory(size);
+                let ptr = self.allocate_heap_memory(size);
                 if ptr.is_null() {
                     return Err("Heap allocation failed".into());
                 }
                 self.push(ptr as TrombValue);
             }
-            HeapPopPtr => todo!(),
+            HeapPopPtr => {
+                let ptr = self.pop() as *mut TrombValue;
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+                let control_block = ControlBlock::from_value_ptr(ptr);
+                if unsafe { (*control_block).ref_count() == 0 } {
+                    unsafe {
+                        self.allocator
+                            .dealloc(control_block as *mut u8, (*control_block).layout())
+                    };
+                } else {
+                    unsafe { (*control_block).decrement_ref_count() };
+                }
+            }
+            #[allow(unused_variables)]
             HeapCopyPtr { variable_offset } => todo!(),
+            #[allow(unused_variables)]
             HeapLoad { variable_offset } => todo!(),
+            #[allow(unused_variables)]
             HeapStore { variable_offset } => todo!(),
         }
         Ok(())
@@ -178,11 +210,30 @@ impl<OpStream: OperationStream> Runner<OpStream> {
         self.binary_op(|a, b| op(a, b) as TrombValue);
     }
 
-    fn allocate_heap_memory(/* use custom allocator ??? */ size: usize) -> *mut u8 {
-        let align = std::mem::align_of::<TrombValue>();
-        let layout = std::alloc::Layout::from_size_align(size, align).unwrap();
-        let ptr = unsafe { std::alloc::alloc(layout) };
-        ptr
+    fn allocate_heap_memory(&self, len: usize) -> *mut TrombValue {
+        if len == 0 {
+            return std::ptr::null_mut();
+        }
+        let (layout, _offset) = Self::control_block_layout(len);
+        let ptr = unsafe { self.allocator.alloc_zeroed(layout) };
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+
+        let ptr = unsafe { ptr.add(std::mem::offset_of!(ControlBlock<[TrombValue; 1]>, value)) };
+        // no ref_count initialization needed, ref_count is one less than the number of references
+        let control_block = ControlBlock::from_value_ptr(ptr as *const TrombValue);
+        unsafe { (*control_block).set_layout(layout) };
+        ptr as *mut TrombValue
+    }
+
+    fn control_block_layout(len: usize) -> (Layout, usize) {
+        let header = Layout::new::<usize>();
+        let layout_field = Layout::new::<Layout>();
+        let (header_layout, _layout_offset) = header.extend(layout_field).unwrap();
+
+        let array = Layout::array::<TrombValue>(len).unwrap();
+        let (full_layout, value_offset) = header_layout.extend(array).unwrap();
+        (full_layout.pad_to_align(), value_offset)
     }
 }
-
