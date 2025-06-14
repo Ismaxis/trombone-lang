@@ -336,4 +336,31 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_heap_operations() -> Result<()> {
+        use opcode::*;
+        const IGNORED: Immediate = 0x0;
+        let mut instructions = [0u64; 1024];
+        let mut stack = [0u64; 1024];
+
+        stack[0] = 1; // Bytes to allocate
+        instructions[0] = Instruction::from_parts(OP_HEAP_ALLOC, IGNORED).as_u64();
+        
+        let stream = ArrayOperationStream::new(&instructions);
+        let mut runner = Runner::new(stream);
+        
+        for v in stack.iter().take(1) {
+            runner.stack[runner.sp] = *v as i64;
+            runner.sp += 1;
+        }
+
+        // Test for heap operations
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.sp, 1);
+        assert_ne!(runner.stack[runner.sp - 1], 0);
+        assert_eq!(runner.stream.instruction_pointer, 1);
+
+        Ok(())
+    }
 }

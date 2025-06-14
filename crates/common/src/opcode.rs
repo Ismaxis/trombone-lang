@@ -60,3 +60,26 @@ pub const OP_GE: OpCode = 0xc5; // Greater than or equal
 pub const OP_JMP: OpCode = 0xd0; // Unconditional jump
 pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true
 pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false
+
+// Heap instructions
+//   63       56 55                                              0
+//   +----------+------------------------------------------------+
+//   | 0xe0-e1  |                     Unused                     |
+//   +----------+------------------------------------------------+
+// Allocates region of memory, count of TromValues popped from stack
+pub const OP_HEAP_ALLOC: OpCode = 0xe0;
+// Decrements reference count, pops pointer from stack
+pub const OP_HEAP_POP_PTR: OpCode = 0xe1;
+//   63       56 55              32 31                           0
+//   +----------+------------------+-----------------------------+
+//   |  0xe2-e4 |      Unused      |      Offset to variable     |
+//   +----------+------------------+-----------------------------+
+// `ptr` - variable by offset
+pub const OP_HEAP_COPY_PTR: OpCode = 0xe2; // Copies and pushes `ptr`, increments refcount
+// `offset` - top of stack
+// `ptr` - variable by offset
+pub const OP_HEAP_LOAD_PTR: OpCode = 0xe3; // Pushes `ptr` + `offset`, increments refcount
+// `offset` - top of stack
+// `value` - second value on stack
+// `ptr` - variable by offset
+pub const OP_HEAP_STORE_PTR: OpCode = 0xe4; // Stores `value` to `ptr` + `offset`
