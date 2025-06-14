@@ -70,6 +70,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                 let value = self.pop();
                 *self.get_variable(variable_offset) = value;
             }
+
             // Arithmetic
             Neg => self.unary_op(|a| a.wrapping_neg()),
             Not => self.unary_op(|a| !a),
@@ -106,6 +107,25 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                     self.stream.switch_frame(offset - 1);
                 }
             }
+
+            // Heap
+            HeapAlloc => {
+                let size = self.pop() as usize;
+                if size == 0 {
+                    self.push(0);
+                    return Ok(());
+                }
+
+                let ptr = Self::allocate_heap_memory(size);
+                if ptr.is_null() {
+                    return Err("Heap allocation failed".into());
+                }
+                self.push(ptr as TrombValue);
+            }
+            HeapPopPtr => todo!(),
+            HeapCopyPtr { variable_offset } => todo!(),
+            HeapLoad { variable_offset } => todo!(),
+            HeapStore { variable_offset } => todo!(),
         }
         Ok(())
     }
@@ -157,4 +177,12 @@ impl<OpStream: OperationStream> Runner<OpStream> {
     {
         self.binary_op(|a, b| op(a, b) as TrombValue);
     }
+
+    fn allocate_heap_memory(/* use custom allocator ??? */ size: usize) -> *mut u8 {
+        let align = std::mem::align_of::<TrombValue>();
+        let layout = std::alloc::Layout::from_size_align(size, align).unwrap();
+        let ptr = unsafe { std::alloc::alloc(layout) };
+        ptr
+    }
 }
+
