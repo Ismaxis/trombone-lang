@@ -142,24 +142,33 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
                 }
-                let control_block = ControlBlock::from_value_ptr(ptr);
-                if unsafe { (*control_block).ref_count() == 0 } {
+                let control_block_ptr = ControlBlock::from_value_ptr(ptr);
+                let control_block = Self::ptr_to_ref(control_block_ptr);
+                if control_block.ref_count() == 0 {
                     unsafe {
                         self.allocator
-                            .dealloc(control_block as *mut u8, (*control_block).layout())
+                            .dealloc(control_block_ptr as *mut u8, (*control_block).layout())
                     };
                 } else {
-                    unsafe { (*control_block).decrement_ref_count() };
+                    control_block.decrement_ref_count();
                 }
             }
-            #[allow(unused_variables)]
-            HeapCopyPtr { variable_offset } => todo!(),
+            HeapCopyPtr { variable_offset } => {
+                let ptr = *self.get_variable(variable_offset);
+                Self::ptr_to_ref(ControlBlock::from_value_ptr(ptr as *const TrombValue))
+                    .increment_ref_count();
+                self.push(ptr);
+            }
             #[allow(unused_variables)]
             HeapLoad { variable_offset } => todo!(),
             #[allow(unused_variables)]
             HeapStore { variable_offset } => todo!(),
         }
         Ok(())
+    }
+
+    fn ptr_to_ref<'a, T>(control_block_ptr: *mut ControlBlock<T>) -> &'a mut ControlBlock<T> {
+        unsafe { &mut *(control_block_ptr as *mut ControlBlock<T>) }
     }
 
     fn push(&mut self, value: TrombValue) {
@@ -221,8 +230,8 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
         }
 
         let ptr = unsafe { ptr.add(std::mem::offset_of!(ControlBlock<[TrombValue; 1]>, value)) };
-        // no ref_count initialization needed, ref_count is one less than the number of references
         let control_block = ControlBlock::from_value_ptr(ptr as *const TrombValue);
+        // no ref_count initialization needed, ref_count is one less than the number of references
         unsafe { (*control_block).set_layout(layout) };
         ptr as *mut TrombValue
     }
