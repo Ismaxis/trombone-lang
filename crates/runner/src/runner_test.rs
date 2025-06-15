@@ -359,31 +359,24 @@ mod tests {
     fn test_heap_operations() -> Result<()> {
         use opcode::*;
         const IGNORED: Immediate = 0x0;
-        let mut instructions = [0u64; 1024];
-        let mut stack = [0u64; 1024];
 
-        stack[0] = 1; // Bytes to allocate
-        instructions[0] = Instruction::from_parts(OP_HEAP_ALLOC, IGNORED).as_u64();
-        instructions[1] = Instruction::from_parts(OP_HEAP_POP_PTR, IGNORED).as_u64();
-
-        let stream = ArrayOperationStream::new(&instructions);
         let mock_allocator = MockAllocator {
             alloc_count: AtomicUsize::new(0),
         };
-        let mut runner = Runner::new_with_allocator(stream, &mock_allocator);
+        let mut runner = Runner::new_with_allocator(TestOperationStream::new(), &mock_allocator);
 
-        for v in stack.iter().take(1) {
-            runner.stack[runner.sp] = *v as i64;
-            runner.sp += 1;
-        }
-
-        // Test for heap operations
+        // alloc 1 TromValue
+        runner.stack[0] = 1;
+        runner.sp = 1;
+        runner.stream.emplace_instruction(OP_HEAP_ALLOC, IGNORED);
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.sp, 1);
         assert_ne!(runner.stack[runner.sp - 1], 0);
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
         assert_eq!(runner.stream.instruction_pointer, 1);
 
+        // pop and dealloc
+        runner.stream.emplace_instruction(OP_HEAP_POP_PTR, IGNORED);
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.sp, 0);
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);

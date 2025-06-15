@@ -2,7 +2,7 @@ use std::alloc::Layout;
 
 pub struct ControlBlock<T: ?Sized> {
     ref_count: usize, // stores number of references minus one
-    layout: Layout,   // layout of the control block
+    layout: Layout,   // layout of the control block to deallocate
     pub value: T,
 }
 
