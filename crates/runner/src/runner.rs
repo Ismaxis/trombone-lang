@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::alloc::{GlobalAlloc, Layout};
 
 use trombone_common::TrombValue;
@@ -159,8 +158,24 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
                     .increment_ref_count();
                 self.push(ptr);
             }
-            #[allow(unused_variables)]
-            HeapLoad { variable_offset } => todo!(),
+            HeapLoad { variable_offset } => {
+                // TODO: Maybe it is better to pass variable_offset ignoring offset values on stack?
+
+                let ptr = self.get_variable(variable_offset);
+                let ptr = *ptr as *const TrombValue;
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap load".into());
+                }
+
+                let ptr = unsafe { ptr.add(offset as usize) };
+                let value = unsafe { *ptr };
+                self.push(value);
+            }
             HeapStore { variable_offset } => {
                 // TODO: Maybe it is better to pass variable_offset ignoring offset and value values on stack?
 
