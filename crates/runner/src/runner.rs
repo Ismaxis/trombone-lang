@@ -161,8 +161,26 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
             }
             #[allow(unused_variables)]
             HeapLoad { variable_offset } => todo!(),
-            #[allow(unused_variables)]
-            HeapStore { variable_offset } => todo!(),
+            HeapStore { variable_offset } => {
+                // TODO: Maybe it is better to pass variable_offset ignoring offset and value values on stack?
+
+                let ptr = self.get_variable(variable_offset);
+                let ptr = *ptr as *mut TrombValue;
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap store".into());
+                }
+                let value = self.pop();
+
+                let ptr = unsafe { ptr.add(offset as usize) };
+                unsafe {
+                    *ptr = value;
+                }
+            }
         }
         Ok(())
     }

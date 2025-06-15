@@ -372,9 +372,17 @@ mod tests {
             unsafe { (*control_block).ref_count() }
         };
 
+        let load_values_into_stack =
+            |base: usize, values: &[TrombValue], runner: &mut Runner<TestOperationStream>| {
+                for (i, x) in values.iter().enumerate() {
+                    runner.stack[base + i] = *x;
+                    runner.sp += 1;
+                }
+            };
+
+        // ==== Test alloc and dealloc ====
         // alloc 1 TromValue
-        runner.stack[0] = 1;
-        runner.sp = 1;
+        load_values_into_stack(0, &[1], &mut runner);
         runner.stream.emplace_instruction(OP_HEAP_ALLOC, IGNORED);
         runner.evaluate_next_instruction()?;
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
@@ -390,11 +398,9 @@ mod tests {
         assert_eq!(runner.sp, 0);
         assert_eq!(runner.stream.instruction_pointer, 2);
 
+        // ==== Test copy ====
         // alloc x
-        for (i, x) in [1].iter().enumerate() {
-            runner.stack[i] = *x;
-            runner.sp += 1;
-        }
+        load_values_into_stack(0, &[1], &mut runner);
         runner.stream.emplace_instruction(OP_HEAP_ALLOC, IGNORED);
 
         // y = copy(x)
@@ -425,6 +431,45 @@ mod tests {
         assert_eq!(runner.sp, 0);
         assert_eq!(runner.stream.instruction_pointer, 6);
 
+        // ==== Test load and store ====
+
+        // alloc x
+        load_values_into_stack(0, &[4], &mut runner);
+        runner.stream.emplace_instruction(OP_HEAP_ALLOC, IGNORED);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
+        assert_eq!(runner.sp, 1);
+
+        let values = [
+            /* store 72 at offset 3 */ 72, 3, /* store 62 at offset 2 */ 62, 2,
+            /* store 52 at offset 1 */ 52, 1, /* store 42 at offset 0 */ 42, 0,
+        ];
+        load_values_into_stack(1, &values, &mut runner);
+        for i in 0..4 {
+            // [x + i] = (42 + i*10)
+            runner
+                .stream
+                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (4 - i));
+        }
+        for _ in 0..4 {
+            runner.evaluate_next_instruction()?;
+        }
+        assert_eq!(runner.sp, 1);
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 1);
+        // assert_eq!(runner.stream.instruction_pointer, 11);
+        assert_ne!(runner.stack[runner.sp - 1], 0);
+        assert_eq!(get_ref_count(runner.stack[runner.sp - 1]), 0);
+        let ptr = runner.stack[runner.sp - 1] as *mut TrombValue;
+        for i in 0..4 {
+            assert_eq!(unsafe { *ptr.add(i) }, (42 + i * 10) as TrombValue);
+        }
+
+        // drop (x)
+        runner.stream.emplace_instruction(OP_HEAP_POP_PTR, IGNORED);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+        assert_eq!(runner.sp, 0);
+ 
         // no leaks
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
         Ok(())
