@@ -161,8 +161,7 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
             HeapLoad { variable_offset } => {
                 // TODO: Maybe it is better to pass variable_offset ignoring offset values on stack?
 
-                let ptr = self.get_variable(variable_offset);
-                let ptr = *ptr as *const TrombValue;
+                let ptr = self.get_pointer_from_variable(variable_offset);
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
                 }
@@ -179,8 +178,7 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
             HeapStore { variable_offset } => {
                 // TODO: Maybe it is better to pass variable_offset ignoring offset and value values on stack?
 
-                let ptr = self.get_variable(variable_offset);
-                let ptr = *ptr as *mut TrombValue;
+                let ptr = self.get_pointer_from_variable(variable_offset);
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
                 }
@@ -200,10 +198,6 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
         Ok(())
     }
 
-    fn ptr_to_ref<'a, T>(control_block_ptr: *mut ControlBlock<T>) -> &'a mut ControlBlock<T> {
-        unsafe { &mut *(control_block_ptr as *mut ControlBlock<T>) }
-    }
-
     fn push(&mut self, value: TrombValue) {
         self.stack[self.sp] = value;
         self.sp += 1;
@@ -216,6 +210,11 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
 
     fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
         &mut self.stack[self.sp - 1 - variable as usize]
+    }
+
+    fn get_pointer_from_variable(&mut self, variable_offset: i32) -> *mut TrombValue {
+        let ptr = self.get_variable(variable_offset);
+        *ptr as *mut TrombValue
     }
 
     fn unary_op<F>(&mut self, op: F)
@@ -277,5 +276,9 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
         let array = Layout::array::<TrombValue>(len).unwrap();
         let (full_layout, value_offset) = header_layout.extend(array).unwrap();
         (full_layout.pad_to_align(), value_offset)
+    }
+
+    fn ptr_to_ref<'a, T>(control_block_ptr: *mut T) -> &'a mut T {
+        unsafe { &mut *(control_block_ptr as *mut T) }
     }
 }

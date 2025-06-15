@@ -21,21 +21,10 @@ impl<T> ControlBlock<T> {
         (value as *const u8).wrapping_sub(offset) as *mut Self
     }
 
-    #[allow(dead_code)]
-    pub fn deref(&self) -> &T {
-        &self.value
-    }
-
-    #[allow(dead_code)]
-    pub fn deref_mut(&mut self) -> &mut T {
-        &mut self.value
-    }
-
     pub fn ref_count(&self) -> usize {
         self.ref_count
     }
 
-    #[allow(dead_code)]
     pub fn increment_ref_count(&mut self) {
         self.ref_count += 1;
     }
@@ -64,11 +53,11 @@ mod tests {
     fn test_from_value_ptr() {
         let value = 42;
         let control_block = ControlBlock::new(value);
-        let ptr = control_block.deref() as *const i32;
+        let ptr = (&control_block.value) as *const i32;
         let rc_ptr = ControlBlock::from_value_ptr(ptr);
         unsafe {
             assert_eq!((*rc_ptr).ref_count(), 1);
-            assert_eq!(*(*rc_ptr).deref(), 42);
+            assert_eq!((*rc_ptr).value, 42);
         }
     }
 }
