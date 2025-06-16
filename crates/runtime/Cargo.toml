@@ -5,6 +5,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+clap = { version = "4.5.40", features = ["derive"] }
 inkwell = { version = "0.5.0", features = ["llvm18-0"] }
+byteorder = "1.5.0"
 trombone-common.workspace = true
-trombone-jit.workspace = true
+trombone-runner.workspace = true

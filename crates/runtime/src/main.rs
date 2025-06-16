@@ -1,29 +1,57 @@
 pub use trombone_common::error::{Error, Result};
-use trombone_jit::CodeGen;
 
-use inkwell::OptimizationLevel;
-use inkwell::context::Context;
+use byteorder::{ByteOrder, LittleEndian};
+use clap::Parser;
+use std::fs;
+use trombone_common::{bytecode::Instruction, opcode};
+use trombone_runner::runner::{self, ArrayOperationStream};
 
-fn main() -> Result<()> {
-    jit_example()?;
-
-    Ok(())
+/// Virtual Machine for TromboneLang bytecode
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Path to input .trbc file
+    path: String,
+    //
+    // TODO: debug flag, step by step execution
 }
 
-fn jit_example() -> Result<()> {
-    let context = Context::create();
-    let module = context.create_module("example_funcs");
-    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
+fn main() -> Result<()> {
+    let args = Args::parse();
 
-    let codegen = CodeGen::new(&context, module, context.create_builder(), execution_engine);
-    let inc = codegen
-        .jit_compile_inc()
-        .ok_or_else(|| "Unable to JIT compile `increment`".to_string())?;
+    create_bytecode_file(args.path.as_str());
 
-    unsafe {
-        let x = 42;
-        println!("inc({}) = {}", x, inc.call(x));
-        assert_eq!(inc.call(x), x + 1);
+    let raw = fs::read(args.path).expect("can't read input file");
+    assert_eq!(
+        raw.len() % 8,
+        0,
+        "len of executable should be multiple of 8 bytes"
+    );
+
+    let mut instructions = vec![0u64; raw.len() / 8];
+    LittleEndian::read_u64_into(&raw, instructions.as_mut());
+
+    let stream = /* TODO: buffered stream */ ArrayOperationStream::new(instructions.as_ref());
+    let mut runner = runner::Runner::new(stream);
+    for _ in 0..instructions.len() {
+        runner.evaluate_next_instruction()?;
     }
-    Ok(())
+    println!("Execution completed!");
+    println!("Stack: {:?}", &runner.stack[..runner.sp]);
+    return Ok(());
+}
+
+// TODO: remove
+#[allow(dead_code)]
+fn create_bytecode_file(path: &str) {
+    let mut instructions = Vec::new();
+    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 3).as_u64());
+    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 2).as_u64());
+    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 1).as_u64());
+    instructions.push(Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64());
+    instructions.push(Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64());
+
+    let mut raw = vec![0u8; instructions.len() * 8];
+    LittleEndian::write_u64_into(&instructions, raw.as_mut());
+    fs::write(path, raw).expect("can't write to file");
 }
