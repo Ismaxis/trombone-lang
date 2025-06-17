@@ -9,6 +9,5 @@ repository = "https://github.com/Ismaxis/trombone-lang"
 [workspace.dependencies]
 trombone-common = { path = "./crates/common" }
 trombone-runtime = { path = "./crates/runtime" }
-trombone-compiler = { path = "./crates/compiler" }
 trombone-jit = { path = "./crates/jit" }
 trombone-runner = { path = "./crates/runner" }
