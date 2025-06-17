@@ -4,7 +4,6 @@ pub type Offset = i32;
 pub type Literal = i32;
 pub type Immediate = i32;
 pub type VariableOffset = i32;
-pub type Pointer = *mut crate::TrombValue;
 
 pub struct Instruction(u64);
 
