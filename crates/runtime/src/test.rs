@@ -2,9 +2,9 @@
 mod test {
     use std::{cell::RefCell, rc::Rc};
 
-    use inkwell::llvm_sys::error;
     use inkwell::OptimizationLevel;
     use inkwell::context::Context;
+    use inkwell::llvm_sys::error;
 
     use rand::{Rng, SeedableRng};
     use rand_pcg::Pcg64;
