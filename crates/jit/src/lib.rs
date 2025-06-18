@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 mod errors;
 
+use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
@@ -103,7 +104,6 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
-    // Много переменных и деление на ноль
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -134,15 +134,42 @@ impl<'ctx> CodeGen<'ctx> {
 
         let fn_type = ret_type.fn_type(&[state_ptr_type.into()], false);
         let function = module.add_function(&module_name, fn_type, None);
-        let entry_block = self.context.append_basic_block(function, "entry");
-        self.builder.position_at_end(entry_block);
-
         let rsp = function.get_nth_param(0).unwrap().into_pointer_value();
 
-        let result = self.compile_operations(operations, rsp);
-        self.builder.build_return(Some(&result)).unwrap();
+        let continuous_block_operations : Vec<_> = operations.split_inclusive(|x| matches!(*x, Operation::Div | Operation::Mod)).collect();
+        let mut basic_blocks = Vec::new();
+        basic_blocks.reserve(continuous_block_operations.len() + 2); // blocks + return in case of success + return in case of fail
+        for idx in 0..(continuous_block_operations.len() + 2) {
+            basic_blocks.push(self.context.append_basic_block(function, &format!("basic_block_{}_{}", block_id, idx)))
+        }
 
-        eprintln!("{}", module.print_to_string()); // TODO: remove
+        let mut vstack = VirtualStack::new(self.context, &self.builder, rsp);
+        for (idx, ops) in continuous_block_operations.iter().enumerate() {
+            self.builder.position_at_end(basic_blocks[idx]);
+            self.compile_basic_block(ops, &mut vstack, &basic_blocks[idx+1], basic_blocks.last().unwrap());
+        }
+
+        { // success
+            self.builder.position_at_end(basic_blocks[basic_blocks.len() - 2]);
+            vstack.finalize();
+
+            let result = BasicValueEnum::PointerValue(self.ptr_with_offset(
+                vstack.get_offset(),
+                "new_stack_ptr",
+                rsp,
+            ));
+
+            self.builder.build_return(Some(&result)).unwrap();
+        }
+
+        { // fail
+            self.builder.position_at_end(basic_blocks[basic_blocks.len() - 1]);
+
+            let result = ret_type.const_null();
+
+            self.builder.build_return(Some(&result)).unwrap();
+        }
+
         function
             .verify(true)
             .then_some(())
@@ -157,20 +184,21 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn compile_operations(
-        &self,
+    fn compile_basic_block<'s>(
+        &'s self,
         operations: &[Operation],
-        stack_ptr: PointerValue<'ctx>,
-    ) -> BasicValueEnum<'ctx> {
-        let i64_type = self.context.i64_type();
-
-        let mut vstack = VirtualStack::new(self.context, &self.builder, stack_ptr);
+        vstack: &mut VirtualStack<'s>,
+        next_block: &BasicBlock,
+        error_block: &BasicBlock
+    ) 
+    // -> BasicValueEnum<'ctx> 
+    {
 
         for op in operations {
             match op {
                 // Stack operations
                 Operation::PushLiteral { value } => {
-                    vstack.push(i64_type.const_int(*value as u64, false));
+                    vstack.push(self.context.i64_type().const_int(*value as u64, false));
                 }
                 Operation::Pop => {
                     vstack.pop();
@@ -185,58 +213,51 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 // Arithmetic
-                Operation::Neg => self.unary_op(&mut vstack, Builder::build_int_neg, "neg"),
-                Operation::Not => self.unary_op(&mut vstack, Builder::build_not, "not"),
+                Operation::Neg => self.unary_op(vstack, Builder::build_int_neg, "neg"),
+                Operation::Not => self.unary_op(vstack, Builder::build_not, "not"),
 
-                Operation::Add => self.binary_op(&mut vstack, Builder::build_int_add, "add"),
-                Operation::Sub => self.binary_op(&mut vstack, Builder::build_int_sub, "sub"),
-                Operation::Mul => self.binary_op(&mut vstack, Builder::build_int_mul, "mul"),
-                Operation::Div => self.binary_op(&mut vstack, Builder::build_int_signed_div, "div"),
-                Operation::Mod => self.binary_op(&mut vstack, Builder::build_int_signed_rem, "mod"),
-                Operation::And => self.binary_op(&mut vstack, Builder::build_and, "and"),
-                Operation::Or => self.binary_op(&mut vstack, Builder::build_or, "or"),
-                Operation::Xor => self.binary_op(&mut vstack, Builder::build_xor, "xor"),
-                Operation::Lsh => self.binary_op(&mut vstack, Builder::build_left_shift, "lsh"),
+                Operation::Add => self.binary_op(vstack, Builder::build_int_add, "add"),
+                Operation::Sub => self.binary_op(vstack, Builder::build_int_sub, "sub"),
+                Operation::Mul => self.binary_op(vstack, Builder::build_int_mul, "mul"),
+                Operation::Div => {self.errorneous_binary_op(vstack, Builder::build_int_signed_div, "div", next_block, error_block); return},
+                Operation::Mod => {self.errorneous_binary_op(vstack, Builder::build_int_signed_rem, "mod", next_block, error_block); return},
+                Operation::And => self.binary_op(vstack, Builder::build_and, "and"),
+                Operation::Or => self.binary_op(vstack, Builder::build_or, "or"),
+                Operation::Xor => self.binary_op(vstack, Builder::build_xor, "xor"),
+                Operation::Lsh => self.binary_op(vstack, Builder::build_left_shift, "lsh"),
                 Operation::Rsh => self.binary_op(
-                    &mut vstack,
-                    |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, true, name), // TODO true, false? shall we need to add different rsh like in Java?
+                    vstack,
+                    |b: &Builder, lhs, rhs, name| b.build_right_shift(lhs, rhs, true, name), 
                     "rsh",
                 ),
 
                 // Comparison
                 Operation::Equal => {
-                    self.comparison(&mut vstack, IntPredicate::EQ);
+                    self.comparison(vstack, IntPredicate::EQ);
                 }
                 Operation::NotEqual => {
-                    self.comparison(&mut vstack, IntPredicate::NE);
+                    self.comparison(vstack, IntPredicate::NE);
                 }
                 Operation::LessThan => {
-                    self.comparison(&mut vstack, IntPredicate::SLT); // TODO: signed ???
+                    self.comparison(vstack, IntPredicate::SLT); 
                 }
                 Operation::GreaterThan => {
-                    self.comparison(&mut vstack, IntPredicate::SGT); // TODO: signed ???
+                    self.comparison(vstack, IntPredicate::SGT); 
                 }
                 Operation::LessThanOrEqual => {
-                    self.comparison(&mut vstack, IntPredicate::SLE); // TODO: signed ???
+                    self.comparison(vstack, IntPredicate::SLE); 
                 }
                 Operation::GreaterThanOrEqual => {
-                    self.comparison(&mut vstack, IntPredicate::SGE); // TODO: signed ???
+                    self.comparison(vstack, IntPredicate::SGE); 
                 }
 
-                // TODO: maybe break on non-supported operations
                 _ => {
                     panic!("unsupported operation");
                 }
             }
         }
 
-        vstack.finalize();
-
-        BasicValueEnum::PointerValue(self.ptr_with_offset(
-            vstack.get_offset(),
-            "new_stack_ptr",
-            stack_ptr,
-        ))
+        self.builder.build_unconditional_branch(*next_block).unwrap();
     }
 
     fn ptr_with_offset(
@@ -289,6 +310,27 @@ impl<'ctx> CodeGen<'ctx> {
     {
         let rhs = vstack.pop();
         let lhs = vstack.pop();
+        let result = op(&self.builder, lhs, rhs, binary_str).unwrap();
+        vstack.push(result);
+    }
+
+    fn errorneous_binary_op<'s, F>(&'s self, vstack: &mut VirtualStack<'s>, op: F, binary_str: &str, next_block: &BasicBlock, fail_block: &BasicBlock)
+    where
+        F: FnOnce(
+            &Builder<'s>,
+            IntValue<'s>,
+            IntValue<'s>,
+            &str,
+        ) -> Result<IntValue<'s>, BuilderError>,
+    {
+        let rhs = vstack.pop();
+        let lhs = vstack.pop();
+        let eq = self
+            .builder
+            .build_int_compare(IntPredicate::NE, rhs, self.context.i64_type().const_zero(), "cmp_result")
+            .unwrap();
+        self.builder.build_conditional_branch(eq, *next_block, *fail_block).unwrap();
+        self.builder.position_at_end(*next_block);
         let result = op(&self.builder, lhs, rhs, binary_str).unwrap();
         vstack.push(result);
     }
@@ -612,6 +654,48 @@ mod tests {
         println!("Elapsed time: {:?}", elapsed);
         assert!(elapsed.as_nanos() < 1000);
         // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
+    }
+
+    #[test]
+    fn jit_error_handling() {
+        let context = Context::create();
+        let codegen = init(&context);
+
+        let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];
+        let stack_base = stack.as_mut_ptr();
+
+        let operations = [
+            Operation::Add, 
+            Operation::Add, 
+            Operation::Div, 
+
+            Operation::Sub, 
+            Operation::Sub, 
+            Operation::Mod, 
+
+            Operation::Mul, 
+            Operation::Mul, 
+            Operation::Div, 
+        ];
+
+        let stacks: Vec<&[i64]> = vec![
+            &[1, 0, 0, 0],
+            &[0, 0, 1, 1, 0, 1, 1],
+            &[1, 0, 0, 1, 0, 1, 1, 0, 1, 1],
+        ];
+
+        for (idx, new_stack) in stacks.iter().enumerate() {
+            for (i, val) in new_stack.iter().enumerate() {
+                stack[i] = *val;
+            }
+
+            let jitted = codegen
+                .jit_compile_basic_block(idx, &operations)
+                .unwrap_or_else(|_| panic!("Failed to compile {}", idx));
+
+            let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 2)) };
+            assert_eq!(new_stack_ptr, std::ptr::null_mut());
+        }
     }
 
     fn init(context: &Context) -> CodeGen {
