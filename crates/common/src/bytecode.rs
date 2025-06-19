@@ -80,6 +80,10 @@ pub enum Operation {
     HeapCopyPtr { variable_offset: VariableOffset },
     HeapLoad { variable_offset: VariableOffset },
     HeapStore { variable_offset: VariableOffset },
+
+    // IO
+    Read,
+    Print,
 }
 
 impl TryFrom<Instruction> for Operation {
@@ -144,6 +148,12 @@ impl TryFrom<Instruction> for Operation {
                 variable_offset: value.extract_immediate(),
             },
 
+
+            // IO operations
+            OP_READ => Read,
+            OP_PRINT => Print,
+
+            // Unknown opcode
             opcode => return Err(format!("unknown opcode: {:x}", opcode).into()),
         };
         Ok(x)

@@ -83,3 +83,11 @@ pub const OP_HEAP_LOAD_PTR: OpCode = 0xe3; // Pushes `ptr` + `offset`, increment
 // `value` - second value on stack
 // `ptr` - variable by offset
 pub const OP_HEAP_STORE_PTR: OpCode = 0xe4; // Stores `value` to `ptr` + `offset`
+
+// IO instructions
+//  63       56 55                                             0
+//  +----------+-----------------------------------------------+
+//  | 0xf0-f1  |                   Unused                      |
+//  +----------+-----------------------------------------------+
+pub const OP_READ: OpCode = 0xf0; // Read next int from input stream and push to stack
+pub const OP_PRINT: OpCode = 0xf1; // Pop value from stack and print to output stream

@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_stack_operations() -> Result<()> {
-        let mut runner = Runner::new(TestOperationStream::new());
+        let mut runner = Runner::new_with_stdio(TestOperationStream::new());
 
         // let x = 42;
         runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_corner_cases_stack_operations() -> Result<()> {
-        let mut runner = Runner::new(TestOperationStream::new());
+        let mut runner = Runner::new_with_stdio(TestOperationStream::new());
 
         // let x = 42;
         runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
@@ -162,7 +162,7 @@ mod tests {
 
             let stream = ArrayOperationStream::new(&instructions);
 
-            let mut runner = Runner::new(stream);
+            let mut runner = Runner::new_with_stdio(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -208,7 +208,7 @@ mod tests {
 
             let stream = ArrayOperationStream::new(&instructions);
 
-            let mut runner = Runner::new(stream);
+            let mut runner = Runner::new_with_stdio(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -234,7 +234,7 @@ mod tests {
             instructions[2] = Instruction::from_parts(opcode, 0x0DEDBEEF).as_u64();
 
             let stream = ArrayOperationStream::new(&instructions);
-            let mut runner = Runner::new(stream);
+            let mut runner = Runner::new_with_stdio(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -285,7 +285,7 @@ mod tests {
         instructions[13] = Instruction::from_parts(opcode::OP_JMP, 11 - 13).as_u64();
 
         let stream = ArrayOperationStream::new(&instructions);
-        let mut runner = Runner::new(stream);
+        let mut runner = Runner::new_with_stdio(stream);
 
         for _ in 0..13 {
             runner.evaluate_next_instruction()?;
@@ -337,7 +337,7 @@ mod tests {
         instructions[17] = Instruction::from_parts(opcode::OP_GE, 0).as_u64(); // >=
 
         let stream = ArrayOperationStream::new(&instructions);
-        let mut runner = Runner::new(stream);
+        let mut runner = Runner::new_with_stdio(stream);
 
         for _ in 0..18 {
             runner.evaluate_next_instruction()?;
@@ -483,6 +483,26 @@ mod tests {
 
         // no leaks
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_io_instructions() -> Result<()> {
+        let input = std::io::Cursor::new("42\n".as_bytes());
+        let output = std::io::Cursor::new(Vec::new());
+        let mut runner = Runner::new(TestOperationStream::new(), input, output);
+
+        // read into x
+        runner.stream.emplace_instruction(opcode::OP_READ, 0);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.sp, 1);
+        assert_eq!(runner.stack[0], 42);
+
+        // print(x);
+        runner.stream.emplace_instruction(opcode::OP_PRINT, 0);
+        runner.evaluate_next_instruction()?;
+        assert_eq!(runner.output.into_inner(), "42\n".as_bytes());
+
         Ok(())
     }
 }

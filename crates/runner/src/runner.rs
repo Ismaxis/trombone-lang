@@ -1,5 +1,8 @@
 use std::alloc::{GlobalAlloc, Layout};
 
+use std::io::{BufRead, BufReader};
+use std::io::{Stdin, Stdout, Write};
+
 use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
@@ -41,20 +44,50 @@ impl OperationStream for ArrayOperationStream<'_> {
     }
 }
 
-pub struct Runner<'alloc, OpStream: OperationStream> {
+pub struct Runner<OpStream, IStream, OStream>
+where
+    OpStream: OperationStream,
+    IStream: BufRead,
+    OStream: Write,
+{
     pub stream: OpStream,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
 
     pub allocator: &'alloc dyn GlobalAlloc,
+
+    pub input: IStream,
+    pub output: OStream,
 }
 
-impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
-    pub fn new(stream: OpStream) -> Self {
+impl<OpStream> Runner<OpStream, BufReader<Stdin>, Stdout>
+where
+    OpStream: OperationStream,
+{
+    pub fn new_with_stdio(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
+            input: BufReader::new(std::io::stdin()),
+            output: std::io::stdout(),
+        }
+    }
+}
+
+impl<OpStream, IStream, OStream> Runner<OpStream, IStream, OStream>
+where
+    OpStream: OperationStream,
+    IStream: BufRead,
+    OStream: Write,
+{
+    pub fn new(stream: OpStream, input: IStream, output: OStream) -> Self {
+        Self {
+            stream,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+            input,
+            output,
             allocator: &std::alloc::System,
         }
     }
@@ -193,6 +226,20 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
                 unsafe {
                     *ptr = value;
                 }
+            }
+            Read => {
+                let mut line = String::new();
+                self.input.read_line(&mut line)?;
+                if let Some(value) = atoi::atoi::<TrombValue>(line.as_bytes()) {
+                    self.push(value);
+                } else {
+                    // TODO:
+                    self.output.write("parsing error\n".as_bytes())?;
+                }
+            }
+            Print => {
+                let value = self.pop();
+                self.output.write_fmt(format_args!("{}\n", value))?;
             }
         }
         Ok(())
