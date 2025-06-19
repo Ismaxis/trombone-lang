@@ -1,3 +1,5 @@
+mod test;
+
 pub use trombone_common::error::{Error, Result};
 
 use byteorder::{ByteOrder, LittleEndian};

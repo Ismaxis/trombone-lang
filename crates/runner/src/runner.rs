@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 
+use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
-
-type TrombValue = i32;
 
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
@@ -28,7 +27,7 @@ impl<'a> ArrayOperationStream<'a> {
     }
 }
 
-impl<'a> OperationStream for ArrayOperationStream<'a> {
+impl OperationStream for ArrayOperationStream<'_> {
     fn next_instruction(&mut self) -> Result<Operation> {
         let ip = self.instruction_pointer;
         self.instruction_pointer += 1;
@@ -59,47 +58,33 @@ impl<OpStream: OperationStream> Runner<OpStream> {
         use Operation::*;
         match self.stream.next_instruction()? {
             // Stack operations
-            PushLiteral { value } => self.push(value),
+            PushLiteral { value } => self.push(value as TrombValue),
             Pop => {
                 self.pop();
             }
-            LocalCopy {
-                variable_offset: variable,
-            } => {
-                let op = *self.get_variable(variable);
+            LocalCopy { variable_offset } => {
+                let op = *self.get_variable(variable_offset);
                 self.push(op);
             }
-            LocalStore {
-                variable_offset: variable,
-            } => {
+            LocalStore { variable_offset } => {
                 let value = self.pop();
-                *self.get_variable(variable) = value;
+                *self.get_variable(variable_offset) = value;
             }
             // Arithmetic
-            Neg => self.unary_op(|a| -a),
+            Neg => self.unary_op(|a| a.wrapping_neg()),
             Not => self.unary_op(|a| !a),
-            Add => self.binary_op(|a, b| a + b),
-            Sub => self.binary_op(|a, b| a - b),
-            Mul => self.binary_op(|a, b| a * b),
-            Div => self.try_binary_op(|a, b| {
-                if b == 0 {
-                    Err("Zero division encountered".into())
-                } else {
-                    Ok(a / b)
-                }
-            })?,
-            Mod => self.try_binary_op(|a, b| {
-                if b == 0 {
-                    Err("Zero division encountered".into())
-                } else {
-                    Ok(a % b)
-                }
-            })?,
+            Add => self.binary_op(|a, b| a.wrapping_add(b)),
+            Sub => self.binary_op(|a, b| a.wrapping_sub(b)),
+            Mul => self.binary_op(|a, b| a.wrapping_mul(b)),
+            Div => self
+                .try_binary_op(|a, b| a.checked_div(b).ok_or("Zero division encountered".into()))?,
+            Mod => self
+                .try_binary_op(|a, b| a.checked_rem(b).ok_or("Zero division encountered".into()))?,
             And => self.binary_op(|a, b| a & b),
             Or => self.binary_op(|a, b| a | b),
             Xor => self.binary_op(|a, b| a ^ b),
-            Lsh => self.binary_op(|a, b| a << b),
-            Rsh => self.binary_op(|a, b| a >> b),
+            Lsh => self.binary_op(|a, b| a.checked_shl(b as u32).unwrap_or(0)),
+            Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
             // Comparison
             Equal => self.comparison(|a, b| a == b),
