@@ -4,7 +4,6 @@ mod test {
 
     use inkwell::OptimizationLevel;
     use inkwell::context::Context;
-    use inkwell::llvm_sys::error;
 
     use rand::{Rng, SeedableRng};
     use rand_pcg::Pcg64;

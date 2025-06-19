@@ -619,7 +619,7 @@ mod tests {
         #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue) -> TrombValue>); 2] = [
             ("neg", Operation::Neg, Box::new(|x| -x)),
-            ("not", Operation::Not, Box::new(|x| std::ops::Not::not(x))),
+            ("not", Operation::Not, Box::new(std::ops::Not::not)),
         ];
 
         let lhs = 0;
