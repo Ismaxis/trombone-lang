@@ -1,5 +1,5 @@
 file(GLOB_RECURSE ANTLR_GEN_SOURCES "antlr/*.cpp")
-
+add_subdirectory(antlr)
 add_executable(trombone-compiler
     main.cpp
 

@@ -3,129 +3,119 @@
 
 #pragma once
 
-
-#include "antlr4-runtime.h"
 #include "TromboneVisitor.h"
-
+#include "antlr4-runtime.h"
+#include <any>
+#include <cstdint>
+#include <fstream>
+#include <unordered_map>
 
 /**
  * This class provides an empty implementation of TromboneVisitor, which can be
- * extended to create a visitor which only needs to handle a subset of the available methods.
+ * extended to create a visitor which only needs to handle a subset of the
+ * available methods.
  */
-class  TromboneBaseVisitor : public TromboneVisitor {
+class TromboneBaseVisitor : public TromboneVisitor {
 public:
+  using address_t = uint64_t;
+  enum class tromb_t { int_t, int_array_t };
 
-  virtual std::any visitProgram(TromboneParser::ProgramContext *ctx) override {
-    return visitChildren(ctx);
-  }
+  struct varMeta {
+    address_t address;
+    tromb_t type;
+    varMeta() {}
+    varMeta(address_t address, tromb_t type) : address(address), type(type) {}
+    varMeta(const varMeta &other) : address(other.address), type(other.type) {}
+    varMeta &operator=(const varMeta &other) {
+      address = other.address;
+      type = other.type;
+      return *this;
+    }
+  };
+  using opCode = uint8_t;
 
-  virtual std::any visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) override {
-    return visitChildren(ctx);
-  }
+#pragma pack(push, 1)
+  const opCode op_push = 0x01;
+  const opCode op_pop = 0x02;
+  const opCode op_local_copy = 0x03;
+  const opCode op_local_store = 0x04;
+  const opCode op_neg = 0xa0;
+  const opCode op_not = 0xa1;
+  const opCode op_add = 0xa2;
+  const opCode op_sub = 0xa3;
+  const opCode op_mul = 0xa4;
+  const opCode op_div = 0xa5;
+  const opCode op_mod = 0xa6;
+  const opCode op_and = 0xa7;
+  const opCode op_or = 0xa8;
+  const opCode op_xor = 0xa9;
+  const opCode op_lsh = 0xaa;
+  const opCode op_rsh = 0xab;
+  const opCode op_eq = 0xc0;
+  const opCode op_ne = 0xc1;
+  const opCode op_lt = 0xc2;
+  const opCode op_gt = 0xc3;
+  const opCode op_le = 0xc4;
+  const opCode op_ge = 0xc5;
+  const opCode op_jmp = 0xd0;
+  const opCode op_jmp_if = 0xd1;
+  const opCode op_jmp_if_not = 0xd2;
+  const opCode op_read = 0xf0;
+  const opCode op_write = 0xf1;
 
-  virtual std::any visitParamList(TromboneParser::ParamListContext *ctx) override {
-    return visitChildren(ctx);
-  }
+#pragma pack(pop)
 
-  virtual std::any visitParam(TromboneParser::ParamContext *ctx) override {
-    return visitChildren(ctx);
-  }
+      virtual std::any visitProgram(TromboneParser::ProgramContext * ctx)
+          override;
+  virtual std::any
+  visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) override;
+  virtual std::any
+  visitParamList(TromboneParser::ParamListContext *ctx) override;
+  virtual std::any visitParam(TromboneParser::ParamContext *ctx) override;
+  virtual std::any
+  visitReturnType(TromboneParser::ReturnTypeContext *ctx) override;
+  virtual std::any visitType(TromboneParser::TypeContext *ctx) override;
+  virtual std::any visitBlock(TromboneParser::BlockContext *ctx) override;
+  virtual std::any
+  visitStatement(TromboneParser::StatementContext *ctx) override;
+  virtual std::any visitVarDecl(TromboneParser::VarDeclContext *ctx) override;
+  virtual std::any
+  visitAssignment(TromboneParser::AssignmentContext *ctx) override;
+  virtual std::any
+  visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) override;
+  virtual std::any
+  visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) override;
+  virtual std::any
+  visitWhileStmt(TromboneParser::WhileStmtContext *ctx) override;
+  virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override;
+  virtual std::any visitFuncCall(TromboneParser::FuncCallContext *ctx) override;
+  virtual std::any visitArgList(TromboneParser::ArgListContext *ctx) override;
+  virtual std::any
+  visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) override;
+  virtual std::any
+  visitVarReference(TromboneParser::VarReferenceContext *ctx) override;
+  virtual std::any visitReadExpr(TromboneParser::ReadExprContext *ctx) override;
+  virtual std::any visitMulDiv(TromboneParser::MulDivContext *ctx) override;
+  virtual std::any visitAddSub(TromboneParser::AddSubContext *ctx) override;
+  virtual std::any visitParens(TromboneParser::ParensContext *ctx) override;
+  virtual std::any
+  visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) override;
+  virtual std::any
+  visitIntLiteral(TromboneParser::IntLiteralContext *ctx) override;
+  virtual std::any visitCompare(TromboneParser::CompareContext *ctx) override;
+  virtual std::any
+  visitPrintExpr(TromboneParser::PrintExprContext *ctx) override;
+  virtual std::any
+  visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) override;
 
-  virtual std::any visitReturnType(TromboneParser::ReturnTypeContext *ctx) override {
-    return visitChildren(ctx);
-  }
+private:
+  static inline const uint64_t reserved = 0;
+  std::ofstream bytecode{"bytecode.txt", std::ofstream::out |
+                                             std::ofstream::trunc |
+                                             std::ofstream::binary};
+  std::unordered_map<std::string, varMeta> symbolTable;
+  address_t nextAddress = 0;
 
-  virtual std::any visitType(TromboneParser::TypeContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitBlock(TromboneParser::BlockContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitStatement(TromboneParser::StatementContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitVarDecl(TromboneParser::VarDeclContext *ctx) override {
-    auto identifier = ctx->IDENTIFIER();
-    auto name = identifier->getText();
-    std::cout << name << std::endl;
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitAssignment(TromboneParser::AssignmentContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitWhileStmt(TromboneParser::WhileStmtContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitFuncCall(TromboneParser::FuncCallContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitArgList(TromboneParser::ArgListContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitVarReference(TromboneParser::VarReferenceContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitReadExpr(TromboneParser::ReadExprContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitMulDiv(TromboneParser::MulDivContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitAddSub(TromboneParser::AddSubContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitParens(TromboneParser::ParensContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitIntLiteral(TromboneParser::IntLiteralContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitCompare(TromboneParser::CompareContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitPrintExpr(TromboneParser::PrintExprContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-
+  address_t pushAddress();
+  address_t popAddress();
 };
-

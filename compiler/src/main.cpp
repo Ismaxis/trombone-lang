@@ -30,9 +30,10 @@ int main(int argc, const char* argv[]) {
   antlr4::CommonTokenStream tokens(&lexer);
   TromboneParser parser(&tokens);
 
-  antlr4::tree::ParseTree *tree = parser.program();
-  LoggableListener listener;
-  antlr4::tree::ParseTreeWalker::DEFAULT.walk(&listener, tree);
+  TromboneParser::ProgramContext *tree = parser.program();
+  TromboneBaseVisitor visitor;
+  visitor.visitProgram(tree);
+
 
   return 0;
 }

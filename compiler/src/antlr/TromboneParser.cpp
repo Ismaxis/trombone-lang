@@ -1,8 +1,8 @@
 
-// Generated from ./antlr/Trombone.g4 by ANTLR 4.13.2
+// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
 
 
-#include "TromboneListener.h"
+#include "TromboneVisitor.h"
 
 #include "TromboneParser.h"
 
@@ -205,16 +205,12 @@ size_t TromboneParser::ProgramContext::getRuleIndex() const {
   return TromboneParser::RuleProgram;
 }
 
-void TromboneParser::ProgramContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterProgram(this);
-}
 
-void TromboneParser::ProgramContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitProgram(this);
+std::any TromboneParser::ProgramContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitProgram(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ProgramContext* TromboneParser::program() {
@@ -281,16 +277,12 @@ size_t TromboneParser::FunctionDeclContext::getRuleIndex() const {
   return TromboneParser::RuleFunctionDecl;
 }
 
-void TromboneParser::FunctionDeclContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterFunctionDecl(this);
-}
 
-void TromboneParser::FunctionDeclContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitFunctionDecl(this);
+std::any TromboneParser::FunctionDeclContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitFunctionDecl(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::FunctionDeclContext* TromboneParser::functionDecl() {
@@ -363,16 +355,12 @@ size_t TromboneParser::ParamListContext::getRuleIndex() const {
   return TromboneParser::RuleParamList;
 }
 
-void TromboneParser::ParamListContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterParamList(this);
-}
 
-void TromboneParser::ParamListContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitParamList(this);
+std::any TromboneParser::ParamListContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitParamList(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ParamListContext* TromboneParser::paramList() {
@@ -433,16 +421,12 @@ size_t TromboneParser::ParamContext::getRuleIndex() const {
   return TromboneParser::RuleParam;
 }
 
-void TromboneParser::ParamContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterParam(this);
-}
 
-void TromboneParser::ParamContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitParam(this);
+std::any TromboneParser::ParamContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitParam(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ParamContext* TromboneParser::param() {
@@ -490,16 +474,12 @@ size_t TromboneParser::ReturnTypeContext::getRuleIndex() const {
   return TromboneParser::RuleReturnType;
 }
 
-void TromboneParser::ReturnTypeContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterReturnType(this);
-}
 
-void TromboneParser::ReturnTypeContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitReturnType(this);
+std::any TromboneParser::ReturnTypeContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitReturnType(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ReturnTypeContext* TromboneParser::returnType() {
@@ -541,16 +521,12 @@ size_t TromboneParser::TypeContext::getRuleIndex() const {
   return TromboneParser::RuleType;
 }
 
-void TromboneParser::TypeContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterType(this);
-}
 
-void TromboneParser::TypeContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitType(this);
+std::any TromboneParser::TypeContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitType(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::TypeContext* TromboneParser::type() {
@@ -619,16 +595,12 @@ size_t TromboneParser::BlockContext::getRuleIndex() const {
   return TromboneParser::RuleBlock;
 }
 
-void TromboneParser::BlockContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterBlock(this);
-}
 
-void TromboneParser::BlockContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitBlock(this);
+std::any TromboneParser::BlockContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitBlock(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::BlockContext* TromboneParser::block() {
@@ -710,16 +682,12 @@ size_t TromboneParser::StatementContext::getRuleIndex() const {
   return TromboneParser::RuleStatement;
 }
 
-void TromboneParser::StatementContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterStatement(this);
-}
 
-void TromboneParser::StatementContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitStatement(this);
+std::any TromboneParser::StatementContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitStatement(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::StatementContext* TromboneParser::statement() {
@@ -833,16 +801,12 @@ size_t TromboneParser::VarDeclContext::getRuleIndex() const {
   return TromboneParser::RuleVarDecl;
 }
 
-void TromboneParser::VarDeclContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterVarDecl(this);
-}
 
-void TromboneParser::VarDeclContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitVarDecl(this);
+std::any TromboneParser::VarDeclContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitVarDecl(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::VarDeclContext* TromboneParser::varDecl() {
@@ -900,16 +864,12 @@ size_t TromboneParser::AssignmentContext::getRuleIndex() const {
   return TromboneParser::RuleAssignment;
 }
 
-void TromboneParser::AssignmentContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterAssignment(this);
-}
 
-void TromboneParser::AssignmentContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitAssignment(this);
+std::any TromboneParser::AssignmentContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitAssignment(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::AssignmentContext* TromboneParser::assignment() {
@@ -965,16 +925,12 @@ size_t TromboneParser::ArrayAssignmentContext::getRuleIndex() const {
   return TromboneParser::RuleArrayAssignment;
 }
 
-void TromboneParser::ArrayAssignmentContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterArrayAssignment(this);
-}
 
-void TromboneParser::ArrayAssignmentContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitArrayAssignment(this);
+std::any TromboneParser::ArrayAssignmentContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitArrayAssignment(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ArrayAssignmentContext* TromboneParser::arrayAssignment() {
@@ -1028,16 +984,12 @@ size_t TromboneParser::ReturnStmtContext::getRuleIndex() const {
   return TromboneParser::RuleReturnStmt;
 }
 
-void TromboneParser::ReturnStmtContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterReturnStmt(this);
-}
 
-void TromboneParser::ReturnStmtContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitReturnStmt(this);
+std::any TromboneParser::ReturnStmtContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitReturnStmt(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ReturnStmtContext* TromboneParser::returnStmt() {
@@ -1087,16 +1039,12 @@ size_t TromboneParser::WhileStmtContext::getRuleIndex() const {
   return TromboneParser::RuleWhileStmt;
 }
 
-void TromboneParser::WhileStmtContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterWhileStmt(this);
-}
 
-void TromboneParser::WhileStmtContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitWhileStmt(this);
+std::any TromboneParser::WhileStmtContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitWhileStmt(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::WhileStmtContext* TromboneParser::whileStmt() {
@@ -1156,16 +1104,12 @@ size_t TromboneParser::IfStmtContext::getRuleIndex() const {
   return TromboneParser::RuleIfStmt;
 }
 
-void TromboneParser::IfStmtContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterIfStmt(this);
-}
 
-void TromboneParser::IfStmtContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitIfStmt(this);
+std::any TromboneParser::IfStmtContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitIfStmt(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::IfStmtContext* TromboneParser::ifStmt() {
@@ -1247,16 +1191,12 @@ size_t TromboneParser::FuncCallContext::getRuleIndex() const {
   return TromboneParser::RuleFuncCall;
 }
 
-void TromboneParser::FuncCallContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterFuncCall(this);
-}
 
-void TromboneParser::FuncCallContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitFuncCall(this);
+std::any TromboneParser::FuncCallContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitFuncCall(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::FuncCallContext* TromboneParser::funcCall() {
@@ -1318,16 +1258,12 @@ size_t TromboneParser::ArgListContext::getRuleIndex() const {
   return TromboneParser::RuleArgList;
 }
 
-void TromboneParser::ArgListContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterArgList(this);
-}
 
-void TromboneParser::ArgListContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitArgList(this);
+std::any TromboneParser::ArgListContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitArgList(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ArgListContext* TromboneParser::argList() {
@@ -1396,15 +1332,12 @@ TromboneParser::ExprContext* TromboneParser::ArrayAccessContext::expr() {
 
 TromboneParser::ArrayAccessContext::ArrayAccessContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::ArrayAccessContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterArrayAccess(this);
-}
-void TromboneParser::ArrayAccessContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitArrayAccess(this);
+
+std::any TromboneParser::ArrayAccessContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitArrayAccess(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- VarReferenceContext ------------------------------------------------------------------
 
@@ -1414,29 +1347,23 @@ tree::TerminalNode* TromboneParser::VarReferenceContext::IDENTIFIER() {
 
 TromboneParser::VarReferenceContext::VarReferenceContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::VarReferenceContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterVarReference(this);
-}
-void TromboneParser::VarReferenceContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitVarReference(this);
+
+std::any TromboneParser::VarReferenceContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitVarReference(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- ReadExprContext ------------------------------------------------------------------
 
 TromboneParser::ReadExprContext::ReadExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::ReadExprContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterReadExpr(this);
-}
-void TromboneParser::ReadExprContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitReadExpr(this);
+
+std::any TromboneParser::ReadExprContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitReadExpr(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- MulDivContext ------------------------------------------------------------------
 
@@ -1450,15 +1377,12 @@ TromboneParser::ExprContext* TromboneParser::MulDivContext::expr(size_t i) {
 
 TromboneParser::MulDivContext::MulDivContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::MulDivContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterMulDiv(this);
-}
-void TromboneParser::MulDivContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitMulDiv(this);
+
+std::any TromboneParser::MulDivContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitMulDiv(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- AddSubContext ------------------------------------------------------------------
 
@@ -1472,15 +1396,12 @@ TromboneParser::ExprContext* TromboneParser::AddSubContext::expr(size_t i) {
 
 TromboneParser::AddSubContext::AddSubContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::AddSubContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterAddSub(this);
-}
-void TromboneParser::AddSubContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitAddSub(this);
+
+std::any TromboneParser::AddSubContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitAddSub(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- ParensContext ------------------------------------------------------------------
 
@@ -1490,15 +1411,12 @@ TromboneParser::ExprContext* TromboneParser::ParensContext::expr() {
 
 TromboneParser::ParensContext::ParensContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::ParensContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterParens(this);
-}
-void TromboneParser::ParensContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitParens(this);
+
+std::any TromboneParser::ParensContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitParens(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- ArrayCreateContext ------------------------------------------------------------------
 
@@ -1512,15 +1430,12 @@ TromboneParser::ExprContext* TromboneParser::ArrayCreateContext::expr(size_t i) 
 
 TromboneParser::ArrayCreateContext::ArrayCreateContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::ArrayCreateContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterArrayCreate(this);
-}
-void TromboneParser::ArrayCreateContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitArrayCreate(this);
+
+std::any TromboneParser::ArrayCreateContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitArrayCreate(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- IntLiteralContext ------------------------------------------------------------------
 
@@ -1530,15 +1445,12 @@ tree::TerminalNode* TromboneParser::IntLiteralContext::NUMBER() {
 
 TromboneParser::IntLiteralContext::IntLiteralContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::IntLiteralContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterIntLiteral(this);
-}
-void TromboneParser::IntLiteralContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitIntLiteral(this);
+
+std::any TromboneParser::IntLiteralContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitIntLiteral(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- CompareContext ------------------------------------------------------------------
 
@@ -1552,15 +1464,12 @@ TromboneParser::ExprContext* TromboneParser::CompareContext::expr(size_t i) {
 
 TromboneParser::CompareContext::CompareContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::CompareContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterCompare(this);
-}
-void TromboneParser::CompareContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitCompare(this);
+
+std::any TromboneParser::CompareContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitCompare(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- PrintExprContext ------------------------------------------------------------------
 
@@ -1570,15 +1479,12 @@ TromboneParser::ExprContext* TromboneParser::PrintExprContext::expr() {
 
 TromboneParser::PrintExprContext::PrintExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::PrintExprContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterPrintExpr(this);
-}
-void TromboneParser::PrintExprContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitPrintExpr(this);
+
+std::any TromboneParser::PrintExprContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitPrintExpr(this);
+  else
+    return visitor->visitChildren(this);
 }
 //----------------- FuncCallExprContext ------------------------------------------------------------------
 
@@ -1588,15 +1494,12 @@ TromboneParser::FuncCallContext* TromboneParser::FuncCallExprContext::funcCall()
 
 TromboneParser::FuncCallExprContext::FuncCallExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
-void TromboneParser::FuncCallExprContext::enterRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->enterFuncCallExpr(this);
-}
-void TromboneParser::FuncCallExprContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<TromboneListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitFuncCallExpr(this);
+
+std::any TromboneParser::FuncCallExprContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitFuncCallExpr(this);
+  else
+    return visitor->visitChildren(this);
 }
 
 TromboneParser::ExprContext* TromboneParser::expr() {
