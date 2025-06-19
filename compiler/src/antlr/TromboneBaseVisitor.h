@@ -61,7 +61,7 @@ public:
   const opCode op_jmp_if = 0xd1;
   const opCode op_jmp_if_not = 0xd2;
   const opCode op_read = 0xf0;
-  const opCode op_write = 0xf1;
+  const opCode op_print = 0xf1;
 
 #pragma pack(pop)
 

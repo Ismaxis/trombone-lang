@@ -1,11 +1,4 @@
 fn main() {
     let i: int = 0;
-    if (i == 0) {
 
-    } else if (i > 0) {
-
-    } else {
-
-    }
-    let j: int = i + 1;
 }
