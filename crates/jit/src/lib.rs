@@ -140,8 +140,9 @@ impl<'ctx> CodeGen<'ctx> {
             .split_inclusive(|x| matches!(*x, Operation::Div | Operation::Mod))
             .collect();
         let mut basic_blocks = Vec::new();
-        basic_blocks.reserve(continuous_block_operations.len() + 2); // blocks + return in case of success + return in case of fail
-        for idx in 0..(continuous_block_operations.len() + 2) {
+        let block_count = continuous_block_operations.len() + 2; // blocks + return in case of success + return in case of fail
+        basic_blocks.reserve(block_count);
+        for idx in 0..(block_count) {
             basic_blocks.push(
                 self.context
                     .append_basic_block(function, &format!("basic_block_{}_{}", block_id, idx)),
@@ -703,7 +704,7 @@ mod tests {
     }
 
     #[test]
-    fn jit_error_handling() {
+    fn test_jit_error_handling() {
         let context = Context::create();
         let codegen = init(&context);
 
