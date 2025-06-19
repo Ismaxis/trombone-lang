@@ -725,7 +725,7 @@ mod tests {
 
         let stacks: Vec<&[i64]> = vec![
             &[1, 0, 0, 0],
-            &[0, 0, 1, 1, 0, 1, 1],
+            &[1, 0, 0, 1, 0, 1, 1],
             &[1, 0, 0, 1, 0, 1, 1, 0, 1, 1],
         ];
 
@@ -735,11 +735,15 @@ mod tests {
             }
 
             let jitted = codegen
-                .jit_compile_basic_block(idx, &operations)
+                .jit_compile_basic_block(
+                    idx,
+                    &operations[..std::cmp::min(idx * 3 + 4, operations.len())],
+                )
                 .unwrap_or_else(|_| panic!("Failed to compile {}", idx));
 
-            let new_stack_ptr = unsafe { jitted.call(offset_ptr(stack_base, 2)) };
-            assert_eq!(new_stack_ptr, std::ptr::null_mut());
+            let new_stack_ptr =
+                unsafe { jitted.call(offset_ptr(stack_base, new_stack.len() as i64)) };
+            assert_eq!(new_stack_ptr, std::ptr::null_mut(), "test {}", idx);
         }
     }
 
