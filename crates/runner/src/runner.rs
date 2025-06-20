@@ -1,5 +1,8 @@
 use std::alloc::{GlobalAlloc, Layout};
 
+use std::io::{BufRead, BufReader};
+use std::io::{Stdin, Stdout, Write};
+
 use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
@@ -41,29 +44,68 @@ impl OperationStream for ArrayOperationStream<'_> {
     }
 }
 
-pub struct Runner<'alloc, OpStream: OperationStream> {
+pub struct Runner<'alloc, OpStream, IStream, OStream>
+where
+    OpStream: OperationStream,
+    IStream: BufRead,
+    OStream: Write,
+{
     pub stream: OpStream,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
 
     pub allocator: &'alloc dyn GlobalAlloc,
+
+    pub input: IStream,
+    pub output: OStream,
 }
 
-impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
-    pub fn new(stream: OpStream) -> Self {
+impl<'alloc, OpStream> Runner<'alloc, OpStream, BufReader<Stdin>, Stdout>
+where
+    OpStream: OperationStream,
+{
+    pub fn new_with_defaults(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
+            input: BufReader::new(std::io::stdin()),
+            output: std::io::stdout(),
             allocator: &std::alloc::System,
         }
     }
 
-    pub fn new_with_allocator(stream: OpStream, allocator: &'alloc dyn GlobalAlloc) -> Self {
+    pub fn default_allocator() -> &'alloc dyn GlobalAlloc {
+        &std::alloc::System
+    }
+
+    pub fn default_input() -> BufReader<Stdin> {
+        BufReader::new(std::io::stdin())
+    }
+
+    pub fn default_output() -> Stdout {
+        std::io::stdout()
+    }
+}
+
+impl<'alloc, OpStream, IStream, OStream> Runner<'alloc, OpStream, IStream, OStream>
+where
+    OpStream: OperationStream,
+    IStream: BufRead,
+    OStream: Write,
+{
+    pub fn new(
+        stream: OpStream,
+        input: IStream,
+        output: OStream,
+        allocator: &'alloc dyn GlobalAlloc,
+    ) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
+            input,
+            output,
             allocator,
         }
     }
@@ -194,6 +236,20 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
                     *ptr = value;
                 }
             }
+            Read => {
+                let mut line = String::new();
+                self.input.read_line(&mut line)?;
+                if let Some(value) = atoi::atoi::<TrombValue>(line.as_bytes()) {
+                    self.push(value);
+                } else {
+                    // TODO:
+                    let _ = self.output.write("parsing error\n".as_bytes())?;
+                }
+            }
+            Print => {
+                let value = self.pop();
+                self.output.write_fmt(format_args!("{}\n", value))?;
+            }
         }
         Ok(())
     }
@@ -279,6 +335,6 @@ impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
     }
 
     fn ptr_to_ref<'a, T>(control_block_ptr: *mut T) -> &'a mut T {
-        unsafe { &mut *(control_block_ptr as *mut T) }
+        unsafe { &mut *control_block_ptr }
     }
 }
