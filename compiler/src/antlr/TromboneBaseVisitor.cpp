@@ -12,18 +12,22 @@ std::any TromboneBaseVisitor::visitProgram(TromboneParser::ProgramContext *ctx) 
 }
 
 std::any TromboneBaseVisitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
+    //TODO: implement
     return visitChildren(ctx);
 }
 
 std::any TromboneBaseVisitor::visitParamList(TromboneParser::ParamListContext *ctx) {
+    //TODO: implement
     return visitChildren(ctx);
 }
 
 std::any TromboneBaseVisitor::visitParam(TromboneParser::ParamContext *ctx) {
+    //TODO: implement
     return visitChildren(ctx);
 }
 
 std::any TromboneBaseVisitor::visitReturnType(TromboneParser::ReturnTypeContext *ctx) {
+    //TODO: implement
     return visitChildren(ctx);
 }
 
@@ -81,11 +85,13 @@ std::any TromboneBaseVisitor::visitAssignment(TromboneParser::AssignmentContext 
 }
 
 std::any TromboneBaseVisitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
 
 std::any TromboneBaseVisitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
@@ -114,31 +120,55 @@ std::any TromboneBaseVisitor::visitWhileStmt(TromboneParser::WhileStmtContext *c
 
 std::any TromboneBaseVisitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
     auto conditions = ctx->expr();
+    std::vector<std::size_t> condition_locations;
     for (auto condition : conditions) {
         condition->accept(this);
-        bytecode.write((const char*)&reserved, 4); //TODO: block label
+        condition_locations.push_back(bytecode.tellp());
+        bytecode.write((const char*)&reserved, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_jmp_if, 1);
         popAddress();
     }
+    std::vector<std::size_t> block_locations;
     for (auto block : ctx->block()) {
+        std::size_t block_start = bytecode.tellp();
         block->accept(this);
-        //TODO: block label
+        if (block_locations.size() == condition_locations.size()) {
+            //else block logic
+            break;
+        }
+        std::size_t block_end = bytecode.tellp();
+        block_locations.push_back(block_end);
+        bytecode.seekp(condition_locations[block_locations.size()]);
+
+        bytecode.write((const char*)&reserved, 4);
+        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&op_jmp, 1);
     }
+    std::size_t current_location = bytecode.tellp();
+    for (auto location : block_locations) {
+        bytecode.seekp(location);
+        int32_t address = (current_location - location) / 8;
+        bytecode.write((const char*)&address, 4);
+    }
+    bytecode.seekp(current_location);
     return std::any();
 }
 
 std::any TromboneBaseVisitor::visitFuncCall(TromboneParser::FuncCallContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
 
 std::any TromboneBaseVisitor::visitArgList(TromboneParser::ArgListContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
 
 std::any TromboneBaseVisitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
@@ -205,6 +235,7 @@ std::any TromboneBaseVisitor::visitParens(TromboneParser::ParensContext *ctx) {
 }
 
 std::any TromboneBaseVisitor::visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
@@ -250,6 +281,7 @@ std::any TromboneBaseVisitor::visitPrintExpr(TromboneParser::PrintExprContext *c
 }
 
 std::any TromboneBaseVisitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
+    //TODO: implement
     throw std::runtime_error("Not implemented");
     return std::any();
 }
