@@ -21,8 +21,6 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    create_bytecode_file(args.path.as_str());
-
     let raw = fs::read(args.path).expect("can't read input file");
     assert_eq!(
         raw.len() % 8,
@@ -43,15 +41,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// TODO: remove
 #[allow(dead_code)]
 fn create_bytecode_file(path: &str) {
-    let mut instructions = Vec::new();
-    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 3).as_u64());
-    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 2).as_u64());
-    instructions.push(Instruction::from_parts(opcode::OP_PUSH, 1).as_u64());
-    instructions.push(Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64());
-    instructions.push(Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64());
+    let instructions = vec![
+        Instruction::from_parts(opcode::OP_PUSH, 3).as_u64(),
+        Instruction::from_parts(opcode::OP_PUSH, 2).as_u64(),
+        Instruction::from_parts(opcode::OP_PUSH, 1).as_u64(),
+        Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64(),
+        Instruction::from_parts(opcode::OP_ADD, 0x0).as_u64(),
+    ];
 
     let mut raw = vec![0u8; instructions.len() * 8];
     LittleEndian::write_u64_into(&instructions, raw.as_mut());

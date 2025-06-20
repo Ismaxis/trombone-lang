@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod test {
+mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use inkwell::OptimizationLevel;
@@ -51,7 +51,7 @@ mod test {
         gener: &Rc<RefCell<Pcg64>>,
     ) -> Box<Generator> {
         let new_gener = gener.clone();
-        Box::new(move |_| val_creator(new_gener.borrow_mut().random::<i32>().try_into().unwrap()))
+        Box::new(move |_| val_creator(new_gener.borrow_mut().random::<i32>()))
     }
 
     /**
@@ -158,11 +158,10 @@ mod test {
         for iter in 0..ITERATIONS {
             // TODO: need more flexible test infrastructure
             let mut operations_as_u64 = [0; DEPTH];
-            let mut operations_as_operations = Vec::new();
-            operations_as_operations.reserve(DEPTH);
+            let mut operations_as_operations = Vec::with_capacity(DEPTH);
 
             let mut stack_size: usize = 0;
-            for idx in 0..DEPTH {
+            for item in operations_as_u64.iter_mut().take(DEPTH) {
                 let possible_operations: Vec<&OperationGenerator> = operations
                     .iter()
                     .filter(|x| x.pred.as_ref()(stack_size).is_some())
@@ -175,7 +174,7 @@ mod test {
                     picked_instruction.gener.as_ref()(stack_size),
                 );
                 operations_as_operations.push(operation);
-                operations_as_u64[idx] = Into::<Instruction>::into(operation).as_u64();
+                *item = Into::<Instruction>::into(operation).as_u64();
 
                 stack_size = (stack_size as isize + stack_diff) as usize;
             }

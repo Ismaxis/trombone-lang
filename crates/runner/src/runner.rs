@@ -243,7 +243,7 @@ where
                     self.push(value);
                 } else {
                     // TODO:
-                    self.output.write("parsing error\n".as_bytes())?;
+                    let _ = self.output.write("parsing error\n".as_bytes())?;
                 }
             }
             Print => {
@@ -335,6 +335,6 @@ where
     }
 
     fn ptr_to_ref<'a, T>(control_block_ptr: *mut T) -> &'a mut T {
-        unsafe { &mut *(control_block_ptr as *mut T) }
+        unsafe { &mut *control_block_ptr }
     }
 }
