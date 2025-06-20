@@ -16,6 +16,8 @@ const STACK_SIZE: usize = 1024; // maybe should get it from environment, default
 pub trait OperationStream {
     fn next_instruction(&mut self) -> Result<Operation>;
     fn switch_frame(&mut self, offset: i32);
+    fn get_instruction_pointer(&self) -> usize;
+    fn get_instructions_len(&self) -> usize;
 }
 
 pub struct ArrayOperationStream<'a> {
@@ -41,6 +43,14 @@ impl OperationStream for ArrayOperationStream<'_> {
 
     fn switch_frame(&mut self, offset: i32) {
         self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
+    }
+
+    fn get_instruction_pointer(&self) -> usize {
+        self.instruction_pointer
+    }
+
+    fn get_instructions_len(&self) -> usize {
+        self.instructions.len()
     }
 }
 
@@ -254,6 +264,16 @@ where
         Ok(())
     }
 
+    pub fn evaluate(&mut self) -> Result<()> {
+        while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
+            println!("IP: {}", self.stream.get_instruction_pointer());
+            self.evaluate_next_instruction()?;
+        }
+        println!("IP: {}", self.stream.get_instruction_pointer());
+
+        Ok(())
+    }
+
     fn push(&mut self, value: TrombValue) {
         self.stack[self.sp] = value;
         self.sp += 1;
@@ -265,7 +285,7 @@ where
     }
 
     fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
-        &mut self.stack[self.sp - 1 - variable as usize]
+        &mut self.stack[self.sp - variable as usize]
     }
 
     fn get_pointer_from_variable(&mut self, variable_offset: i32) -> *mut TrombValue {
