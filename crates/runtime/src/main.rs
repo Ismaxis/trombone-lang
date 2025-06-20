@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     }
     println!("Execution completed!");
     println!("Stack: {:?}", &runner.stack[..runner.sp]);
-    return Ok(());
+    Ok(())
 }
 
 // TODO: remove

@@ -143,7 +143,7 @@ mod tests {
         #[rustfmt::skip]
         #[allow(clippy::type_complexity)]
         let tests: [(_, _, Box<dyn Fn(TrombValue) -> TrombValue>); 2] = [
-            (Operation::Neg, opcode::OP_NEG, Box::new(|x| -(x as i64) as TrombValue)),
+            (Operation::Neg, opcode::OP_NEG, Box::new(|x| -{ x } as TrombValue)),
             (Operation::Not, opcode::OP_NOT, Box::new(|x| !x)),
         ];
 
