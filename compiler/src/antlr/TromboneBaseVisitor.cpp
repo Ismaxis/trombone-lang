@@ -124,31 +124,47 @@ std::any TromboneBaseVisitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
     for (auto condition : conditions) {
         condition->accept(this);
         condition_locations.push_back(bytecode.tellp());
-        bytecode.write((const char*)&reserved, 4);
-        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&reserved, 7);
         bytecode.write((const char*)&op_jmp_if, 1);
         popAddress();
     }
+    bytecode.write((const char*)&reserved, 7);
+    bytecode.write((const char*)&op_jmp, 1);
     std::vector<std::size_t> block_locations;
     for (auto block : ctx->block()) {
         std::size_t block_start = bytecode.tellp();
         block->accept(this);
-        if (block_locations.size() == condition_locations.size()) {
-            //else block logic
-            break;
-        }
         std::size_t block_end = bytecode.tellp();
         block_locations.push_back(block_end);
-        bytecode.seekp(condition_locations[block_locations.size()]);
-
-        bytecode.write((const char*)&reserved, 4);
-        bytecode.write((const char*)&reserved, 3);
+        if (block_locations.size() > condition_locations.size()) {
+            //else
+            std::size_t else_location = condition_locations.back() + 8;
+            bytecode.seekp(else_location);
+            int32_t address = (block_start - else_location) / 8;
+            bytecode.write((const char*)&address, 4);
+            bytecode.seekp(block_end);
+            break;
+        }
+        std::size_t condition_location = condition_locations[block_locations.size() - 1];
+        bytecode.seekp(condition_location);
+        int32_t address = (block_start - condition_location) / 8;
+        bytecode.write((const char*)&address, 4);
+        bytecode.seekp(block_end);
+        
+        bytecode.write((const char*)&reserved, 7);
         bytecode.write((const char*)&op_jmp, 1);
     }
     std::size_t current_location = bytecode.tellp();
-    for (auto location : block_locations) {
-        bytecode.seekp(location);
-        int32_t address = (current_location - location) / 8;
+    if (block_locations.size() == condition_locations.size()) {
+        //no else
+        std::size_t if_end_location = condition_locations.back() + 8;
+        bytecode.seekp(if_end_location);
+        int32_t address = (current_location - if_end_location) / 8;
+        bytecode.write((const char*)&address, 4);
+    }
+    for (std::size_t i = 0; i < condition_locations.size(); ++i) {
+        bytecode.seekp(block_locations[i]);
+        int32_t address = (current_location - block_locations[i]) / 8;
         bytecode.write((const char*)&address, 4);
     }
     bytecode.seekp(current_location);

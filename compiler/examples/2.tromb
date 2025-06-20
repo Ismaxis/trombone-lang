@@ -8,10 +8,21 @@ fn main() {
     }
     if (i == 1) {
         j = 4;
+    } else {
+        j = 3;
     }
     if (i > 1) {
-        j = 3;
+        i = 3;
     } else {
-        i = 5;
+        i = 2;
     }
+    let k: int = 0;
+    if (i == 3) {
+        k = 1;
+    } else if (i == 2) {
+        k = 2;
+    } else {
+        k = 3;
+    }
+
 }
