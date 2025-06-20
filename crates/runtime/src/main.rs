@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     LittleEndian::read_u64_into(&raw, instructions.as_mut());
 
     let stream = /* TODO: buffered stream */ ArrayOperationStream::new(instructions.as_ref());
-    let mut runner = runner::Runner::new(stream);
+    let mut runner = runner::Runner::new_with_defaults(stream);
     for _ in 0..instructions.len() {
         runner.evaluate_next_instruction()?;
     }

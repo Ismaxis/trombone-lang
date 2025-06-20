@@ -44,7 +44,7 @@ impl OperationStream for ArrayOperationStream<'_> {
     }
 }
 
-pub struct Runner<OpStream, IStream, OStream>
+pub struct Runner<'alloc, OpStream, IStream, OStream>
 where
     OpStream: OperationStream,
     IStream: BufRead,
@@ -60,43 +60,52 @@ where
     pub output: OStream,
 }
 
-impl<OpStream> Runner<OpStream, BufReader<Stdin>, Stdout>
+impl<'alloc, OpStream> Runner<'alloc, OpStream, BufReader<Stdin>, Stdout>
 where
     OpStream: OperationStream,
 {
-    pub fn new_with_stdio(stream: OpStream) -> Self {
+    pub fn new_with_defaults(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
             input: BufReader::new(std::io::stdin()),
             output: std::io::stdout(),
+            allocator: &std::alloc::System,
         }
+    }
+
+    pub fn default_allocator() -> &'alloc dyn GlobalAlloc {
+        &std::alloc::System
+    }
+
+    pub fn default_input() -> BufReader<Stdin> {
+        BufReader::new(std::io::stdin())
+    }
+
+    pub fn default_output() -> Stdout {
+        std::io::stdout()
     }
 }
 
-impl<OpStream, IStream, OStream> Runner<OpStream, IStream, OStream>
+impl<'alloc, OpStream, IStream, OStream> Runner<'alloc, OpStream, IStream, OStream>
 where
     OpStream: OperationStream,
     IStream: BufRead,
     OStream: Write,
 {
-    pub fn new(stream: OpStream, input: IStream, output: OStream) -> Self {
+    pub fn new(
+        stream: OpStream,
+        input: IStream,
+        output: OStream,
+        allocator: &'alloc dyn GlobalAlloc,
+    ) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
             input,
             output,
-            allocator: &std::alloc::System,
-        }
-    }
-
-    pub fn new_with_allocator(stream: OpStream, allocator: &'alloc dyn GlobalAlloc) -> Self {
-        Self {
-            stream,
-            stack: [0; STACK_SIZE],
-            sp: 0,
             allocator,
         }
     }

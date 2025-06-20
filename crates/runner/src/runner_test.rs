@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_stack_operations() -> Result<()> {
-        let mut runner = Runner::new_with_stdio(TestOperationStream::new());
+        let mut runner = Runner::new_with_defaults(TestOperationStream::new());
 
         // let x = 42;
         runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_corner_cases_stack_operations() -> Result<()> {
-        let mut runner = Runner::new_with_stdio(TestOperationStream::new());
+        let mut runner = Runner::new_with_defaults(TestOperationStream::new());
 
         // let x = 42;
         runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
@@ -162,7 +162,7 @@ mod tests {
 
             let stream = ArrayOperationStream::new(&instructions);
 
-            let mut runner = Runner::new_with_stdio(stream);
+            let mut runner = Runner::new_with_defaults(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -208,7 +208,7 @@ mod tests {
 
             let stream = ArrayOperationStream::new(&instructions);
 
-            let mut runner = Runner::new_with_stdio(stream);
+            let mut runner = Runner::new_with_defaults(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -234,7 +234,7 @@ mod tests {
             instructions[2] = Instruction::from_parts(opcode, 0x0DEDBEEF).as_u64();
 
             let stream = ArrayOperationStream::new(&instructions);
-            let mut runner = Runner::new_with_stdio(stream);
+            let mut runner = Runner::new_with_defaults(stream);
 
             runner.evaluate_next_instruction()?;
             runner.evaluate_next_instruction()?;
@@ -285,7 +285,7 @@ mod tests {
         instructions[13] = Instruction::from_parts(opcode::OP_JMP, 11 - 13).as_u64();
 
         let stream = ArrayOperationStream::new(&instructions);
-        let mut runner = Runner::new_with_stdio(stream);
+        let mut runner = Runner::new_with_defaults(stream);
 
         for _ in 0..13 {
             runner.evaluate_next_instruction()?;
@@ -337,7 +337,7 @@ mod tests {
         instructions[17] = Instruction::from_parts(opcode::OP_GE, 0).as_u64(); // >=
 
         let stream = ArrayOperationStream::new(&instructions);
-        let mut runner = Runner::new_with_stdio(stream);
+        let mut runner = Runner::new_with_defaults(stream);
 
         for _ in 0..18 {
             runner.evaluate_next_instruction()?;
@@ -356,6 +356,9 @@ mod tests {
         Ok(())
     }
 
+    type RunnerType<'a> =
+        Runner<'a, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
+
     #[test]
     fn test_heap_operations() -> Result<()> {
         use opcode::*;
@@ -364,7 +367,13 @@ mod tests {
         let mock_allocator = MockAllocator {
             alloc_count: AtomicUsize::new(0),
         };
-        let mut runner = Runner::new_with_allocator(TestOperationStream::new(), &mock_allocator);
+
+        let mut runner = Runner::new(
+            TestOperationStream::new(),
+            RunnerType::default_input(),
+            RunnerType::default_output(),
+            &mock_allocator,
+        );
 
         let get_ref_count = |raw_ptr: i64| {
             let control_block =
@@ -373,7 +382,7 @@ mod tests {
         };
 
         let load_values_into_stack =
-            |base: usize, values: &[TrombValue], runner: &mut Runner<TestOperationStream>| {
+            |base: usize, values: &[TrombValue], runner: &mut RunnerType| {
                 for (i, x) in values.iter().enumerate() {
                     runner.stack[base + i] = *x;
                     runner.sp += 1;
@@ -490,7 +499,13 @@ mod tests {
     fn test_io_instructions() -> Result<()> {
         let input = std::io::Cursor::new("42\n".as_bytes());
         let output = std::io::Cursor::new(Vec::new());
-        let mut runner = Runner::new(TestOperationStream::new(), input, output);
+
+        let mut runner = Runner::new(
+            TestOperationStream::new(),
+            input,
+            output,
+            RunnerType::default_allocator(),
+        );
 
         // read into x
         runner.stream.emplace_instruction(opcode::OP_READ, 0);

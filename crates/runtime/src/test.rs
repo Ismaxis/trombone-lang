@@ -181,7 +181,7 @@ mod test {
             }
 
             let op_stream = ArrayOperationStream::new(&operations_as_u64);
-            let mut runner = Runner::new(op_stream);
+            let mut runner = Runner::new_with_defaults(op_stream);
             let mut errorneous = false;
             for _ in 0..DEPTH {
                 let res = runner.evaluate_next_instruction();

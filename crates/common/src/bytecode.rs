@@ -148,7 +148,6 @@ impl TryFrom<Instruction> for Operation {
                 variable_offset: value.extract_immediate(),
             },
 
-
             // IO operations
             OP_READ => Read,
             OP_PRINT => Print,
@@ -206,6 +205,8 @@ impl From<Operation> for Instruction {
             HeapStore { variable_offset } => {
                 Instruction::from_parts(OP_HEAP_STORE_PTR, variable_offset)
             }
+            Read => Instruction::from_parts(OP_READ, 0),
+            Print => Instruction::from_parts(OP_PRINT, 0),
         }
     }
 }
