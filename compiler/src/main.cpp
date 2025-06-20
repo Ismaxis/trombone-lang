@@ -34,6 +34,6 @@ int main(int argc, const char* argv[]) {
   TromboneBaseVisitor visitor;
   visitor.visitProgram(tree);
 
-
+  std::cout << "Done\n";
   return 0;
 }

@@ -1,4 +1,17 @@
 fn main() {
-    let i: int = 0;
-
+    let i: int = 4;
+    let j: int = 6;
+    i = 5;
+    i = j;
+    while i > 1 {
+        i = i - 1;
+    }
+    if (i == 1) {
+        j = 4;
+    }
+    if (i > 1) {
+        j = 3;
+    } else {
+        i = 5;
+    }
 }
