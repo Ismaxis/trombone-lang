@@ -45,10 +45,6 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(ANTLR4_INCLUDE_DIRS /usr/local/include/antlr4-runtime/)
-
-find_package(antlr4-runtime REQUIRED)
-include_directories(${ANTLR4_INCLUDE_DIRS})
 
 find_package(antlr4-runtime REQUIRED)
 find_package(Catch2 REQUIRED)
