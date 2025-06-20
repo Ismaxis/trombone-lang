@@ -104,6 +104,7 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
+    // Много переменных и деление на ноль
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -698,7 +699,7 @@ mod tests {
         assert_eq!(modified, offset_ptr(stack_base, 1));
         assert_eq!(stack[0], N as TrombValue);
 
-        println!("Elapsed time: {:?}", elapsed);
+        // println!("Elapsed time: {:?}", elapsed);
         assert!(elapsed.as_nanos() < 1000);
         // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
     }

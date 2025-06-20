@@ -1,10 +1,12 @@
-#![allow(dead_code)]
+use std::alloc::{GlobalAlloc, Layout};
 
 use trombone_common::TrombValue;
 use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
+
+use crate::control_block::ControlBlock;
 
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
@@ -39,18 +41,30 @@ impl OperationStream for ArrayOperationStream<'_> {
     }
 }
 
-pub struct Runner<OpStream: OperationStream> {
+pub struct Runner<'alloc, OpStream: OperationStream> {
     pub stream: OpStream,
     pub stack: [TrombValue; STACK_SIZE],
     pub sp: usize,
+
+    pub allocator: &'alloc dyn GlobalAlloc,
 }
 
-impl<OpStream: OperationStream> Runner<OpStream> {
+impl<'alloc, OpStream: OperationStream> Runner<'alloc, OpStream> {
     pub fn new(stream: OpStream) -> Self {
         Self {
             stream,
             stack: [0; STACK_SIZE],
             sp: 0,
+            allocator: &std::alloc::System,
+        }
+    }
+
+    pub fn new_with_allocator(stream: OpStream, allocator: &'alloc dyn GlobalAlloc) -> Self {
+        Self {
+            stream,
+            stack: [0; STACK_SIZE],
+            sp: 0,
+            allocator,
         }
     }
 
@@ -70,6 +84,7 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                 let value = self.pop();
                 *self.get_variable(variable_offset) = value;
             }
+
             // Arithmetic
             Neg => self.unary_op(|a| a.wrapping_neg()),
             Not => self.unary_op(|a| !a),
@@ -106,6 +121,79 @@ impl<OpStream: OperationStream> Runner<OpStream> {
                     self.stream.switch_frame(offset - 1);
                 }
             }
+
+            // Heap
+            HeapAlloc => {
+                let size = self.pop() as usize;
+                if size == 0 {
+                    self.push(0);
+                    return Ok(());
+                }
+
+                let ptr = self.allocate_heap_memory(size);
+                if ptr.is_null() {
+                    return Err("Heap allocation failed".into());
+                }
+                self.push(ptr as TrombValue);
+            }
+            HeapPopPtr => {
+                let ptr = self.pop() as *mut TrombValue;
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+                let control_block_ptr = ControlBlock::from_value_ptr(ptr);
+                let control_block = Self::ptr_to_ref(control_block_ptr);
+                if control_block.ref_count() == 0 {
+                    unsafe {
+                        self.allocator
+                            .dealloc(control_block_ptr as *mut u8, (*control_block).layout())
+                    };
+                } else {
+                    control_block.decrement_ref_count();
+                }
+            }
+            HeapCopyPtr { variable_offset } => {
+                let ptr = *self.get_variable(variable_offset);
+                Self::ptr_to_ref(ControlBlock::from_value_ptr(ptr as *const TrombValue))
+                    .increment_ref_count();
+                self.push(ptr);
+            }
+            HeapLoad { variable_offset } => {
+                // TODO: Maybe it is better to pass variable_offset ignoring offset values on stack?
+
+                let ptr = self.get_pointer_from_variable(variable_offset);
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap load".into());
+                }
+
+                let ptr = unsafe { ptr.add(offset as usize) };
+                let value = unsafe { *ptr };
+                self.push(value);
+            }
+            HeapStore { variable_offset } => {
+                // TODO: Maybe it is better to pass variable_offset ignoring offset and value values on stack?
+
+                let ptr = self.get_pointer_from_variable(variable_offset);
+                if ptr.is_null() {
+                    return Err("Null pointer dereference".into());
+                }
+
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap store".into());
+                }
+                let value = self.pop();
+
+                let ptr = unsafe { ptr.add(offset as usize) };
+                unsafe {
+                    *ptr = value;
+                }
+            }
         }
         Ok(())
     }
@@ -122,6 +210,11 @@ impl<OpStream: OperationStream> Runner<OpStream> {
 
     fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
         &mut self.stack[self.sp - 1 - variable as usize]
+    }
+
+    fn get_pointer_from_variable(&mut self, variable_offset: i32) -> *mut TrombValue {
+        let ptr = self.get_variable(variable_offset);
+        *ptr as *mut TrombValue
     }
 
     fn unary_op<F>(&mut self, op: F)
@@ -156,5 +249,36 @@ impl<OpStream: OperationStream> Runner<OpStream> {
         F: FnOnce(TrombValue, TrombValue) -> bool,
     {
         self.binary_op(|a, b| op(a, b) as TrombValue);
+    }
+
+    fn allocate_heap_memory(&self, len: usize) -> *mut TrombValue {
+        if len == 0 {
+            return std::ptr::null_mut();
+        }
+        let (layout, _offset) = Self::control_block_layout(len);
+        let ptr = unsafe { self.allocator.alloc_zeroed(layout) };
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+
+        let ptr = unsafe { ptr.add(std::mem::offset_of!(ControlBlock<[TrombValue; 1]>, value)) };
+        let control_block = ControlBlock::from_value_ptr(ptr as *const TrombValue);
+        // no ref_count initialization needed, ref_count is one less than the number of references
+        unsafe { (*control_block).set_layout(layout) };
+        ptr as *mut TrombValue
+    }
+
+    fn control_block_layout(len: usize) -> (Layout, usize) {
+        let header = Layout::new::<usize>();
+        let layout_field = Layout::new::<Layout>();
+        let (header_layout, _layout_offset) = header.extend(layout_field).unwrap();
+
+        let array = Layout::array::<TrombValue>(len).unwrap();
+        let (full_layout, value_offset) = header_layout.extend(array).unwrap();
+        (full_layout.pad_to_align(), value_offset)
+    }
+
+    fn ptr_to_ref<'a, T>(control_block_ptr: *mut T) -> &'a mut T {
+        unsafe { &mut *(control_block_ptr as *mut T) }
     }
 }

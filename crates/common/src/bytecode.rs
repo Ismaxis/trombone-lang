@@ -73,6 +73,13 @@ pub enum Operation {
     Jump { offset: Offset },
     JumpIf { offset: Offset },
     JumpIfNot { offset: Offset },
+
+    // Heap
+    HeapAlloc,
+    HeapPopPtr,
+    HeapCopyPtr { variable_offset: VariableOffset },
+    HeapLoad { variable_offset: VariableOffset },
+    HeapStore { variable_offset: VariableOffset },
 }
 
 impl TryFrom<Instruction> for Operation {
@@ -123,6 +130,20 @@ impl TryFrom<Instruction> for Operation {
             OP_JMP_IF_NOT => JumpIfNot {
                 offset: value.extract_immediate(),
             },
+
+            // Heap operations
+            OP_HEAP_ALLOC => HeapAlloc,
+            OP_HEAP_POP_PTR => HeapPopPtr,
+            OP_HEAP_COPY_PTR => HeapCopyPtr {
+                variable_offset: value.extract_immediate(),
+            },
+            OP_HEAP_LOAD_PTR => HeapLoad {
+                variable_offset: value.extract_immediate(),
+            },
+            OP_HEAP_STORE_PTR => HeapStore {
+                variable_offset: value.extract_immediate(),
+            },
+
             opcode => return Err(format!("unknown opcode: {:x}", opcode).into()),
         };
         Ok(x)
@@ -164,6 +185,17 @@ impl From<Operation> for Instruction {
             Jump { offset } => Instruction::from_parts(OP_JMP, offset),
             JumpIf { offset } => Instruction::from_parts(OP_JMP_IF, offset),
             JumpIfNot { offset } => Instruction::from_parts(OP_JMP_IF_NOT, offset),
+            HeapAlloc => Instruction::from_parts(OP_HEAP_ALLOC, 0),
+            HeapPopPtr => Instruction::from_parts(OP_HEAP_POP_PTR, 0),
+            HeapCopyPtr { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_COPY_PTR, variable_offset)
+            }
+            HeapLoad { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_LOAD_PTR, variable_offset)
+            }
+            HeapStore { variable_offset } => {
+                Instruction::from_parts(OP_HEAP_STORE_PTR, variable_offset)
+            }
         }
     }
 }
