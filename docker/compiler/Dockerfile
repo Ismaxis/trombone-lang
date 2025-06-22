@@ -43,5 +43,13 @@ COPY ./compiler/conanfile.txt .
 RUN conan profile detect
 RUN conan install --build=missing .
 
-COPY ./compiler .
+COPY ./compiler/src ./src/
+COPY ./compiler/tests/CMakeLists.txt ./tests/CMakeLists.txt
+COPY ./compiler/tests/test.cpp ./tests/test.cpp
+COPY ./compiler/CMakeLists.txt .
+COPY ./compiler/CMakePresets.json .
+COPY ./compiler/conanfile.txt .
+COPY ./compiler/Makefile .
 RUN make
+
+COPY ./compiler/tests/programs ./tests/programs
