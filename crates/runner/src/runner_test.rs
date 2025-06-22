@@ -56,11 +56,11 @@ mod tests {
         fn switch_frame(&mut self, offset: i32) {
             self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
         }
-        
+
         fn get_instruction_pointer(&self) -> usize {
             todo!()
         }
-        
+
         fn get_instructions_len(&self) -> usize {
             todo!()
         }
