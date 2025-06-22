@@ -43,6 +43,7 @@ std::any TromboneBaseVisitor::visitType(TromboneParser::TypeContext *ctx) {
 }
 
 std::any TromboneBaseVisitor::visitBlock(TromboneParser::BlockContext *ctx) {
+    //TODO: scope
     return visitChildren(ctx);
 }
 
@@ -184,8 +185,20 @@ std::any TromboneBaseVisitor::visitArgList(TromboneParser::ArgListContext *ctx) 
 }
 
 std::any TromboneBaseVisitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
-    //TODO: implement
-    throw std::runtime_error("Not implemented");
+    name = ctx->IDENTIFIER()->getText();
+    if (symbolTable.find(name) == symbolTable.end()) {
+        throw std::runtime_error("Unknown variable: " + name);
+    }
+    auto meta = symbolTable[name];
+    if (meta.type == tromb_t::int_t) {
+        throw std::runtime_error("Array expected, got int");
+    } else if (meta.type == tromb_t::int_array_t) {
+        ctx->expr()->accept(this);
+        uint32_t address = popAddress() - meta.address;
+        bytecode.write((const char*)&address, 4);
+        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&op_heap_load_ptr, 1);
+    }
     return std::any();
 }
 

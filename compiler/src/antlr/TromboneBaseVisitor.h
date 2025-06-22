@@ -60,6 +60,11 @@ public:
   const opCode op_jmp = 0xd0;
   const opCode op_jmp_if = 0xd1;
   const opCode op_jmp_if_not = 0xd2;
+  const opCode op_heap_alloc = 0xe0;
+  const opCode op_heap_pop_ptr = 0xe1;
+  const opCode op_heap_copy_ptr = 0xe2;
+  const opCode op_heap_load_ptr = 0xe3;
+  const opCode op_heap_store_ptr = 0xe4;
   const opCode op_read = 0xf0;
   const opCode op_print = 0xf1;
 
