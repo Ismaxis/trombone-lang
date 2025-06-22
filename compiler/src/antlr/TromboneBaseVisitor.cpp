@@ -101,8 +101,9 @@ std::any TromboneBaseVisitor::visitArrayAssignment(TromboneParser::ArrayAssignme
     ctx->expr(1)->accept(this);
     ctx->expr(0)->accept(this);
     if (meta.type == tromb_t::int_array_t) {
+        uint32_t address = nextAddress - 1 - meta.address; // different logic for instruction
         popAddress();
-        uint32_t address = popAddress() - meta.address; // maybe +1
+        popAddress();
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_heap_store_ptr, 1);

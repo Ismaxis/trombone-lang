@@ -115,7 +115,7 @@ public:
 
 private:
   static inline const uint64_t reserved = 0;
-  std::ofstream bytecode{"bytecode.txt", std::ofstream::out |
+  std::ofstream bytecode{"out/bytecode.txt", std::ofstream::out |
                                              std::ofstream::trunc |
                                              std::ofstream::binary};
   std::unordered_map<std::string, varMeta> symbolTable;

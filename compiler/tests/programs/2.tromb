@@ -6,15 +6,19 @@ fn main() {
     while i > 1 {
         i = i - 1;
     }
-    i = 2;
-    let arr: [ int ] = array(2);
+    let n: int = read();
+    let in: int = 0;
+    let arr: [ int ] = array(n);
+    i = n;
     while i > 0 {
+        arr[n - i] = read();
         i = i - 1;
-        arr[i] = read();
     }
-    while i < 2 {
-        j = print(arr[i]);
-        i = i + 1;
+    while in >= 0 {
+        in = read();
+        j = print(in);
+        if 0 <= in {
+            j = print(arr[in]);
+        }
     }
-
 }

@@ -247,6 +247,8 @@ where
                 }
             }
             Read => {
+                self.output.write_fmt(format_args!("INPUT: "))?;
+                self.output.flush()?;
                 let mut line = String::new();
                 self.input.read_line(&mut line)?;
                 if let Some(value) = atoi::atoi::<TrombValue>(line.as_bytes()) {
@@ -258,8 +260,8 @@ where
             }
             Print => {
                 let value = self.pop();
-                self.output.write_fmt(format_args!("{}\n", value))?;
-                self.push(value); // хуйня ебаная
+                self.output.write_fmt(format_args!("OUTPUT: {}\n", value))?;
+                self.push(value); // TODO: remove it # tmp = print(arr[i])
             }
         }
         Ok(())
@@ -267,10 +269,10 @@ where
 
     pub fn evaluate(&mut self) -> Result<()> {
         while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
-            println!("IP: {}", self.stream.get_instruction_pointer());
+            // println!("IP: {}", self.stream.get_instruction_pointer());
             self.evaluate_next_instruction()?;
         }
-        println!("IP: {}", self.stream.get_instruction_pointer());
+        // println!("IP: {}", self.stream.get_instruction_pointer());
 
         Ok(())
     }
