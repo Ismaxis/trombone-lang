@@ -259,6 +259,7 @@ where
             Print => {
                 let value = self.pop();
                 self.output.write_fmt(format_args!("{}\n", value))?;
+                self.push(value); // хуйня ебаная
             }
         }
         Ok(())
@@ -285,7 +286,7 @@ where
     }
 
     fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
-        &mut self.stack[self.sp - variable as usize]
+        &mut self.stack[self.sp - 1 - variable as usize]
     }
 
     fn get_pointer_from_variable(&mut self, variable_offset: i32) -> *mut TrombValue {
