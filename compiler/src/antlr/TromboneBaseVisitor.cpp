@@ -15,6 +15,11 @@ std::any TromboneBaseVisitor::visitProgram(TromboneParser::ProgramContext *ctx) 
         if (meta.type == tromb_t::int_array_t) {
             bytecode.write((const char*)&reserved, 7);
             bytecode.write((const char*)&op_heap_pop_ptr, 1);
+        } else if (meta.type == tromb_t::int_t) {
+            bytecode.write((const char*)&reserved, 7);
+            bytecode.write((const char*)&op_pop, 1);
+        } else {
+            throw std::runtime_error("Unknown type in symbol table: " + std::to_string(static_cast<int>(meta.type)));
         }
     }
     return std::any();

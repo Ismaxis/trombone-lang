@@ -7,13 +7,13 @@ fn main() {
         i = i - 1;
     }
     let n: int = read();
-    let in: int = 0;
     let arr: [ int ] = array(n);
     i = n;
     while i > 0 {
         arr[n - i] = read();
         i = i - 1;
     }
+    let in: int = 0;
     while in >= 0 {
         in = read();
         j = print(in);
