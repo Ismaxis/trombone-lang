@@ -8,7 +8,16 @@
 
 
 std::any TromboneBaseVisitor::visitProgram(TromboneParser::ProgramContext *ctx) {
-    return visitChildren(ctx);
+    visitChildren(ctx);
+    for (auto [name, meta] : symbolTable) {
+        std::cout << "clearing variable: " << name << std::endl;
+        popAddress();
+        if (meta.type == tromb_t::int_array_t) {
+            bytecode.write((const char*)&reserved, 7);
+            bytecode.write((const char*)&op_heap_pop_ptr, 1);
+        }
+    }
+    return std::any();
 }
 
 std::any TromboneBaseVisitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
@@ -84,8 +93,20 @@ std::any TromboneBaseVisitor::visitAssignment(TromboneParser::AssignmentContext 
 }
 
 std::any TromboneBaseVisitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
-    //TODO: implement
-    throw std::runtime_error("Not implemented visitArrayAssignment");
+    std::string name = ctx->IDENTIFIER()->getText();
+    if (symbolTable.find(name) == symbolTable.end()) {
+        throw std::runtime_error("Unknown variable: " + name);
+    }
+    auto meta = symbolTable[name];
+    ctx->expr(1)->accept(this);
+    ctx->expr(0)->accept(this);
+    if (meta.type == tromb_t::int_array_t) {
+        popAddress();
+        uint32_t address = popAddress() - meta.address; // maybe +1
+        bytecode.write((const char*)&address, 4);
+        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&op_heap_store_ptr, 1);
+    }
     return std::any();
 }
 
