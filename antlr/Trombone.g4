@@ -19,6 +19,7 @@ statement
     | arrayAssignment ';'
     | funcCall ';'
     | returnStmt ';'
+    | printStmt ';'
     | whileStmt
     | ifStmt;
 
@@ -26,7 +27,7 @@ varDecl     : 'let' IDENTIFIER ':' type '=' expr;
 assignment  : IDENTIFIER '=' expr;
 arrayAssignment : IDENTIFIER '[' expr ']' '=' expr;
 returnStmt  : 'return' expr;
-
+printStmt   : 'print' '(' expr ')';
 whileStmt   : 'while' expr block;
 
 ifStmt
@@ -39,17 +40,17 @@ funcCall    : IDENTIFIER '(' argList? ')';
 argList     : expr (',' expr)*;
 
 expr
-    : expr op=('*'|'/') expr       # MulDiv
-    | expr op=('+'|'-') expr       # AddSub
+    : expr op=('*'|'/') expr                     # MulDiv
+    | expr op=('+'|'-') expr                     # AddSub
     | expr op=('<'|'>'|'<='|'>='|'=='|'!=') expr # Compare
-    | IDENTIFIER '[' expr ']'      # ArrayAccess
-    | funcCall                     # FuncCallExpr
-    | 'read' '(' ')'               # ReadExpr
-    | 'print' '(' expr ')'         # PrintExpr
-    | 'array' '(' expr (',' expr)? ')' # ArrayCreate
-    | '(' expr ')'                 # Parens
-    | NUMBER                       # IntLiteral
-    | IDENTIFIER                   # VarReference
+    | IDENTIFIER '[' expr ']'                    # ArrayAccess
+    | funcCall                                   # FuncCallExpr
+    | 'read' '(' ')'                             # ReadExpr
+    | 'array' '(' expr (',' expr)? ')'           # ArrayCreate
+    | '(' expr ')'                               # Parens
+    | '-' expr                                   # UnaryMinus
+    | NUMBER                                     # IntLiteral
+    | IDENTIFIER                                 # VarReference
     ;
 
 IDENTIFIER  : [a-zA-Z_][a-zA-Z_0-9]*;
