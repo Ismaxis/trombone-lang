@@ -37,7 +37,7 @@ std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext 
     auto vs = std::views::values(symbol_table);
     std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
     std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
-        return a.address < b.address;
+        return a.address > b.address;
     });
     for (auto meta : symbol_table_sorted) {
         pop_address();
@@ -144,6 +144,14 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
 std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
     //TODO: implement
     throw std::runtime_error("Not implemented visitReturnStmt");
+    return std::any();
+}
+
+std::any trombone_compiler_visitor::visitPrintStmt(TromboneParser::PrintStmtContext *ctx) {
+    ctx->expr()->accept(this);
+    bytecode.write((const char*)&reserved, 7);
+    bytecode.write((const char*)&op_print, 1);
+    pop_address();
     return std::any();
 }
 
@@ -324,6 +332,13 @@ std::any trombone_compiler_visitor::visitParens(TromboneParser::ParensContext *c
     return visitChildren(ctx);
 }
 
+std::any trombone_compiler_visitor::visitUnaryMinus(TromboneParser::UnaryMinusContext *ctx) {
+    ctx->expr()->accept(this);
+    bytecode.write((const char*)&reserved, 7);
+    bytecode.write((const char*)&op_neg, 1);
+    return std::any();
+}
+
 std::any trombone_compiler_visitor::visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) {
     auto exprs = ctx->expr();
     size_t size = exprs.size();
@@ -367,14 +382,6 @@ std::any trombone_compiler_visitor::visitCompare(TromboneParser::CompareContext 
         throw std::runtime_error("Unknown operator: " + op);
     }
     pop_address();
-    return std::any();
-}
-
-std::any trombone_compiler_visitor::visitPrintExpr(TromboneParser::PrintExprContext *ctx) {
-    ctx->expr()->accept(this);
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_print, 1);
-    // pop_address(); // TODO: remove when print is statement
     return std::any();
 }
 

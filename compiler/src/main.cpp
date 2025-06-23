@@ -5,20 +5,9 @@
 #include "antlr/TromboneLexer.h"
 #include "antlr/TromboneParser.h"
 
-#include "antlr/TromboneBaseListener.h"
 #include "antlr/TromboneParser.h"
 #include "antlr/TromboneLexer.h"
 
-namespace {
-
-class LoggableListener : public TromboneBaseListener {
-public:
-  void enterEveryRule(antlr4::ParserRuleContext* ctx) override {
-    std::cout << ctx->toStringTree(true) << '\n';
-  }
-};
-
-}
 
 int main(int argc, const char* argv[]) {
   if (argc < 2 || strcmp(argv[1], "--help") == 0) {

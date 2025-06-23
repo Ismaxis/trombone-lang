@@ -1,5 +1,5 @@
 
-// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
+// Generated from ../../antlr/Trombone.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -43,6 +43,8 @@ public:
 
     virtual std::any visitReturnStmt(TromboneParser::ReturnStmtContext *context) = 0;
 
+    virtual std::any visitPrintStmt(TromboneParser::PrintStmtContext *context) = 0;
+
     virtual std::any visitWhileStmt(TromboneParser::WhileStmtContext *context) = 0;
 
     virtual std::any visitIfStmt(TromboneParser::IfStmtContext *context) = 0;
@@ -65,11 +67,11 @@ public:
 
     virtual std::any visitArrayCreate(TromboneParser::ArrayCreateContext *context) = 0;
 
+    virtual std::any visitUnaryMinus(TromboneParser::UnaryMinusContext *context) = 0;
+
     virtual std::any visitIntLiteral(TromboneParser::IntLiteralContext *context) = 0;
 
     virtual std::any visitCompare(TromboneParser::CompareContext *context) = 0;
-
-    virtual std::any visitPrintExpr(TromboneParser::PrintExprContext *context) = 0;
 
     virtual std::any visitFuncCallExpr(TromboneParser::FuncCallExprContext *context) = 0;
 

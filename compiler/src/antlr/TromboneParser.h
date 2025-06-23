@@ -1,5 +1,5 @@
 
-// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
+// Generated from ../../antlr/Trombone.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -24,8 +24,8 @@ public:
     RuleProgram = 0, RuleFunctionDecl = 1, RuleParamList = 2, RuleParam = 3, 
     RuleReturnType = 4, RuleType = 5, RuleBlock = 6, RuleStatement = 7, 
     RuleVarDecl = 8, RuleAssignment = 9, RuleArrayAssignment = 10, RuleReturnStmt = 11, 
-    RuleWhileStmt = 12, RuleIfStmt = 13, RuleFuncCall = 14, RuleArgList = 15, 
-    RuleExpr = 16
+    RulePrintStmt = 12, RuleWhileStmt = 13, RuleIfStmt = 14, RuleFuncCall = 15, 
+    RuleArgList = 16, RuleExpr = 17
   };
 
   explicit TromboneParser(antlr4::TokenStream *input);
@@ -57,6 +57,7 @@ public:
   class AssignmentContext;
   class ArrayAssignmentContext;
   class ReturnStmtContext;
+  class PrintStmtContext;
   class WhileStmtContext;
   class IfStmtContext;
   class FuncCallContext;
@@ -170,6 +171,7 @@ public:
     ArrayAssignmentContext *arrayAssignment();
     FuncCallContext *funcCall();
     ReturnStmtContext *returnStmt();
+    PrintStmtContext *printStmt();
     WhileStmtContext *whileStmt();
     IfStmtContext *ifStmt();
 
@@ -236,6 +238,19 @@ public:
   };
 
   ReturnStmtContext* returnStmt();
+
+  class  PrintStmtContext : public antlr4::ParserRuleContext {
+  public:
+    PrintStmtContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    ExprContext *expr();
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  PrintStmtContext* printStmt();
 
   class  WhileStmtContext : public antlr4::ParserRuleContext {
   public:
@@ -376,6 +391,15 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
+  class  UnaryMinusContext : public ExprContext {
+  public:
+    UnaryMinusContext(ExprContext *ctx);
+
+    ExprContext *expr();
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  IntLiteralContext : public ExprContext {
   public:
     IntLiteralContext(ExprContext *ctx);
@@ -392,15 +416,6 @@ public:
     antlr4::Token *op = nullptr;
     std::vector<ExprContext *> expr();
     ExprContext* expr(size_t i);
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  PrintExprContext : public ExprContext {
-  public:
-    PrintExprContext(ExprContext *ctx);
-
-    ExprContext *expr();
 
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };

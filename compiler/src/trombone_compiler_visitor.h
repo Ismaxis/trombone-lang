@@ -43,6 +43,7 @@ public:
   visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) override;
   virtual std::any
   visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) override;
+  virtual std::any visitPrintStmt(TromboneParser::PrintStmtContext *ctx) override;
   virtual std::any
   visitWhileStmt(TromboneParser::WhileStmtContext *ctx) override;
   virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override;
@@ -56,13 +57,12 @@ public:
   virtual std::any visitMulDiv(TromboneParser::MulDivContext *ctx) override;
   virtual std::any visitAddSub(TromboneParser::AddSubContext *ctx) override;
   virtual std::any visitParens(TromboneParser::ParensContext *ctx) override;
+  virtual std::any visitUnaryMinus(TromboneParser::UnaryMinusContext *ctx) override;
   virtual std::any
   visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) override;
   virtual std::any
   visitIntLiteral(TromboneParser::IntLiteralContext *ctx) override;
   virtual std::any visitCompare(TromboneParser::CompareContext *ctx) override;
-  virtual std::any
-  visitPrintExpr(TromboneParser::PrintExprContext *ctx) override;
   virtual std::any
   visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) override;
 
