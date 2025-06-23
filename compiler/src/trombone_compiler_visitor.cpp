@@ -2,16 +2,16 @@
 // Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
 
 
-#include "TromboneBaseVisitor.h"
+#include "trombone_compiler_visitor.h"
 #include <any>
 #include <cstdint>
 
 
-std::any TromboneBaseVisitor::visitProgram(TromboneParser::ProgramContext *ctx) {
+std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
     visitChildren(ctx);
-    for (auto [name, meta] : symbolTable) {
+    for (auto [name, meta] : symbol_table) {
         std::cout << "clearing variable: " << name << std::endl;
-        popAddress();
+        pop_address();
         if (meta.type == tromb_t::int_array_t) {
             bytecode.write((const char*)&reserved, 7);
             bytecode.write((const char*)&op_heap_pop_ptr, 1);
@@ -25,29 +25,28 @@ std::any TromboneBaseVisitor::visitProgram(TromboneParser::ProgramContext *ctx) 
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
+std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
     //TODO: implement
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitParamList(TromboneParser::ParamListContext *ctx) {
+std::any trombone_compiler_visitor::visitParamList(TromboneParser::ParamListContext *ctx) {
     //TODO: implement
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitParam(TromboneParser::ParamContext *ctx) {
+std::any trombone_compiler_visitor::visitParam(TromboneParser::ParamContext *ctx) {
     //TODO: implement
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitReturnType(TromboneParser::ReturnTypeContext *ctx) {
+std::any trombone_compiler_visitor::visitReturnType(TromboneParser::ReturnTypeContext *ctx) {
     //TODO: implement
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitType(TromboneParser::TypeContext *ctx) {
+std::any trombone_compiler_visitor::visitType(TromboneParser::TypeContext *ctx) {
     std::string type = ctx->getText();
-    std::cout << "type: " << type << std::endl;
     if ("int" == type) {
         return std::make_any<tromb_t>(tromb_t::int_t);
     } else if (type == "[int]") {
@@ -57,36 +56,33 @@ std::any TromboneBaseVisitor::visitType(TromboneParser::TypeContext *ctx) {
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitBlock(TromboneParser::BlockContext *ctx) {
+std::any trombone_compiler_visitor::visitBlock(TromboneParser::BlockContext *ctx) {
     //TODO: scope
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitStatement(TromboneParser::StatementContext *ctx) {
+std::any trombone_compiler_visitor::visitStatement(TromboneParser::StatementContext *ctx) {
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitVarDecl(TromboneParser::VarDeclContext *ctx) {
+std::any trombone_compiler_visitor::visitVarDecl(TromboneParser::VarDeclContext *ctx) {
     auto name = ctx->IDENTIFIER()->getText();
     tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
     ctx->expr()->accept(this);
-    symbolTable[name] = varMeta(nextAddress - 1, type);
+    symbol_table[name] = var_meta(next_address - 1, type);
     return std::any();
 }
 
 
-std::any TromboneBaseVisitor::visitAssignment(TromboneParser::AssignmentContext *ctx) {
+std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbolTable.find(name) == symbolTable.end()) {
+    if (symbol_table.find(name) == symbol_table.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbolTable[name];
+    auto meta = symbol_table[name];
     ctx->expr()->accept(this);
     if (meta.type == tromb_t::int_t) {
-        std::cout << name << std::endl;
-        std::cout << "meta.address: " << meta.address << std::endl;
-        std::cout << "nextAddress: " << nextAddress << std::endl;
-        uint32_t address = popAddress() - meta.address - 1;
+        uint32_t address = pop_address() - meta.address - 1;
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_local_store, 1);
@@ -97,18 +93,18 @@ std::any TromboneBaseVisitor::visitAssignment(TromboneParser::AssignmentContext 
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
+std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbolTable.find(name) == symbolTable.end()) {
+    if (symbol_table.find(name) == symbol_table.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbolTable[name];
+    auto meta = symbol_table[name];
     ctx->expr(1)->accept(this);
     ctx->expr(0)->accept(this);
     if (meta.type == tromb_t::int_array_t) {
-        uint32_t address = nextAddress - 1 - meta.address; // different logic for instruction
-        popAddress();
-        popAddress();
+        uint32_t address = next_address - 1 - meta.address; // different logic for instruction
+        pop_address();
+        pop_address();
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_heap_store_ptr, 1);
@@ -116,18 +112,18 @@ std::any TromboneBaseVisitor::visitArrayAssignment(TromboneParser::ArrayAssignme
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
+std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
     //TODO: implement
     throw std::runtime_error("Not implemented visitReturnStmt");
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitWhileStmt(TromboneParser::WhileStmtContext *ctx) {
+std::any trombone_compiler_visitor::visitWhileStmt(TromboneParser::WhileStmtContext *ctx) {
     std::size_t start = bytecode.tellp();
     ctx->expr()->accept(this);
     bytecode.write((const char*)&reserved, 7);
     bytecode.write((const char*)&op_jmp_if_not, 1);
-    popAddress();
+    pop_address();
 
     std::size_t block_start = bytecode.tellp();
     ctx->block()->accept(this);
@@ -144,7 +140,7 @@ std::any TromboneBaseVisitor::visitWhileStmt(TromboneParser::WhileStmtContext *c
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
+std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
     auto conditions = ctx->expr();
     std::vector<std::size_t> condition_locations;
     for (auto condition : conditions) {
@@ -152,7 +148,7 @@ std::any TromboneBaseVisitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
         condition_locations.push_back(bytecode.tellp());
         bytecode.write((const char*)&reserved, 7);
         bytecode.write((const char*)&op_jmp_if, 1);
-        popAddress();
+        pop_address();
     }
     bytecode.write((const char*)&reserved, 7);
     bytecode.write((const char*)&op_jmp, 1);
@@ -197,13 +193,13 @@ std::any TromboneBaseVisitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitFuncCall(TromboneParser::FuncCallContext *ctx) {
+std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
     visitChildren(ctx);
     if (name == "print") {
         bytecode.write((const char*)&reserved, 7);
         bytecode.write((const char*)&op_print, 1);
-        popAddress();
+        pop_address();
         return std::any();
     } else {
         std::cout << "Unknown function: " << name << std::endl;
@@ -213,26 +209,24 @@ std::any TromboneBaseVisitor::visitFuncCall(TromboneParser::FuncCallContext *ctx
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitArgList(TromboneParser::ArgListContext *ctx) {
+std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext *ctx) {
     return visitChildren(ctx);
     //TODO: implement
     throw std::runtime_error("Not implemented visitArgList");
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
+std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbolTable.find(name) == symbolTable.end()) {
+    if (symbol_table.find(name) == symbol_table.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbolTable[name];
-    std::cout << "meta.address: " << meta.address << std::endl;
-    std::cout << "meta.type: " << static_cast<int>(meta.type) << std::endl;
+    auto meta = symbol_table[name];
     if (meta.type == tromb_t::int_t) {
         throw std::runtime_error("Array expected, got int");
     } else if (meta.type == tromb_t::int_array_t) {
         ctx->expr()->accept(this);
-        uint32_t address = nextAddress - 1 - meta.address; // different logic for instruction
+        uint32_t address = next_address - 1 - meta.address; // different logic for instruction
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_heap_load_ptr, 1);
@@ -240,14 +234,14 @@ std::any TromboneBaseVisitor::visitArrayAccess(TromboneParser::ArrayAccessContex
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitVarReference(TromboneParser::VarReferenceContext *ctx) {
+std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferenceContext *ctx) {
     auto name = ctx->IDENTIFIER()->getText();
-    if (symbolTable.find(name) == symbolTable.end()) {
+    if (symbol_table.find(name) == symbol_table.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbolTable[name];
+    auto meta = symbol_table[name];
     if (meta.type == tromb_t::int_t) {
-        uint32_t address = pushAddress() - meta.address - 1;
+        uint32_t address = push_address() - meta.address - 1;
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_local_copy, 1);
@@ -258,14 +252,14 @@ std::any TromboneBaseVisitor::visitVarReference(TromboneParser::VarReferenceCont
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitReadExpr(TromboneParser::ReadExprContext *ctx) {
+std::any trombone_compiler_visitor::visitReadExpr(TromboneParser::ReadExprContext *ctx) {
     bytecode.write((const char*)&reserved, 7);
     bytecode.write((const char*)&op_read, 1);
-    pushAddress();
+    push_address();
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitMulDiv(TromboneParser::MulDivContext *ctx) {
+std::any trombone_compiler_visitor::visitMulDiv(TromboneParser::MulDivContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
     bytecode.write((const char*)&reserved, 7);
@@ -277,11 +271,11 @@ std::any TromboneBaseVisitor::visitMulDiv(TromboneParser::MulDivContext *ctx) {
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
-    popAddress();
+    pop_address();
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitAddSub(TromboneParser::AddSubContext *ctx) {
+std::any trombone_compiler_visitor::visitAddSub(TromboneParser::AddSubContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
     bytecode.write((const char*)&reserved, 7);
@@ -293,15 +287,15 @@ std::any TromboneBaseVisitor::visitAddSub(TromboneParser::AddSubContext *ctx) {
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
-    popAddress();
+    pop_address();
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitParens(TromboneParser::ParensContext *ctx) {
+std::any trombone_compiler_visitor::visitParens(TromboneParser::ParensContext *ctx) {
     return visitChildren(ctx);
 }
 
-std::any TromboneBaseVisitor::visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) {
+std::any trombone_compiler_visitor::visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) {
     auto exprs = ctx->expr();
     size_t size = exprs.size();
     if (size != 1) {
@@ -314,16 +308,16 @@ std::any TromboneBaseVisitor::visitArrayCreate(TromboneParser::ArrayCreateContex
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitIntLiteral(TromboneParser::IntLiteralContext *ctx) {
+std::any trombone_compiler_visitor::visitIntLiteral(TromboneParser::IntLiteralContext *ctx) {
     int32_t val = std::stoi(ctx->NUMBER()->getText());
     bytecode.write((const char*)&val, 4);
     bytecode.write((const char*)&reserved, 3);
     bytecode.write((const char*)&op_push, 1);
-    pushAddress();
+    push_address();
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitCompare(TromboneParser::CompareContext *ctx) {
+std::any trombone_compiler_visitor::visitCompare(TromboneParser::CompareContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
     bytecode.write((const char*)&reserved, 7);
@@ -343,29 +337,29 @@ std::any TromboneBaseVisitor::visitCompare(TromboneParser::CompareContext *ctx) 
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
-    popAddress();
+    pop_address();
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitPrintExpr(TromboneParser::PrintExprContext *ctx) {
+std::any trombone_compiler_visitor::visitPrintExpr(TromboneParser::PrintExprContext *ctx) {
     ctx->expr()->accept(this);
     bytecode.write((const char*)&reserved, 7);
     bytecode.write((const char*)&op_print, 1);
-    // popAddress();
+    // pop_address(); // TODO: remove when print is statement
     return std::any();
 }
 
-std::any TromboneBaseVisitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
+std::any trombone_compiler_visitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
     return visitChildren(ctx);
     //TODO: implement
     throw std::runtime_error("Not implemented visitFuncCallExpr");
     return std::any();
 }
 
-TromboneBaseVisitor::address_t TromboneBaseVisitor::pushAddress() {
-    return nextAddress++;
+trombone_compiler_visitor::address_t trombone_compiler_visitor::push_address() {
+    return next_address++;
 }
 
-TromboneBaseVisitor::address_t TromboneBaseVisitor::popAddress() {
-    return --nextAddress;
+trombone_compiler_visitor::address_t trombone_compiler_visitor::pop_address() {
+    return --next_address;
 }

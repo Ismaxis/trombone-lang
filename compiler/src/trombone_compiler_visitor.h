@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "TromboneVisitor.h"
+#include "antlr/TromboneVisitor.h"
 #include "antlr4-runtime.h"
 #include <any>
 #include <cstdint>
@@ -15,63 +15,14 @@
  * extended to create a visitor which only needs to handle a subset of the
  * available methods.
  */
-class TromboneBaseVisitor : public TromboneVisitor {
+class trombone_compiler_visitor : public TromboneVisitor {
 public:
   using address_t = uint64_t;
   enum class tromb_t { int_t, int_array_t };
 
-  struct varMeta {
-    address_t address;
-    tromb_t type;
-    varMeta() {}
-    varMeta(address_t address, tromb_t type) : address(address), type(type) {}
-    varMeta(const varMeta &other) : address(other.address), type(other.type) {}
-    varMeta &operator=(const varMeta &other) {
-      address = other.address;
-      type = other.type;
-      return *this;
-    }
-  };
-  using opCode = uint8_t;
+  using op_code_t = uint8_t;
 
-#pragma pack(push, 1)
-  const opCode op_push = 0x01;
-  const opCode op_pop = 0x02;
-  const opCode op_local_copy = 0x03;
-  const opCode op_local_store = 0x04;
-  const opCode op_neg = 0xa0;
-  const opCode op_not = 0xa1;
-  const opCode op_add = 0xa2;
-  const opCode op_sub = 0xa3;
-  const opCode op_mul = 0xa4;
-  const opCode op_div = 0xa5;
-  const opCode op_mod = 0xa6;
-  const opCode op_and = 0xa7;
-  const opCode op_or = 0xa8;
-  const opCode op_xor = 0xa9;
-  const opCode op_lsh = 0xaa;
-  const opCode op_rsh = 0xab;
-  const opCode op_eq = 0xc0;
-  const opCode op_ne = 0xc1;
-  const opCode op_lt = 0xc2;
-  const opCode op_gt = 0xc3;
-  const opCode op_le = 0xc4;
-  const opCode op_ge = 0xc5;
-  const opCode op_jmp = 0xd0;
-  const opCode op_jmp_if = 0xd1;
-  const opCode op_jmp_if_not = 0xd2;
-  const opCode op_heap_alloc = 0xe0;
-  const opCode op_heap_pop_ptr = 0xe1;
-  const opCode op_heap_copy_ptr = 0xe2;
-  const opCode op_heap_load_ptr = 0xe3;
-  const opCode op_heap_store_ptr = 0xe4;
-  const opCode op_read = 0xf0;
-  const opCode op_print = 0xf1;
-
-#pragma pack(pop)
-
-      virtual std::any visitProgram(TromboneParser::ProgramContext * ctx)
-          override;
+  virtual std::any visitProgram(TromboneParser::ProgramContext *ctx) override;
   virtual std::any
   visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) override;
   virtual std::any
@@ -114,13 +65,63 @@ public:
   visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) override;
 
 private:
+#pragma pack(push, 1)
+  static inline const op_code_t op_push = 0x01;
+  static inline const op_code_t op_pop = 0x02;
+  static inline const op_code_t op_local_copy = 0x03;
+  static inline const op_code_t op_local_store = 0x04;
+  static inline const op_code_t op_neg = 0xa0;
+  static inline const op_code_t op_not = 0xa1;
+  static inline const op_code_t op_add = 0xa2;
+  static inline const op_code_t op_sub = 0xa3;
+  static inline const op_code_t op_mul = 0xa4;
+  static inline const op_code_t op_div = 0xa5;
+  static inline const op_code_t op_mod = 0xa6;
+  static inline const op_code_t op_and = 0xa7;
+  static inline const op_code_t op_or = 0xa8;
+  static inline const op_code_t op_xor = 0xa9;
+  static inline const op_code_t op_lsh = 0xaa;
+  static inline const op_code_t op_rsh = 0xab;
+  static inline const op_code_t op_eq = 0xc0;
+  static inline const op_code_t op_ne = 0xc1;
+  static inline const op_code_t op_lt = 0xc2;
+  static inline const op_code_t op_gt = 0xc3;
+  static inline const op_code_t op_le = 0xc4;
+  static inline const op_code_t op_ge = 0xc5;
+  static inline const op_code_t op_jmp = 0xd0;
+  static inline const op_code_t op_jmp_if = 0xd1;
+  static inline const op_code_t op_jmp_if_not = 0xd2;
+  static inline const op_code_t op_heap_alloc = 0xe0;
+  static inline const op_code_t op_heap_pop_ptr = 0xe1;
+  static inline const op_code_t op_heap_copy_ptr = 0xe2;
+  static inline const op_code_t op_heap_load_ptr = 0xe3;
+  static inline const op_code_t op_heap_store_ptr = 0xe4;
+  static inline const op_code_t op_read = 0xf0;
+  static inline const op_code_t op_print = 0xf1;
+
+#pragma pack(pop)
+  struct var_meta {
+    address_t address;
+    tromb_t type;
+    var_meta() {}
+    var_meta(address_t address, tromb_t type) : address(address), type(type) {}
+    var_meta(const var_meta &other)
+        : address(other.address), type(other.type) {}
+    var_meta &operator=(const var_meta &other) {
+      address = other.address;
+      type = other.type;
+      return *this;
+    }
+  };
+
   static inline const uint64_t reserved = 0;
   std::ofstream bytecode{"out/bytecode.txt", std::ofstream::out |
-                                             std::ofstream::trunc |
-                                             std::ofstream::binary};
-  std::unordered_map<std::string, varMeta> symbolTable;
-  address_t nextAddress = 0;
+                                                 std::ofstream::trunc |
+                                                 std::ofstream::binary};
 
-  address_t pushAddress();
-  address_t popAddress();
+  std::unordered_map<std::string, var_meta> symbol_table;
+  address_t next_address = 0;
+
+  address_t push_address();
+  address_t pop_address();
 };

@@ -1,6 +1,6 @@
 #include <iostream>
 #include "antlr4-runtime.h"
-#include "antlr/TromboneBaseVisitor.h"
+#include "trombone_compiler_visitor.h"
 #include "antlr/TromboneLexer.h"
 #include "antlr/TromboneParser.h"
 
@@ -31,9 +31,8 @@ int main(int argc, const char* argv[]) {
   TromboneParser parser(&tokens);
 
   TromboneParser::ProgramContext *tree = parser.program();
-  TromboneBaseVisitor visitor;
+  trombone_compiler_visitor visitor;
   visitor.visitProgram(tree);
 
-  std::cout << "Done\n";
   return 0;
 }
