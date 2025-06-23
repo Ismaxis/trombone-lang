@@ -5,12 +5,17 @@
 #include "trombone_compiler_visitor.h"
 #include <any>
 #include <cstdint>
+#include <ranges>
 
 
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
     visitChildren(ctx);
-    for (auto [name, meta] : symbol_table) {
-        std::cout << "clearing variable: " << name << std::endl;
+    auto vs = std::views::values(symbol_table);
+    std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
+    std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
+        return a.address < b.address;
+    });
+    for (auto meta : symbol_table_sorted) {
         pop_address();
         if (meta.type == tromb_t::int_array_t) {
             bytecode.write((const char*)&reserved, 7);
