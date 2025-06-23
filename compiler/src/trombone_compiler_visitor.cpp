@@ -6,8 +6,32 @@
 #include <any>
 #include <cstdint>
 #include <ranges>
+#include <filesystem>
 
+trombone_compiler_visitor::trombone_compiler_visitor()
+    : bytecode("out.trbc", std::ofstream::out | 
+                           std::ofstream::trunc | 
+                           std::ofstream::binary) {}
 
+trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
+    std::filesystem::path output_path(output_file);
+
+    try {
+        if (!std::filesystem::exists(output_path.parent_path())) {
+            std::filesystem::create_directories(output_path.parent_path());
+        }
+        bytecode =
+            std::ofstream(output_file, std::ofstream::out | 
+                                       std::ofstream::trunc | 
+                                       std::ofstream::binary);
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Error creating output directory: " << e.what() << std::endl;
+        bytecode =
+            std::ofstream("out.trbc", std::ofstream::out | 
+                                      std::ofstream::trunc | 
+                                      std::ofstream::binary);
+    }
+}
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
     visitChildren(ctx);
     auto vs = std::views::values(symbol_table);

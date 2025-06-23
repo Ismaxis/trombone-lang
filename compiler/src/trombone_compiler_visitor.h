@@ -17,6 +17,8 @@
  */
 class trombone_compiler_visitor : public TromboneVisitor {
 public:
+  trombone_compiler_visitor();
+  trombone_compiler_visitor(std::string output_file);
   using address_t = uint64_t;
   enum class tromb_t { int_t, int_array_t };
 
@@ -115,9 +117,7 @@ private:
   };
 
   static inline const uint64_t reserved = 0;
-  std::ofstream bytecode{"out/bytecode.txt", std::ofstream::out |
-                                                 std::ofstream::trunc |
-                                                 std::ofstream::binary};
+  std::ofstream bytecode;
 
   std::unordered_map<std::string, var_meta> symbol_table;
   address_t next_address = 0;
