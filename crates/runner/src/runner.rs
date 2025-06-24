@@ -275,7 +275,6 @@ where
             Print => {
                 let value = self.pop();
                 self.output.write_fmt(format_args!("OUTPUT: {}\n", value))?;
-                self.push(value); // TODO: remove it # tmp = print(arr[i])
             }
         }
         Ok(())
