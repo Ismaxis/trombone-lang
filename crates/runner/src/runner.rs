@@ -153,6 +153,20 @@ where
             Lsh => self.binary_op(|a, b| a.checked_shl(b as u32).unwrap_or(0)),
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
+            PushRetAddress { operands_count } => {
+                self.push(
+                    (self.stream.get_instruction_pointer() + operands_count as usize + 1)
+                        as TrombValue,
+                );
+            }
+
+            Return { return_value_size } => {
+                self.stack[self.sp - (return_value_size as usize + 1)..self.sp].rotate_left(1);
+                let address = self.pop();
+                self.stream
+                    .switch_frame(address as i32 - self.stream.get_instruction_pointer() as i32);
+            }
+
             // Comparison
             Equal => self.comparison(|a, b| a == b),
             NotEqual => self.comparison(|a, b| a != b),

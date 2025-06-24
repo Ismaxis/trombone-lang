@@ -61,6 +61,10 @@ pub enum Operation {
     Lsh,
     Rsh,
 
+    // Functions
+    PushRetAddress { operands_count: Literal },
+    Return { return_value_size: Literal },
+
     // Comparison
     Equal,
     NotEqual,
@@ -115,6 +119,14 @@ impl TryFrom<Instruction> for Operation {
             OP_XOR => Xor,
             OP_LSH => Lsh,
             OP_RSH => Rsh,
+
+            // Function operations
+            OP_PUSH_RET_ADDRESS => PushRetAddress {
+                operands_count: value.extract_immediate(),
+            },
+            OP_RET => Return {
+                return_value_size: value.extract_immediate(),
+            },
 
             // Comparison operations
             OP_EQ => Equal,
@@ -185,6 +197,10 @@ impl From<Operation> for Instruction {
             Xor => Instruction::from_parts(OP_XOR, 0),
             Lsh => Instruction::from_parts(OP_LSH, 0),
             Rsh => Instruction::from_parts(OP_RSH, 0),
+            PushRetAddress { operands_count } => {
+                Instruction::from_parts(OP_PUSH_RET_ADDRESS, operands_count)
+            }
+            Return { return_value_size } => Instruction::from_parts(OP_RET, return_value_size),
             Equal => Instruction::from_parts(OP_EQ, 0),
             NotEqual => Instruction::from_parts(OP_NE, 0),
             LessThan => Instruction::from_parts(OP_LT, 0),
