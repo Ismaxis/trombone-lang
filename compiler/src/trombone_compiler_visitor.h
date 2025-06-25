@@ -1,13 +1,13 @@
-
-// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
-
 #pragma once
 
 #include "antlr/TromboneVisitor.h"
-#include "antlr4-runtime.h"
+
 #include <any>
 #include <cstdint>
 #include <fstream>
+#include <optional>
+#include <any>
+#include <ranges>
 #include <unordered_map>
 
 /**
@@ -122,9 +122,7 @@ private:
     std::optional<tromb_t> return_type;
     address_t address;
     func_meta() {}
-    func_meta(address_t address, std::vector<tromb_t> args)
-        : address(address), args(args), return_type(std::nullopt) {}
-    func_meta(address_t address, std::vector<tromb_t> args, tromb_t return_type)
+    func_meta(address_t address, std::vector<tromb_t> args, std::optional<tromb_t> return_type = {})
         : address(address), args(args), return_type(return_type) {}
   };
 

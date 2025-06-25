@@ -1,12 +1,7 @@
-
-// Generated from ../antlr/Trombone.g4 by ANTLR 4.13.2
-
-
 #include "trombone_compiler_visitor.h"
+
 #include <any>
 #include <cstdint>
-#include <optional>
-#include <ranges>
 #include <filesystem>
 #include <string>
 
@@ -41,7 +36,10 @@ std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext 
 
 std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
     auto return_ctx = ctx->returnType();
-    std::optional<tromb_t> return_type = return_ctx ? std::any_cast<tromb_t>(ctx->returnType()->accept(this)) : std::nullopt;
+    std::optional<tromb_t> return_type;
+    if (return_ctx) {
+        return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
+    }
     
     enter_scope();
     std::string name = ctx->IDENTIFIER()->getText();
@@ -92,7 +90,7 @@ std::any trombone_compiler_visitor::visitType(TromboneParser::TypeContext *ctx) 
 std::any trombone_compiler_visitor::visitBlock(TromboneParser::BlockContext *ctx) {
     enter_scope();
     visitChildren(ctx);
-    exit_scope()
+    exit_scope();
     return std::any();
 }
 
