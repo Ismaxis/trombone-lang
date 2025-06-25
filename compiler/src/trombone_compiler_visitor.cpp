@@ -5,8 +5,10 @@
 #include "trombone_compiler_visitor.h"
 #include <any>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <filesystem>
+#include <string>
 
 trombone_compiler_visitor::trombone_compiler_visitor()
     : bytecode("out.trbc", std::ofstream::out | 
@@ -34,43 +36,45 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
 }
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
     visitChildren(ctx);
-    auto vs = std::views::values(symbol_table);
-    std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
-    std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
-        return a.address > b.address;
-    });
-    for (auto meta : symbol_table_sorted) {
-        pop_address();
-        if (meta.type == tromb_t::int_array_t) {
-            bytecode.write((const char*)&reserved, 7);
-            bytecode.write((const char*)&op_heap_pop_ptr, 1);
-        } else if (meta.type == tromb_t::int_t) {
-            bytecode.write((const char*)&reserved, 7);
-            bytecode.write((const char*)&op_pop, 1);
-        } else {
-            throw std::runtime_error("Unknown type in symbol table: " + std::to_string(static_cast<int>(meta.type)));
-        }
-    }
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
-    //TODO: implement
-    return visitChildren(ctx);
+    auto return_ctx = ctx->returnType();
+    std::optional<tromb_t> return_type = return_ctx ? std::any_cast<tromb_t>(ctx->returnType()->accept(this)) : std::nullopt;
+    
+    enter_scope();
+    std::string name = ctx->IDENTIFIER()->getText();
+    std::vector<tromb_t> args = std::any_cast<std::vector<tromb_t>>(ctx->paramList()->accept(this));
+
+    func_meta meta(next_address, args, return_type);
+    add_function(name, meta);
+    visitChildren(ctx->block());
+    exit_scope();
+
+    uint32_t address = bytecode.tellp();
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op_ret, 1);
+    return return_type;
 }
 
 std::any trombone_compiler_visitor::visitParamList(TromboneParser::ParamListContext *ctx) {
-    //TODO: implement
-    return visitChildren(ctx);
+    std::vector<tromb_t> args;
+    for (auto param : ctx->param()) {
+        args.push_back(std::any_cast<tromb_t>(param->accept(this)));
+    }
+    return std::make_any<std::vector<tromb_t>>(args);
 }
 
 std::any trombone_compiler_visitor::visitParam(TromboneParser::ParamContext *ctx) {
-    //TODO: implement
-    return visitChildren(ctx);
+    std::string name = ctx->IDENTIFIER()->getText();
+    tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
+    add_variable(name, var_meta(next_address - 1, type));
+    return std::make_any<tromb_t>(type);
 }
 
 std::any trombone_compiler_visitor::visitReturnType(TromboneParser::ReturnTypeContext *ctx) {
-    //TODO: implement
     return visitChildren(ctx);
 }
 
@@ -86,8 +90,10 @@ std::any trombone_compiler_visitor::visitType(TromboneParser::TypeContext *ctx) 
 }
 
 std::any trombone_compiler_visitor::visitBlock(TromboneParser::BlockContext *ctx) {
-    //TODO: scope
-    return visitChildren(ctx);
+    enter_scope();
+    visitChildren(ctx);
+    exit_scope()
+    return std::any();
 }
 
 std::any trombone_compiler_visitor::visitStatement(TromboneParser::StatementContext *ctx) {
@@ -142,8 +148,13 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
 }
 
 std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
-    //TODO: implement
-    throw std::runtime_error("Not implemented visitReturnStmt");
+    ctx->expr()->accept(this);
+    pop_address();
+    uint32_t address = 1;
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op_ret, 1);
+    exit_scope();
     return std::any();
 }
 
