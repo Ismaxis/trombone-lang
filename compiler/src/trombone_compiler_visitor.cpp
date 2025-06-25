@@ -5,8 +5,10 @@
 #include <filesystem>
 #include <string>
 
+static constexpr std::string_view default_output_file = "./out/out.trbc";
+
 trombone_compiler_visitor::trombone_compiler_visitor()
-    : bytecode("out.trbc", std::ofstream::out | 
+    : bytecode(std::string(default_output_file), std::ofstream::out | 
                            std::ofstream::trunc | 
                            std::ofstream::binary) {}
 
@@ -24,7 +26,7 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     } catch (const std::filesystem::filesystem_error &e) {
         std::cerr << "Error creating output directory: " << e.what() << std::endl;
         bytecode =
-            std::ofstream("out.trbc", std::ofstream::out | 
+            std::ofstream(std::string(default_output_file), std::ofstream::out | 
                                       std::ofstream::trunc | 
                                       std::ofstream::binary);
     }
@@ -102,17 +104,18 @@ std::any trombone_compiler_visitor::visitVarDecl(TromboneParser::VarDeclContext 
     auto name = ctx->IDENTIFIER()->getText();
     tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
     ctx->expr()->accept(this);
-    symbol_table[name] = var_meta(next_address - 1, type);
+    symbol_table.back().variables[name] = var_meta(next_address - 1, type);
     return std::any();
 }
 
 
 std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentContext *ctx) {
+    auto&& variables = this->symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbol_table.find(name) == symbol_table.end()) {
+    if (variables.find(name) == variables.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbol_table[name];
+    auto meta = variables[name];
     ctx->expr()->accept(this);
     if (meta.type == tromb_t::int_t) {
         uint32_t address = pop_address() - meta.address - 1;
@@ -127,11 +130,12 @@ std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentCo
 }
 
 std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
+    auto&& variables = this->symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbol_table.find(name) == symbol_table.end()) {
+    if (variables.find(name) == variables.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbol_table[name];
+    auto meta = variables[name];
     ctx->expr(1)->accept(this);
     ctx->expr(0)->accept(this);
     if (meta.type == tromb_t::int_array_t) {
@@ -263,11 +267,12 @@ std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext 
 }
 
 std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
+    auto&& variables = symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (symbol_table.find(name) == symbol_table.end()) {
+    if (variables.find(name) == variables.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbol_table[name];
+    auto meta = variables[name];
     if (meta.type == tromb_t::int_t) {
         throw std::runtime_error("Array expected, got int");
     } else if (meta.type == tromb_t::int_array_t) {
@@ -281,11 +286,12 @@ std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccess
 }
 
 std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferenceContext *ctx) {
-    auto name = ctx->IDENTIFIER()->getText();
-    if (symbol_table.find(name) == symbol_table.end()) {
+    auto&& variables = symbol_table.back().variables;
+    std::string name = ctx->IDENTIFIER()->getText();
+    if (variables.find(name) == variables.end()) {
         throw std::runtime_error("Unknown variable: " + name);
     }
-    auto meta = symbol_table[name];
+    auto meta = variables[name];
     if (meta.type == tromb_t::int_t) {
         uint32_t address = push_address() - meta.address - 1;
         bytecode.write((const char*)&address, 4);

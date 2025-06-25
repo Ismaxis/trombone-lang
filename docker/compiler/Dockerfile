@@ -30,10 +30,10 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER}
 
-RUN     apt install -y \
-                libpolly-${LLVM_VER}-dev \
-                zlib1g-dev \
-                libzstd-dev
+RUN apt install -y \
+        libpolly-${LLVM_VER}-dev \
+        zlib1g-dev \
+        libzstd-dev
 
 RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 

@@ -127,13 +127,13 @@ private:
   };
 
   struct scope {
-    scope() : start_address(next_address) {}
+    scope(address_t next_address) : start_address(next_address) {}
     address_t start_address;
     std::unordered_map<std::string, var_meta> variables;
   };
 
   void enter_scope() {
-    symbol_table.push_back(scope());
+    symbol_table.push_back(scope(next_address));
   }
   void exit_scope() {
     auto& current_scope = symbol_table.back();
