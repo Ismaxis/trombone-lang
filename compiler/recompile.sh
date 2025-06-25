@@ -1,4 +1,4 @@
-docker build --tag "trombone-lang-compiler-env" -f docker/compiler/Dockerfile .
+docker build --tag "trombone-lang-compiler-env" -f docker/compiler/Dockerfile . || exit 1
 docker run --rm \
     -v ./out/:/trombone/compiler/out/ \
     trombone-lang-compiler-env:latest \
