@@ -50,6 +50,7 @@ std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDe
     func_meta meta(next_address, args, return_type);
     add_function(name, meta);
     visitChildren(ctx->block());
+    clear_scope();
     exit_scope();
 
     uint32_t address = bytecode.tellp();
@@ -92,6 +93,7 @@ std::any trombone_compiler_visitor::visitType(TromboneParser::TypeContext *ctx) 
 std::any trombone_compiler_visitor::visitBlock(TromboneParser::BlockContext *ctx) {
     enter_scope();
     visitChildren(ctx);
+    clear_scope();
     exit_scope();
     return std::any();
 }
@@ -156,7 +158,7 @@ std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtCo
     bytecode.write((const char*)&address, 4);
     bytecode.write((const char*)&reserved, 3);
     bytecode.write((const char*)&op_ret, 1);
-    exit_scope();
+    clear_scope();
     return std::any();
 }
 

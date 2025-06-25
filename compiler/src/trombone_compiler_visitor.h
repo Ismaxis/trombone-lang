@@ -131,14 +131,8 @@ private:
     address_t start_address;
     std::unordered_map<std::string, var_meta> variables;
   };
-
-  void enter_scope() {
-    symbol_table.push_back(scope(next_address));
-  }
-  void exit_scope() {
-    auto& current_scope = symbol_table.back();
-    next_address = current_scope.start_address;
-    auto vs = std::views::values(current_scope.variables);
+  void clear_scope() {
+    auto vs = std::views::values(symbol_table.back().variables);
     std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
     std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
       return a.address > b.address;
@@ -154,9 +148,15 @@ private:
         throw std::runtime_error("Unknown type in symbol table: " + std::to_string(static_cast<int>(meta.type)));
       }
     }
-    next_address = current_scope.start_address;
-    symbol_table.pop_back();
+  }
 
+  void enter_scope() {
+    symbol_table.push_back(scope());
+    next_address = 0;
+  }  
+  void exit_scope() {
+    next_address = symbol_table.back().start_address;
+    symbol_table.pop_back();
   }
   void add_variable(std::string name, var_meta meta) {
     symbol_table.back().variables[name] = meta;
