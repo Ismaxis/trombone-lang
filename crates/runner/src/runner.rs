@@ -261,7 +261,7 @@ where
                 }
             }
             Read => {
-                self.output.write_fmt(format_args!("INPUT: "))?;
+                self.output.write_fmt(format_args!("> "))?;
                 self.output.flush()?;
                 let mut line = String::new();
                 self.input.read_line(&mut line)?;
@@ -274,7 +274,7 @@ where
             }
             Print => {
                 let value = self.pop();
-                self.output.write_fmt(format_args!("OUTPUT: {}\n", value))?;
+                self.output.write_fmt(format_args!("{}\n", value))?;
             }
         }
         Ok(())

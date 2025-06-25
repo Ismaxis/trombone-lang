@@ -524,7 +524,7 @@ mod tests {
         // print(x);
         runner.stream.emplace_instruction(opcode::OP_PRINT, 0);
         runner.evaluate_next_instruction()?;
-        assert_eq!(runner.output.into_inner(), "42\n".as_bytes());
+        assert_eq!(runner.output.into_inner(), "> 42\n".as_bytes());
 
         Ok(())
     }
