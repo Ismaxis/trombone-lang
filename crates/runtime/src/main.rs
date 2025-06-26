@@ -17,6 +17,9 @@ use trombone_runner::runner::{self, ArrayOperationStream};
 struct Args {
     /// Path to input .trbc file
     path: String,
+    // Jit compilation threshold
+    #[arg(long, default_value_t = 8)]
+    jit_threshold: usize,
     //
     // TODO: debug flag, step by step execution
 }
@@ -47,12 +50,21 @@ fn main() -> Result<()> {
         alloc_count: AtomicUsize::new(0),
     };
 
+    let context = trombone_jit::tests::ExportedContext::create();
+    let codegen = trombone_jit::tests::init(&context);
+
     let mut runner = runner::Runner::new(
         stream,
         RunnerType::default_input(),
         RunnerType::default_output(),
         &alloc,
     );
+    if args.jit_threshold == 0 {
+        println!("JIT compilation is disabled");
+    } else {
+        println!("JIT compilation threshold: {}", args.jit_threshold);
+        runner.set_codegen(codegen, args.jit_threshold);
+    }
 
     runner.evaluate()?;
     println!("Execution completed!");
