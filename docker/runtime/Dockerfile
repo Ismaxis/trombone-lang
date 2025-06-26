@@ -24,7 +24,7 @@ RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER} && \
 RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 
 WORKDIR /trombone
-COPY ./crates ./crates
-COPY ./Cargo.toml .
+COPY ./crates /trombone/crates
+COPY ./Cargo.toml /trombone/Cargo.toml
 RUN cargo test --no-run
 CMD [ "cargo", "test", "--all", "--workspace" ]
