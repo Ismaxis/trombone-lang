@@ -167,19 +167,19 @@ where
             BasicBlockStart { block_length } => {
                 let current_ip = self.stream.get_instruction_pointer() - 1;
                 // // If the block is already jitted, execute it
-                // if let Some(&compiled_func) = self
-                //     .basic_block_jitted
-                //     .get(&self.stream.get_instruction_pointer())
-                // {
-                //     let new_stack_ptr = unsafe { compiled_func(self.stack.as_mut_ptr()) };
-                //     if new_stack_ptr.is_null() {
-                //         return Err("JIT compiled function returned null pointer".into());
-                //     }
+                if let Some(&compiled_func) = self
+                    .basic_block_jitted
+                    .get(&self.stream.get_instruction_pointer())
+                {
+                    let new_stack_ptr = unsafe { compiled_func(self.stack.as_mut_ptr()) };
+                    if new_stack_ptr.is_null() {
+                        return Err("JIT compiled function returned null pointer".into());
+                    }
 
-                //     self.sp =
-                //         unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
-                //     return Ok(());
-                // }
+                    self.sp =
+                        unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
+                    return Ok(());
+                }
 
                 let cnt = self.basic_block_stats.entry(current_ip).or_insert(0);
                 *cnt += 1;

@@ -11,7 +11,6 @@ mod tests {
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
     use trombone_common::opcode::{self};
-    use trombone_jit::CodeGenTrait;
 
     struct MockAllocator {
         alloc_count: AtomicUsize,
@@ -643,7 +642,7 @@ mod tests {
             0xc200000000000000, // LT
             0xd20000000000000a, // JMP_IF_NOT
             /* asssign loop body start */
-            Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x2).as_u64(),
+            Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x7).as_u64(),
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000002, // LOCAL_COPY
             0xe400000000000002, // HEAP_STORE_PTR

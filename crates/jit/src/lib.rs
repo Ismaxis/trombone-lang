@@ -291,6 +291,26 @@ impl<'ctx> CodeGen<'ctx> {
                     self.comparison(vstack, IntPredicate::SGE);
                 }
 
+                Operation::HeapLoad { variable_offset } => {
+                    let offset = calc_stack_offset(variable_offset);
+                    let ptr = self.ptr_with_offset(offset, "heap_load_ptr", vstack.stack_ptr);
+                    let value = self
+                        .builder
+                        .build_load(self.context.i64_type(), ptr, "heap_load_value")
+                        .expect("heap load value")
+                        .into_int_value();
+                    vstack.push(value);
+                }
+
+                Operation::HeapStore { variable_offset } => {
+                    let offset = calc_stack_offset(variable_offset);
+                    let value = vstack.pop();
+                    let ptr = self.ptr_with_offset(offset, "heap_store_ptr", vstack.stack_ptr);
+                    self.builder
+                        .build_store(ptr, value)
+                        .expect("heap store value");
+                }
+
                 _ => {
                     panic!("unsupported operation");
                 }
