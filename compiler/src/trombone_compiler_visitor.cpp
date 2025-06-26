@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <sys/types.h>
 
 static constexpr std::string_view default_output_file = "./out/out.trbc";
 static constexpr auto default_flags = std::ofstream::out | std::ofstream::trunc | std::ofstream::binary;
@@ -25,51 +26,49 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     }
 }
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
+    // bytecode.write((const char*)&reserved, 7);
+    // bytecode.write((const char*)&op_jmp, 1);
     visitChildren(ctx);
+    // auto main_meta = get_function("main");
+    // uint32_t address = main_meta.address / 8;
+    // bytecode.seekp(0);
+    // bytecode.write((const char*)&address, 4);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
-    return visitChildren(ctx);
+    // auto return_ctx = ctx->returnType();
+    // std::optional<tromb_t> return_type;
+    // if (return_ctx) {
+    //     return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
+    // }
+    // enter_scope();
+    ctx->paramList()->accept(this);
+    // symbol_table.back().start_rsp -= next_address;
+    // func_meta meta(bytecode.tellp(), return_type);
+    // std::string name = ctx->IDENTIFIER()->getText();
+    // add_function(name, meta);
 
-    auto return_ctx = ctx->returnType();
-    std::optional<tromb_t> return_type;
-    if (return_ctx) {
-        return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
-    }
+    // visitChildren(ctx->block());
+    // clear_scope();
+    // uint32_t address = return_ctx ? 1 : 0;
+    // bytecode.write((const char*)&address, 4);
+    // bytecode.write((const char*)&reserved, 3);
+    // bytecode.write((const char*)&op_ret, 1);
+    // exit_scope();
 
-    enter_scope();
-    std::string name = ctx->IDENTIFIER()->getText();
-    std::vector<tromb_t> args = std::any_cast<std::vector<tromb_t>>(ctx->paramList()->accept(this));
-
-    func_meta meta(next_address, args, return_type);
-    add_function(name, meta);
-    visitChildren(ctx->block());
-    clear_scope();
-    exit_scope();
-
-    uint32_t address = bytecode.tellp();
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_ret, 1);
-    return return_type;
+    return std::any();
 }
 
 std::any trombone_compiler_visitor::visitParamList(TromboneParser::ParamListContext *ctx) {
     return visitChildren(ctx);
-    std::vector<tromb_t> args;
-    for (auto param : ctx->param()) {
-        args.push_back(std::any_cast<tromb_t>(param->accept(this)));
-    }
-    return std::make_any<std::vector<tromb_t>>(args);
 }
 
 std::any trombone_compiler_visitor::visitParam(TromboneParser::ParamContext *ctx) {
-    return visitChildren(ctx);
     std::string name = ctx->IDENTIFIER()->getText();
     tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
-    add_variable(name, var_meta(next_address - 1, type));
-    return std::make_any<tromb_t>(type);
+    add_variable(name, var_meta(push_address(), type));
+    return std::any();
 }
 
 std::any trombone_compiler_visitor::visitReturnType(TromboneParser::ReturnTypeContext *ctx) {
@@ -236,24 +235,28 @@ std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *c
 
 std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
-    visitChildren(ctx);
-    if (name == "print") {
-        bytecode.write((const char*)&reserved, 7);
-        bytecode.write((const char*)&op_print, 1);
-        pop_address();
-        return std::any();
-    } else {
-        std::cout << "Unknown function: " << name << std::endl;
-    }
-    //TODO: implement
-    throw std::runtime_error("Not implemented visitFuncCall");
+    auto meta = get_function(name);
+    uint32_t address = meta.address;
+    ctx->argList()->accept(this);
+    address = next_address - address;
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op_push_ret_address, 1);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext *ctx) {
+    for (auto arg : ctx->expr()) {
+        arg->accept(this);
+        push_address();
+    }
+    return std::any();
+}
+
+std::any trombone_compiler_visitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
     return visitChildren(ctx);
     //TODO: implement
-    throw std::runtime_error("Not implemented visitArgList");
+    throw std::runtime_error("Not implemented visitFuncCallExpr");
     return std::any();
 }
 
@@ -382,13 +385,6 @@ std::any trombone_compiler_visitor::visitCompare(TromboneParser::CompareContext 
         throw std::runtime_error("Unknown operator: " + op);
     }
     pop_address();
-    return std::any();
-}
-
-std::any trombone_compiler_visitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
-    return visitChildren(ctx);
-    //TODO: implement
-    throw std::runtime_error("Not implemented visitFuncCallExpr");
     return std::any();
 }
 

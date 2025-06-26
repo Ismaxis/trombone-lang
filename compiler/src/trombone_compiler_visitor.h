@@ -118,12 +118,11 @@ private:
     }
   };
   struct func_meta {
-    std::vector<tromb_t> args;
     std::optional<tromb_t> return_type;
     address_t address;
     func_meta() {}
-    func_meta(address_t address, std::vector<tromb_t> args, std::optional<tromb_t> return_type = {})
-        : address(address), args(args), return_type(return_type) {}
+    func_meta(address_t address, std::optional<tromb_t> return_type = {})
+        : address(address), return_type(return_type) {}
   };
 
   struct scope {
@@ -167,6 +166,8 @@ private:
 
   void add_function(std::string name, func_meta meta) {
     functions[name] = meta;
+    assert(symbol_table.size() == 0);
+    assert(next_address == 0);
   }
 
   var_meta get_variable(std::string name) {
