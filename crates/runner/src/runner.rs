@@ -13,6 +13,7 @@ use trombone_jit::{CodeGenTrait, VmExecuteFunc};
 
 use crate::control_block::ControlBlock;
 
+pub const JIT_HIT_THRESHOLD: usize = 1; // TODO: make it configurable
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
 pub trait OperationStream {
@@ -171,22 +172,22 @@ where
                     .basic_block_jitted
                     .get(&self.stream.get_instruction_pointer())
                 {
-                    let new_stack_ptr = unsafe { compiled_func(self.stack.as_mut_ptr()) };
+                    let new_stack_ptr =
+                        unsafe { compiled_func(self.stack.as_mut_ptr().offset(self.sp as isize)) };
                     if new_stack_ptr.is_null() {
                         return Err("JIT compiled function returned null pointer".into());
                     }
 
                     self.sp =
                         unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
+                    self.stream.switch_frame(block_length as i32);
                     return Ok(());
                 }
 
                 let cnt = self.basic_block_stats.entry(current_ip).or_insert(0);
                 *cnt += 1;
 
-                const THRESHOLD: usize = 1;
-
-                if *cnt == THRESHOLD {
+                if *cnt == JIT_HIT_THRESHOLD {
                     println!(
                         "Basic block at {} executed {} times, compiling...",
                         self.stream.get_instruction_pointer() - 1,
@@ -195,14 +196,10 @@ where
 
                     let ip = self.stream.get_instruction_pointer();
                     let operations = self.stream.get_next_n(block_length as usize);
-                    let compiled_func = self
-                        .codegen
-                        .as_ref()
-                        .unwrap()
-                        .jit_compile_basic_block(ip, &operations)
-                        .expect(
-                            format!("JIT compilation failed for basic block at {}", ip).as_str(),
-                        );
+                    let codegen = self.codegen.as_ref().unwrap();
+                    let compiled_func = codegen.jit_compile_basic_block(ip, &operations).expect(
+                        format!("JIT compilation failed for basic block at {}", ip).as_str(),
+                    );
 
                     self.basic_block_jitted
                         .insert(ip, unsafe { compiled_func.as_raw() });
@@ -326,7 +323,6 @@ where
                     return Err("Negative offset in heap store".into());
                 }
                 let value = self.pop();
-
                 let ptr = unsafe { ptr.add(offset as usize) };
                 unsafe {
                     *ptr = value;

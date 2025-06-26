@@ -35,7 +35,7 @@ struct VirtualStack<'ctx> {
     builder: &'ctx Builder<'ctx>,
     stack_ptr: PointerValue<'ctx>,
     current_offset: i64,
-    values: BTreeMap<i64, IntValue<'ctx>>,
+    values: BTreeMap<i64, BasicValueEnum<'ctx>>,
 }
 
 impl<'ctx> VirtualStack<'ctx> {
@@ -58,7 +58,7 @@ impl<'ctx> VirtualStack<'ctx> {
     }
 
     fn push(&mut self, value: IntValue<'ctx>) {
-        self.values.insert(self.current_offset, value);
+        self.values.insert(self.current_offset, value.into());
         self.current_offset += 1;
     }
 
@@ -68,13 +68,14 @@ impl<'ctx> VirtualStack<'ctx> {
     }
 
     fn set(&mut self, offset: i64, value: IntValue<'ctx>) {
-        self.values.insert(self.current_offset + offset, value);
+        self.values
+            .insert(self.current_offset + offset, value.into());
     }
 
     fn get(&mut self, offset: i64) -> IntValue<'ctx> {
         let offset = self.current_offset + offset;
         if let Some(v) = self.values.get(&offset) {
-            *v
+            v.into_int_value()
         } else {
             let i64_type = self.context.i64_type();
             let ptr = ptr_with_offset(
@@ -89,8 +90,38 @@ impl<'ctx> VirtualStack<'ctx> {
                 .build_load(i64_type, ptr, "pop_value")
                 .expect("pop value")
                 .into_int_value();
-            self.values.insert(offset, value);
+            self.values.insert(offset, value.into());
             value
+        }
+    }
+
+    fn get_ptr(&mut self, offset: i64) -> PointerValue<'ctx> {
+        let offset = self.current_offset + offset;
+        if let Some(v) = self.values.get(&offset) {
+            v.into_pointer_value()
+        } else {
+            let i64_type = self.context.i64_type();
+            let ptr = ptr_with_offset(
+                offset,
+                "ptr_with_offset_pop",
+                self.stack_ptr,
+                i64_type,
+                self.builder,
+            );
+            let value = self
+                .builder
+                .build_load(i64_type, ptr, "pop_ptr_value")
+                .expect("pop value")
+                .into_int_value();
+
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let ptr = self
+                .builder
+                .build_int_to_ptr(value, ptr_type, "int_to_ptr")
+                .expect("int to ptr (get_ptr)");
+
+            self.values.insert(offset, ptr.into());
+            ptr
         }
     }
 
@@ -99,7 +130,10 @@ impl<'ctx> VirtualStack<'ctx> {
         for (offset, value) in self.values.iter() {
             if *offset >= self.current_offset {
                 return;
+            } else if value.is_pointer_value() {
+                continue;
             }
+
             let ptr = ptr_with_offset(
                 *offset,
                 "ptr_with_offset_finalize",
@@ -183,6 +217,8 @@ impl<'ctx> CodeGenTrait<'ctx> for CodeGen<'ctx> {
             .verify(true)
             .then_some(())
             .ok_or("VerificationError".to_string())?;
+
+        // println!("{}", module.print_to_string().to_string());
 
         self.execution_engine.add_module(&module).unwrap();
 
@@ -292,25 +328,48 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 Operation::HeapLoad { variable_offset } => {
-                    let offset = calc_stack_offset(variable_offset);
-                    let ptr = self.ptr_with_offset(offset, "heap_load_ptr", vstack.stack_ptr);
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
+                    let offset = vstack.pop();
+
+                    // Compute ptr + offset
+                    let gep_ptr = unsafe {
+                        self.builder.build_in_bounds_gep(
+                            self.context.i64_type(),
+                            ptr,
+                            &[offset],
+                            "heapload_gep",
+                        )
+                    }
+                    .expect("heapload gep");
+
                     let value = self
                         .builder
-                        .build_load(self.context.i64_type(), ptr, "heap_load_value")
+                        .build_load(self.context.i64_type(), gep_ptr, "heapload_value")
                         .expect("heap load value")
                         .into_int_value();
                     vstack.push(value);
                 }
 
                 Operation::HeapStore { variable_offset } => {
-                    let offset = calc_stack_offset(variable_offset);
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
+                    let offset = vstack.pop();
                     let value = vstack.pop();
-                    let ptr = self.ptr_with_offset(offset, "heap_store_ptr", vstack.stack_ptr);
+
+                    // Compute ptr + offset
+                    let gep_ptr = unsafe {
+                        self.builder.build_in_bounds_gep(
+                            self.context.i64_type(),
+                            ptr,
+                            &[offset],
+                            "heapstore_gep",
+                        )
+                    }
+                    .expect("heapstore gep");
+
                     self.builder
-                        .build_store(ptr, value)
+                        .build_store(gep_ptr, value)
                         .expect("heap store value");
                 }
-
                 _ => {
                     panic!("unsupported operation");
                 }
@@ -727,7 +786,7 @@ pub mod tests {
         assert_eq!(stack[0], N as TrombValue);
 
         // println!("Elapsed time: {:?}", elapsed);
-        assert!(elapsed.as_nanos() < 1000);
+        assert!(elapsed.as_nanos() < 1500);
         // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
     }
 

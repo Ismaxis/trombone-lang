@@ -3,8 +3,8 @@ mod tests {
     use std::io::Write;
     use std::vec;
 
-    use crate::control_block;
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
+    use crate::{control_block, runner};
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use trombone_common::TrombValue;
@@ -676,13 +676,14 @@ mod tests {
             runner.stream.emplace_instruction_raw(x);
         }
 
-        for i in 0..(1025 + 42) {
+        while runner.stream.get_instruction_pointer() < instructions.len() {
             match runner.evaluate_next_instruction() {
-                Ok(_) => {
-                    println!("{}, {}", i, runner.stream.get_instruction_pointer());
-                }
+                Ok(_) => {}
                 error => {
-                    println!("failed at instruction: {}", i);
+                    println!(
+                        "failed at instruction: {}",
+                        runner.stream.get_instruction_pointer()
+                    );
                     return error;
                 }
             }
@@ -700,7 +701,7 @@ mod tests {
 
         assert_eq!(
             runner.basic_block_stats,
-            vec![(8, 42)].into_iter().collect()
+            vec![(8, runner::JIT_HIT_THRESHOLD)].into_iter().collect()
         );
 
         Ok(())
