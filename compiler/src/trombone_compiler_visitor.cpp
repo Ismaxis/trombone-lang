@@ -145,14 +145,23 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
     return std::any();
 }
 
+// address, op1, op2, op3, return_value ...
+
 std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
-    ctx->expr()->accept(this);
-    pop_address();
-    uint32_t address = 1;
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_ret, 1);
-    clear_scope();
+    if (ctx->expr() == nullptr) {
+
+    } else {
+        ctx->expr()->accept(this);
+        bytecode.write((const char*)&next_address, 4);
+        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&op_local_store, 1);
+        pop_address();
+        uint32_t address = 1;
+        bytecode.write((const char*)&address, 4);
+        bytecode.write((const char*)&reserved, 3);
+        bytecode.write((const char*)&op_ret, 1);
+        clear_scope();
+    }
     return std::any();
 }
 
@@ -254,6 +263,12 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     bytecode.write((const char*)&reserved, 3);
     bytecode.write((const char *)&op_jmp, 1);
     return std::any();
+}
+
+std::any trombone_compiler_visitor::visitFuncCallStmt(
+    TromboneParser::FuncCallStmtContext *ctx) {
+    
+  return std::any{};
 }
 
 std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext *ctx) {

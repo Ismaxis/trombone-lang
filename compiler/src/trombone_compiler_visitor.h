@@ -48,6 +48,8 @@ public:
   visitWhileStmt(TromboneParser::WhileStmtContext *ctx) override;
   virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override;
   virtual std::any visitFuncCall(TromboneParser::FuncCallContext *ctx) override;
+  virtual std::any
+  visitFuncCallStmt(TromboneParser::FuncCallStmtContext *context) override;
   virtual std::any visitArgList(TromboneParser::ArgListContext *ctx) override;
   virtual std::any
   visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) override;
