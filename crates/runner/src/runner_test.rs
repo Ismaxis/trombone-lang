@@ -680,13 +680,14 @@ mod tests {
 
         while runner.stream.get_instruction_pointer() < instructions.len() {
             match runner.evaluate_next_instruction() {
-                Ok(_) => {}
-                error => {
+                Ok(crate::runner::ReturnCode::Continue) => {}
+                Ok(crate::runner::ReturnCode::Done) => {break;}
+                Err(error) => {
                     println!(
                         "failed at instruction: {}",
                         runner.stream.get_instruction_pointer()
                     );
-                    return error;
+                    return Err(error);
                 }
             }
         }

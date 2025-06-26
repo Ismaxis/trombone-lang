@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use trombone_common::{bytecode::Instruction, opcode};
-use trombone_runner::runner::{self, ArrayOperationStream};
+use trombone_runner::runner::{self, ArrayOperationStream, OperationStream};
 
 /// Virtual Machine for TromboneLang bytecode
 #[derive(Parser, Debug)]
@@ -66,7 +66,19 @@ fn main() -> Result<()> {
         runner.set_codegen(codegen, args.jit_threshold);
     }
 
-    runner.evaluate()?;
+    loop {
+        match runner.evaluate_next_instruction() {
+            Ok(crate::runner::ReturnCode::Continue) => {}
+            Ok(crate::runner::ReturnCode::Done) => {break;}
+            Err(error) => {
+                println!(
+                    "failed at instruction: {}",
+                    runner.stream.get_instruction_pointer()
+                );
+                return Err(error);
+            }
+        }
+    }
     println!("Execution completed!");
     println!("Stack: {:?}", &runner.stack[..runner.sp]);
     println!("Allocations: {}", alloc.alloc_count.load(Ordering::SeqCst));
