@@ -26,5 +26,4 @@ RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 WORKDIR /trombone
 COPY . /trombone
 
-RUN cargo test --no-run
 CMD [ "cargo", "test", "--all", "--workspace" ]
