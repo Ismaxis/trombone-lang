@@ -1,5 +1,6 @@
 use std::alloc::{GlobalAlloc, Layout};
 
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::io::{Stdin, Stdout, Write};
 
@@ -8,6 +9,7 @@ use trombone_common::bytecode::Instruction;
 use trombone_common::bytecode::Operation;
 use trombone_common::bytecode::VariableOffset;
 use trombone_common::error::*;
+use trombone_jit::{CodeGenTrait, VmExecuteFunc};
 
 use crate::control_block::ControlBlock;
 
@@ -18,6 +20,7 @@ pub trait OperationStream {
     fn switch_frame(&mut self, offset: i32);
     fn get_instruction_pointer(&self) -> usize;
     fn get_instructions_len(&self) -> usize;
+    fn get_next_n(&mut self, n: usize) -> Vec<Operation>;
 }
 
 pub struct ArrayOperationStream<'a> {
@@ -52,9 +55,17 @@ impl OperationStream for ArrayOperationStream<'_> {
     fn get_instructions_len(&self) -> usize {
         self.instructions.len()
     }
+
+    fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
+        self.instructions[self.instruction_pointer..]
+            .iter()
+            .take(n)
+            .map(|&x| Instruction::from_u64(x).try_into().unwrap())
+            .collect()
+    }
 }
 
-pub struct Runner<'alloc, OpStream, IStream, OStream>
+pub struct Runner<'alloc, 'ctx, OpStream, IStream, OStream>
 where
     OpStream: OperationStream,
     IStream: BufRead,
@@ -68,9 +79,14 @@ where
 
     pub input: IStream,
     pub output: OStream,
-}
 
-impl<'alloc, OpStream> Runner<'alloc, OpStream, BufReader<Stdin>, Stdout>
+    pub basic_block_stats: HashMap<usize, usize>,
+    pub basic_block_jitted: HashMap<usize, VmExecuteFunc>,
+    pub codegen: Option<(trombone_jit::CodeGen<'ctx>, Threshold)>,
+}
+type Threshold = usize;
+
+impl<'alloc, 'ctx, OpStream> Runner<'alloc, 'ctx, OpStream, BufReader<Stdin>, Stdout>
 where
     OpStream: OperationStream,
 {
@@ -82,6 +98,9 @@ where
             input: BufReader::new(std::io::stdin()),
             output: std::io::stdout(),
             allocator: &std::alloc::System,
+            basic_block_stats: HashMap::new(),
+            basic_block_jitted: HashMap::new(),
+            codegen: None,
         }
     }
 
@@ -98,7 +117,7 @@ where
     }
 }
 
-impl<'alloc, OpStream, IStream, OStream> Runner<'alloc, OpStream, IStream, OStream>
+impl<'alloc, 'ctx, OpStream, IStream, OStream> Runner<'alloc, 'ctx, OpStream, IStream, OStream>
 where
     OpStream: OperationStream,
     IStream: BufRead,
@@ -117,7 +136,14 @@ where
             input,
             output,
             allocator,
+            basic_block_stats: HashMap::new(),
+            basic_block_jitted: HashMap::new(),
+            codegen: None,
         }
+    }
+
+    pub fn set_codegen(&mut self, codegen: trombone_jit::CodeGen<'ctx>, threshold: Threshold) {
+        self.codegen = Some((codegen, threshold));
     }
 
     pub fn evaluate_next_instruction(&mut self) -> Result<()> {
@@ -135,6 +161,52 @@ where
             LocalStore { variable_offset } => {
                 let value = self.pop();
                 *self.get_variable(variable_offset) = value;
+            }
+
+            // Basic block
+            BasicBlockStart { block_length } => {
+                let (codegen, threshold) = match self.codegen {
+                    Some(ref codegen) => codegen,
+                    None => return Ok(()),
+                };
+
+                let current_ip = self.stream.get_instruction_pointer() - 1;
+                // // If the block is already jitted, execute it
+                if let Some(&compiled_func) = self
+                    .basic_block_jitted
+                    .get(&self.stream.get_instruction_pointer())
+                {
+                    let new_stack_ptr =
+                        unsafe { compiled_func(self.stack.as_mut_ptr().offset(self.sp as isize)) };
+                    if new_stack_ptr.is_null() {
+                        return Err("JIT compiled function returned null pointer".into());
+                    }
+
+                    self.sp =
+                        unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
+                    self.stream.switch_frame(block_length as i32);
+                    return Ok(());
+                }
+
+                let cnt = self.basic_block_stats.entry(current_ip).or_insert(0);
+                *cnt += 1;
+
+                if *cnt == *threshold {
+                    println!(
+                        "Basic block at {} executed {} times, compiling...",
+                        self.stream.get_instruction_pointer() - 1,
+                        cnt
+                    );
+
+                    let ip = self.stream.get_instruction_pointer();
+                    let operations = self.stream.get_next_n(block_length as usize);
+                    let compiled_func = codegen.jit_compile_basic_block(ip, &operations).expect(
+                        format!("JIT compilation failed for basic block at {}", ip).as_str(),
+                    );
+
+                    self.basic_block_jitted
+                        .insert(ip, unsafe { compiled_func.as_raw() });
+                }
             }
 
             // Arithmetic
@@ -254,7 +326,6 @@ where
                     return Err("Negative offset in heap store".into());
                 }
                 let value = self.pop();
-
                 let ptr = unsafe { ptr.add(offset as usize) };
                 unsafe {
                     *ptr = value;

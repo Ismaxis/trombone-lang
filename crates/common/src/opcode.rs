@@ -22,6 +22,16 @@ pub const OP_POP: OpCode = 0x02;
 pub const OP_LOCAL_COPY: OpCode = 0x03; // Reads Nth (N = offset) value from top of stack and pushes it on top of stack
 pub const OP_LOCAL_STORE: OpCode = 0x04; // Pops top of stack and store it to Nth (N = offset) value from top of stack 
 
+// Basic block instruction
+// 63       56 55              32 31                           0
+// +----------+------------------+-----------------------------+
+// |   0x05   |      Unused      |         Block type          |
+// +----------+------------------+-----------------------------+
+// Block types:
+//  0x01 - Regular
+//  0x02 - Loop
+pub const OP_BASICBLOCK_START: OpCode = 0x05; // Marks the beginning of a basic block
+
 // Arithmetic instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+

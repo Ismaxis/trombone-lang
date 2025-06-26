@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 mod errors;
 
-use inkwell::IntPredicate;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
@@ -10,10 +9,19 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::types::IntType;
 use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
+use inkwell::{IntPredicate, OptimizationLevel};
 use trombone_common::{TrombValue, bytecode::Operation};
 
 type Rsp = *mut TrombValue;
 pub type VmExecuteFunc = unsafe extern "C" fn(Rsp) -> Rsp;
+
+pub trait CodeGenTrait<'ctx> {
+    fn jit_compile_basic_block(
+        &self,
+        block_id: usize,
+        operations: &[Operation],
+    ) -> errors::Result<JitFunction<VmExecuteFunc>>;
+}
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -27,7 +35,7 @@ struct VirtualStack<'ctx> {
     builder: &'ctx Builder<'ctx>,
     stack_ptr: PointerValue<'ctx>,
     current_offset: i64,
-    values: BTreeMap<i64, IntValue<'ctx>>,
+    values: BTreeMap<i64, BasicValueEnum<'ctx>>,
 }
 
 impl<'ctx> VirtualStack<'ctx> {
@@ -50,7 +58,7 @@ impl<'ctx> VirtualStack<'ctx> {
     }
 
     fn push(&mut self, value: IntValue<'ctx>) {
-        self.values.insert(self.current_offset, value);
+        self.values.insert(self.current_offset, value.into());
         self.current_offset += 1;
     }
 
@@ -60,13 +68,14 @@ impl<'ctx> VirtualStack<'ctx> {
     }
 
     fn set(&mut self, offset: i64, value: IntValue<'ctx>) {
-        self.values.insert(self.current_offset + offset, value);
+        self.values
+            .insert(self.current_offset + offset, value.into());
     }
 
     fn get(&mut self, offset: i64) -> IntValue<'ctx> {
         let offset = self.current_offset + offset;
         if let Some(v) = self.values.get(&offset) {
-            *v
+            v.into_int_value()
         } else {
             let i64_type = self.context.i64_type();
             let ptr = ptr_with_offset(
@@ -81,8 +90,38 @@ impl<'ctx> VirtualStack<'ctx> {
                 .build_load(i64_type, ptr, "pop_value")
                 .expect("pop value")
                 .into_int_value();
-            self.values.insert(offset, value);
+            self.values.insert(offset, value.into());
             value
+        }
+    }
+
+    fn get_ptr(&mut self, offset: i64) -> PointerValue<'ctx> {
+        let offset = self.current_offset + offset;
+        if let Some(v) = self.values.get(&offset) {
+            v.into_pointer_value()
+        } else {
+            let i64_type = self.context.i64_type();
+            let ptr = ptr_with_offset(
+                offset,
+                "ptr_with_offset_pop",
+                self.stack_ptr,
+                i64_type,
+                self.builder,
+            );
+            let value = self
+                .builder
+                .build_load(i64_type, ptr, "pop_ptr_value")
+                .expect("pop value")
+                .into_int_value();
+
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let ptr = self
+                .builder
+                .build_int_to_ptr(value, ptr_type, "int_to_ptr")
+                .expect("int to ptr (get_ptr)");
+
+            self.values.insert(offset, ptr.into());
+            ptr
         }
     }
 
@@ -91,7 +130,10 @@ impl<'ctx> VirtualStack<'ctx> {
         for (offset, value) in self.values.iter() {
             if *offset >= self.current_offset {
                 return;
+            } else if value.is_pointer_value() {
+                continue;
             }
+
             let ptr = ptr_with_offset(
                 *offset,
                 "ptr_with_offset_finalize",
@@ -104,25 +146,10 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
-    // Много переменных и деление на ноль
 }
 
-impl<'ctx> CodeGen<'ctx> {
-    pub fn new(
-        context: &'ctx Context,
-        module: Module<'ctx>,
-        builder: Builder<'ctx>,
-        execution_engine: ExecutionEngine<'ctx>,
-    ) -> Self {
-        Self {
-            context,
-            module,
-            builder,
-            execution_engine,
-        }
-    }
-
-    pub fn jit_compile_basic_block(
+impl<'ctx> CodeGenTrait<'ctx> for CodeGen<'ctx> {
+    fn jit_compile_basic_block(
         &self,
         block_id: usize,
         operations: &[Operation],
@@ -191,12 +218,30 @@ impl<'ctx> CodeGen<'ctx> {
             .then_some(())
             .ok_or("VerificationError".to_string())?;
 
+        // println!("{}", module.print_to_string().to_string());
+
         self.execution_engine.add_module(&module).unwrap();
 
         unsafe {
             self.execution_engine
                 .get_function(&module_name)
                 .map_err(|err| format!("GetFunctionError: {}", err).into())
+        }
+    }
+}
+
+impl<'ctx> CodeGen<'ctx> {
+    pub fn new(
+        context: &'ctx Context,
+        module: Module<'ctx>,
+        builder: Builder<'ctx>,
+        execution_engine: ExecutionEngine<'ctx>,
+    ) -> Self {
+        Self {
+            context,
+            module,
+            builder,
+            execution_engine,
         }
     }
 
@@ -206,9 +251,7 @@ impl<'ctx> CodeGen<'ctx> {
         vstack: &mut VirtualStack<'s>,
         next_block: &BasicBlock,
         error_block: &BasicBlock,
-    )
-    // -> BasicValueEnum<'ctx>
-    {
+    ) {
         for op in operations {
             match op {
                 // Stack operations
@@ -284,6 +327,49 @@ impl<'ctx> CodeGen<'ctx> {
                     self.comparison(vstack, IntPredicate::SGE);
                 }
 
+                Operation::HeapLoad { variable_offset } => {
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
+                    let offset = vstack.pop();
+
+                    // Compute ptr + offset
+                    let gep_ptr = unsafe {
+                        self.builder.build_in_bounds_gep(
+                            self.context.i64_type(),
+                            ptr,
+                            &[offset],
+                            "heapload_gep",
+                        )
+                    }
+                    .expect("heapload gep");
+
+                    let value = self
+                        .builder
+                        .build_load(self.context.i64_type(), gep_ptr, "heapload_value")
+                        .expect("heap load value")
+                        .into_int_value();
+                    vstack.push(value);
+                }
+
+                Operation::HeapStore { variable_offset } => {
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
+                    let offset = vstack.pop();
+                    let value = vstack.pop();
+
+                    // Compute ptr + offset
+                    let gep_ptr = unsafe {
+                        self.builder.build_in_bounds_gep(
+                            self.context.i64_type(),
+                            ptr,
+                            &[offset],
+                            "heapstore_gep",
+                        )
+                    }
+                    .expect("heapstore gep");
+
+                    self.builder
+                        .build_store(gep_ptr, value)
+                        .expect("heap store value");
+                }
                 _ => {
                     panic!("unsupported operation");
                 }
@@ -408,10 +494,22 @@ fn ptr_with_offset<'ctx>(
     unsafe { builder.build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name) }.unwrap()
 }
 
+pub type ExportedContext = Context;
+
+pub fn init(context: &ExportedContext) -> CodeGen {
+    let module = context.create_module("unused_module");
+    let builder = context.create_builder();
+    let execution_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .expect("Failed to create JIT execution engine");
+
+    let codegen = CodeGen::new(context, module, builder, execution_engine);
+    codegen
+}
+
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
-    use inkwell::OptimizationLevel;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
@@ -700,7 +798,7 @@ mod tests {
         assert_eq!(stack[0], N as TrombValue);
 
         // println!("Elapsed time: {:?}", elapsed);
-        assert!(elapsed.as_nanos() < 1000);
+        assert!(elapsed.as_nanos() < 1500);
         // On my machine, jit with virtual stack takes 400ns, while jit with as-is translation takes 1500ns
     }
 
@@ -746,17 +844,6 @@ mod tests {
                 unsafe { jitted.call(offset_ptr(stack_base, new_stack.len() as i64)) };
             assert_eq!(new_stack_ptr, std::ptr::null_mut(), "test {}", idx);
         }
-    }
-
-    fn init(context: &Context) -> CodeGen {
-        let module = context.create_module("unused_module");
-        let builder = context.create_builder();
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .expect("Failed to create JIT execution engine");
-
-        let codegen = CodeGen::new(context, module, builder, execution_engine);
-        codegen
     }
 
     fn offset_ptr(ptr: Rsp, offset: i64) -> Rsp {

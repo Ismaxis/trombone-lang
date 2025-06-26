@@ -17,13 +17,13 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER} && \
 	apt install -y \
-		libpolly-${LLVM_VER}-dev \
-		zlib1g-dev \
-		libzstd-dev
+	libpolly-${LLVM_VER}-dev \
+	zlib1g-dev \
+	libzstd-dev
 
 RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 
 WORKDIR /trombone
-COPY ./Cargo.toml /trombone
-COPY ./src /trombone/src
-CMD [ "cargo", "r" ]
+COPY . /trombone
+
+CMD [ "cargo", "test", "--all", "--workspace" ]

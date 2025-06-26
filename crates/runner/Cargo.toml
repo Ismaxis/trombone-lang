@@ -7,3 +7,4 @@ repository.workspace = true
 [dependencies]
 atoi = "2.0.0"
 trombone-common.workspace = true
+trombone-jit.workspace = true

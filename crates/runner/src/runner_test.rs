@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
     use std::vec;
 
     use crate::control_block;
@@ -44,6 +45,10 @@ mod tests {
             self.instructions
                 .push(Instruction::from_parts(opcode, immediate).as_u64());
         }
+
+        fn emplace_instruction_raw(&mut self, raw: u64) {
+            self.instructions.push(raw);
+        }
     }
 
     impl OperationStream for TestOperationStream {
@@ -63,6 +68,14 @@ mod tests {
 
         fn get_instructions_len(&self) -> usize {
             todo!()
+        }
+
+        fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
+            self.instructions[self.instruction_pointer..]
+                .iter()
+                .take(n)
+                .map(|&x| Instruction::from_u64(x).try_into().unwrap())
+                .collect()
         }
     }
 
@@ -364,8 +377,8 @@ mod tests {
         Ok(())
     }
 
-    type RunnerType<'a> =
-        Runner<'a, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
+    type RunnerType<'a, 'ctx> =
+        Runner<'a, 'ctx, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
 
     #[test]
     fn test_heap_operations() -> Result<()> {
@@ -591,6 +604,107 @@ mod tests {
             assert_eq!(&runner.stack[0..runner.sp], &[0xDEADBEEF]);
             assert_eq!(runner.stream.get_instruction_pointer(), 1337);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basic_block() -> Result<()> {
+        let input = std::io::Cursor::new("42\n".as_bytes());
+        let output = std::io::Cursor::new(Vec::new());
+
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+
+        type RunnerTypeLoc<'a> = Runner<
+            'a,
+            'a,
+            TestOperationStream,
+            std::io::Cursor<&'a [u8]>,
+            std::io::Cursor<Vec<u8>>,
+        >;
+
+        let context = trombone_jit::ExportedContext::create();
+        let codegen = trombone_jit::init(&context);
+        let mut runner: RunnerTypeLoc =
+            Runner::new(TestOperationStream::new(), input, output, &mock_allocator);
+
+        const JIT_HIT_THRESHOLD: usize = 8;
+        runner.set_codegen(codegen, JIT_HIT_THRESHOLD);
+
+        let instructions = [
+            0xf000000000000000, // READ
+            0x0100000000000000, // PUSH 0
+            0x0300000000000001, // LOCAL_COPY
+            0xe000000000000000, // HEAP_ALLOC
+            /* assign loop cond */
+            0x0300000000000001, // LOCAL_COPY
+            0x0300000000000003, // LOCAL_COPY
+            0xc200000000000000, // LT
+            0xd20000000000000a, // JMP_IF_NOT
+            /* asssign loop body start */
+            Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x7).as_u64(),
+            0x0300000000000001, // LOCAL_COPY
+            0x0300000000000002, // LOCAL_COPY
+            0xe400000000000002, // HEAP_STORE_PTR
+            0x0300000000000001, // LOCAL_COPY
+            0x0100000000000001, // PUSH 1
+            0xa200000000000000, // ADD
+            0x0400000000000001, // LOCAL_STORE
+            /* asssign loop body end */
+            0xd0000000fffffff4, // JMP -12 (to loop cond)
+            /* print loop */
+            0x0100000000000000, // PUSH 0
+            0x0400000000000001, // LOCAL_STORE
+            0x0300000000000001, // LOCAL_COPY
+            0x0300000000000003, // LOCAL_COPY
+            0xc200000000000000, // LT
+            0xd200000000000009, // JMP_IF_NOT
+            0x0300000000000001, // LOCAL_COPY
+            0xe300000000000001, // LOCAL_COPY
+            0xf100000000000000, // PRINT
+            0x0300000000000001, // LOCAL_COPY
+            0x0100000000000001, // PUSH 1
+            0xa200000000000000, // ADD
+            0x0400000000000001, // LOCAL_STORE
+            0xd0000000fffffff5, // JMP
+            0xe100000000000000, // HEAP_POP_PTR
+            0x0200000000000000, // POP
+            0x0200000000000000, // POP
+        ];
+
+        for x in instructions {
+            runner.stream.emplace_instruction_raw(x);
+        }
+
+        while runner.stream.get_instruction_pointer() < instructions.len() {
+            match runner.evaluate_next_instruction() {
+                Ok(_) => {}
+                error => {
+                    println!(
+                        "failed at instruction: {}",
+                        runner.stream.get_instruction_pointer()
+                    );
+                    return error;
+                }
+            }
+        }
+
+        assert_eq!(runner.sp, 0);
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+
+        runner.output.flush()?;
+        let output = String::from_utf8(runner.output.into_inner()).unwrap();
+        assert_eq!(
+            output,
+            "> 0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n"
+        );
+
+        assert_eq!(
+            runner.basic_block_stats,
+            vec![(8, JIT_HIT_THRESHOLD)].into_iter().collect()
+        );
 
         Ok(())
     }

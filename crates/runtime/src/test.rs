@@ -9,7 +9,7 @@ mod tests {
     use rand_pcg::Pcg64;
     use trombone_common::TrombValue;
     use trombone_common::bytecode::{Instruction, Operation};
-    use trombone_jit::CodeGen;
+    use trombone_jit::{CodeGen, CodeGenTrait};
     use trombone_runner::runner::{ArrayOperationStream, Runner};
 
     type CurrentStackSize = usize;

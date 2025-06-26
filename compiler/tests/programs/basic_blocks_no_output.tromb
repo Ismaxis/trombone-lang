@@ -1,0 +1,10 @@
+fn main() {
+    let n: int = read();
+    let i: int = 0;
+    let arr: [int] = array(n);
+
+    while i < n {
+        arr[i] = i;
+        i = i + 1;
+    }
+}

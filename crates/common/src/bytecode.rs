@@ -47,6 +47,9 @@ pub enum Operation {
     LocalCopy { variable_offset: VariableOffset },
     LocalStore { variable_offset: VariableOffset },
 
+    // Basic block
+    BasicBlockStart { block_length: Offset },
+
     // Arithmetic
     Neg,
     Not,
@@ -104,6 +107,11 @@ impl TryFrom<Instruction> for Operation {
             },
             OP_LOCAL_STORE => LocalStore {
                 variable_offset: value.extract_immediate(),
+            },
+
+            // Basic block
+            OP_BASICBLOCK_START => BasicBlockStart {
+                block_length: value.extract_immediate(),
             },
 
             // Arithmetic operations
@@ -185,6 +193,9 @@ impl From<Operation> for Instruction {
             LocalStore { variable_offset } => {
                 Instruction::from_parts(OP_LOCAL_STORE, variable_offset)
             }
+            BasicBlockStart {
+                block_length: block_type,
+            } => Instruction::from_parts(OP_BASICBLOCK_START, block_type),
             Neg => Instruction::from_parts(OP_NEG, 0),
             Not => Instruction::from_parts(OP_NOT, 0),
             Add => Instruction::from_parts(OP_ADD, 0),
