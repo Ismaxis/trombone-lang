@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 mod errors;
 
-use inkwell::IntPredicate;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
@@ -10,6 +9,7 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::types::IntType;
 use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
+use inkwell::{IntPredicate, OptimizationLevel};
 use trombone_common::{TrombValue, bytecode::Operation};
 
 type Rsp = *mut TrombValue;
@@ -494,10 +494,22 @@ fn ptr_with_offset<'ctx>(
     unsafe { builder.build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name) }.unwrap()
 }
 
-// #[cfg(test)] /* TODO: remove */
+pub type ExportedContext = Context;
+
+pub fn init(context: &ExportedContext) -> CodeGen {
+    let module = context.create_module("unused_module");
+    let builder = context.create_builder();
+    let execution_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .expect("Failed to create JIT execution engine");
+
+    let codegen = CodeGen::new(context, module, builder, execution_engine);
+    codegen
+}
+
+#[cfg(test)]
 pub mod tests {
     use super::*;
-    use inkwell::OptimizationLevel;
 
     // https://stackoverflow.com/a/52843365/17826620
     #[test]
@@ -832,19 +844,6 @@ pub mod tests {
                 unsafe { jitted.call(offset_ptr(stack_base, new_stack.len() as i64)) };
             assert_eq!(new_stack_ptr, std::ptr::null_mut(), "test {}", idx);
         }
-    }
-
-    pub type ExportedContext = Context;
-
-    pub fn init(context: &ExportedContext) -> CodeGen {
-        let module = context.create_module("unused_module");
-        let builder = context.create_builder();
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .expect("Failed to create JIT execution engine");
-
-        let codegen = CodeGen::new(context, module, builder, execution_engine);
-        codegen
     }
 
     fn offset_ptr(ptr: Rsp, offset: i64) -> Rsp {

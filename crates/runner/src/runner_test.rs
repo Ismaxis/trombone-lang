@@ -625,8 +625,8 @@ mod tests {
             std::io::Cursor<Vec<u8>>,
         >;
 
-        let context = trombone_jit::tests::ExportedContext::create();
-        let codegen = trombone_jit::tests::init(&context);
+        let context = trombone_jit::ExportedContext::create();
+        let codegen = trombone_jit::init(&context);
         let mut runner: RunnerTypeLoc =
             Runner::new(TestOperationStream::new(), input, output, &mock_allocator);
 

@@ -50,8 +50,8 @@ fn main() -> Result<()> {
         alloc_count: AtomicUsize::new(0),
     };
 
-    let context = trombone_jit::tests::ExportedContext::create();
-    let codegen = trombone_jit::tests::init(&context);
+    let context = trombone_jit::ExportedContext::create();
+    let codegen = trombone_jit::init(&context);
 
     let mut runner = runner::Runner::new(
         stream,

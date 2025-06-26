@@ -24,6 +24,7 @@ RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER} && \
 RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 
 WORKDIR /trombone
-COPY ./Cargo.toml /trombone
-COPY ./src /trombone/src
-CMD [ "cargo", "r" ]
+COPY ./crates ./crates
+COPY ./Cargo.toml .
+COPY ./Cargo.lock .
+RUN cargo test --no-run
