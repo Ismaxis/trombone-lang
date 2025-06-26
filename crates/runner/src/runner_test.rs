@@ -681,7 +681,9 @@ mod tests {
         while runner.stream.get_instruction_pointer() < instructions.len() {
             match runner.evaluate_next_instruction() {
                 Ok(crate::runner::ReturnCode::Continue) => {}
-                Ok(crate::runner::ReturnCode::Done) => {break;}
+                Ok(crate::runner::ReturnCode::Done) => {
+                    break;
+                }
                 Err(error) => {
                     println!(
                         "failed at instruction: {}",

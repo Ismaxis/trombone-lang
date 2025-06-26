@@ -69,7 +69,12 @@ fn main() -> Result<()> {
     }
 
     if true == true {
-        for (i, op) in runner.stream.get_next_n(runner.stream.get_instructions_len()).into_iter().enumerate() {
+        for (i, op) in runner
+            .stream
+            .get_next_n(runner.stream.get_instructions_len())
+            .into_iter()
+            .enumerate()
+        {
             println!("{}: {:?}", i, op);
         }
     }
@@ -77,7 +82,9 @@ fn main() -> Result<()> {
     loop {
         match runner.evaluate_next_instruction() {
             Ok(crate::runner::ReturnCode::Continue) => {}
-            Ok(crate::runner::ReturnCode::Done) => {break;}
+            Ok(crate::runner::ReturnCode::Done) => {
+                break;
+            }
             Err(error) => {
                 println!(
                     "failed at instruction: {}",
