@@ -3,8 +3,8 @@ mod tests {
     use std::io::Write;
     use std::vec;
 
+    use crate::control_block;
     use crate::runner::{ArrayOperationStream, OperationStream, Runner};
-    use crate::{control_block, runner};
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use trombone_common::TrombValue;
@@ -629,7 +629,9 @@ mod tests {
         let codegen = trombone_jit::tests::init(&context);
         let mut runner: RunnerTypeLoc =
             Runner::new(TestOperationStream::new(), input, output, &mock_allocator);
-        runner.set_codegen(codegen);
+
+        const JIT_HIT_THRESHOLD: usize = 8;
+        runner.set_codegen(codegen, JIT_HIT_THRESHOLD);
 
         let instructions = [
             0xf000000000000000, // READ
@@ -701,7 +703,7 @@ mod tests {
 
         assert_eq!(
             runner.basic_block_stats,
-            vec![(8, runner::JIT_HIT_THRESHOLD)].into_iter().collect()
+            vec![(8, JIT_HIT_THRESHOLD)].into_iter().collect()
         );
 
         Ok(())

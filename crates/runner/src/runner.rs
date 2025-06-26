@@ -13,7 +13,6 @@ use trombone_jit::{CodeGenTrait, VmExecuteFunc};
 
 use crate::control_block::ControlBlock;
 
-pub const JIT_HIT_THRESHOLD: usize = 1; // TODO: make it configurable
 const STACK_SIZE: usize = 1024; // maybe should get it from environment, default should be 8Mb (as usual in Linux)
 
 pub trait OperationStream {
@@ -83,9 +82,9 @@ where
 
     pub basic_block_stats: HashMap<usize, usize>,
     pub basic_block_jitted: HashMap<usize, VmExecuteFunc>,
-
-    pub codegen: Option<trombone_jit::CodeGen<'ctx>>,
+    pub codegen: Option<(trombone_jit::CodeGen<'ctx>, Threshold)>,
 }
+type Threshold = usize;
 
 impl<'alloc, 'ctx, OpStream> Runner<'alloc, 'ctx, OpStream, BufReader<Stdin>, Stdout>
 where
@@ -143,8 +142,8 @@ where
         }
     }
 
-    pub fn set_codegen(&mut self, codegen: trombone_jit::CodeGen<'ctx>) {
-        self.codegen = Some(codegen);
+    pub fn set_codegen(&mut self, codegen: trombone_jit::CodeGen<'ctx>, threshold: Threshold) {
+        self.codegen = Some((codegen, threshold));
     }
 
     pub fn evaluate_next_instruction(&mut self) -> Result<()> {
@@ -166,6 +165,11 @@ where
 
             // Basic block
             BasicBlockStart { block_length } => {
+                let (codegen, threshold) = match self.codegen {
+                    Some(ref codegen) => codegen,
+                    None => return Ok(()),
+                };
+
                 let current_ip = self.stream.get_instruction_pointer() - 1;
                 // // If the block is already jitted, execute it
                 if let Some(&compiled_func) = self
@@ -187,7 +191,7 @@ where
                 let cnt = self.basic_block_stats.entry(current_ip).or_insert(0);
                 *cnt += 1;
 
-                if *cnt == JIT_HIT_THRESHOLD {
+                if *cnt == *threshold {
                     println!(
                         "Basic block at {} executed {} times, compiling...",
                         self.stream.get_instruction_pointer() - 1,
@@ -196,7 +200,6 @@ where
 
                     let ip = self.stream.get_instruction_pointer();
                     let operations = self.stream.get_next_n(block_length as usize);
-                    let codegen = self.codegen.as_ref().unwrap();
                     let compiled_func = codegen.jit_compile_basic_block(ip, &operations).expect(
                         format!("JIT compilation failed for basic block at {}", ip).as_str(),
                     );
