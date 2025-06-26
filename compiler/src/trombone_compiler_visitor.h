@@ -102,8 +102,8 @@ private:
   static inline const op_code_t op_heap_store_ptr = 0xe4;
   static inline const op_code_t op_read = 0xf0;
   static inline const op_code_t op_print = 0xf1;
-
 #pragma pack(pop)
+
   struct var_meta {
     address_t address;
     tromb_t type;
@@ -127,15 +127,16 @@ private:
   };
 
   struct scope {
-    scope(address_t next_address) : start_address(next_address) {}
-    address_t start_address;
+    scope(address_t next_address) : start_rsp(next_address) {}
+    address_t start_rsp;
     std::unordered_map<std::string, var_meta> variables;
   };
+
   void clear_scope() {
     auto vs = std::views::values(symbol_table.back().variables);
     std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
     std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
-      return a.address > b.address;
+      return a.address > b.address; // compare rsp's
     });
     for (auto meta : symbol_table_sorted) {
       if (meta.type == tromb_t::int_array_t) {
@@ -152,18 +153,22 @@ private:
 
   void enter_scope() {
     symbol_table.push_back(scope(next_address));
-    next_address = 0;
   }  
+
+  // clear should be calld before exit_scope
   void exit_scope() {
-    next_address = symbol_table.back().start_address;
+    next_address = symbol_table.back().start_rsp;
     symbol_table.pop_back();
   }
+
   void add_variable(std::string name, var_meta meta) {
     symbol_table.back().variables[name] = meta;
   }
+
   void add_function(std::string name, func_meta meta) {
     functions[name] = meta;
   }
+
   var_meta get_variable(std::string name) {
     for (int i = symbol_table.size() - 1; i >= 0; --i) {
       if (symbol_table[i].variables.find(name) != symbol_table[i].variables.end()) {
@@ -172,6 +177,7 @@ private:
     }
     throw std::runtime_error("Unknown variable: " + name);
   }
+
   func_meta get_function(std::string name) {
     if (functions.find(name) != functions.end()) {
       return functions[name];

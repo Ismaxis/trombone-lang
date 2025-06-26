@@ -1,0 +1,14 @@
+fn main() {
+    let i: int = 0;
+    while i < 5 {
+        i = i + 1;
+        let j: int = 0;
+        while j < 5 {
+            j = j + 1;
+            print(i);
+            print(j);
+            print(-1);
+        }
+        print(i);
+    }
+}

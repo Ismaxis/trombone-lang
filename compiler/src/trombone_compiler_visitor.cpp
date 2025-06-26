@@ -6,11 +6,10 @@
 #include <string>
 
 static constexpr std::string_view default_output_file = "./out/out.trbc";
+static constexpr auto default_flags = std::ofstream::out | std::ofstream::trunc | std::ofstream::binary;
 
 trombone_compiler_visitor::trombone_compiler_visitor()
-    : bytecode(std::string(default_output_file), std::ofstream::out | 
-                           std::ofstream::trunc | 
-                           std::ofstream::binary) {}
+    : bytecode(std::string(default_output_file), default_flags) {}
 
 trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     std::filesystem::path output_path(output_file);
@@ -19,16 +18,10 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
         if (!std::filesystem::exists(output_path.parent_path())) {
             std::filesystem::create_directories(output_path.parent_path());
         }
-        bytecode =
-            std::ofstream(output_file, std::ofstream::out | 
-                                       std::ofstream::trunc | 
-                                       std::ofstream::binary);
+        bytecode = std::ofstream(output_file, default_flags);
     } catch (const std::filesystem::filesystem_error &e) {
         std::cerr << "Error creating output directory: " << e.what() << std::endl;
-        bytecode =
-            std::ofstream(std::string(default_output_file), std::ofstream::out | 
-                                      std::ofstream::trunc | 
-                                      std::ofstream::binary);
+        bytecode = std::ofstream(std::string(default_output_file), default_flags);
     }
 }
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
@@ -37,12 +30,14 @@ std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext 
 }
 
 std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
+    return visitChildren(ctx);
+
     auto return_ctx = ctx->returnType();
     std::optional<tromb_t> return_type;
     if (return_ctx) {
         return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
     }
-    
+
     enter_scope();
     std::string name = ctx->IDENTIFIER()->getText();
     std::vector<tromb_t> args = std::any_cast<std::vector<tromb_t>>(ctx->paramList()->accept(this));
@@ -61,6 +56,7 @@ std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDe
 }
 
 std::any trombone_compiler_visitor::visitParamList(TromboneParser::ParamListContext *ctx) {
+    return visitChildren(ctx);
     std::vector<tromb_t> args;
     for (auto param : ctx->param()) {
         args.push_back(std::any_cast<tromb_t>(param->accept(this)));
@@ -69,6 +65,7 @@ std::any trombone_compiler_visitor::visitParamList(TromboneParser::ParamListCont
 }
 
 std::any trombone_compiler_visitor::visitParam(TromboneParser::ParamContext *ctx) {
+    return visitChildren(ctx);
     std::string name = ctx->IDENTIFIER()->getText();
     tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
     add_variable(name, var_meta(next_address - 1, type));
@@ -106,18 +103,14 @@ std::any trombone_compiler_visitor::visitVarDecl(TromboneParser::VarDeclContext 
     auto name = ctx->IDENTIFIER()->getText();
     tromb_t type = std::any_cast<tromb_t>(ctx->type()->accept(this));
     ctx->expr()->accept(this);
-    symbol_table.back().variables[name] = var_meta(next_address - 1, type);
+    add_variable(name, var_meta(next_address - 1, type));
     return std::any();
 }
 
 
 std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentContext *ctx) {
-    auto&& variables = this->symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (variables.find(name) == variables.end()) {
-        throw std::runtime_error("Unknown variable: " + name);
-    }
-    auto meta = variables[name];
+    auto meta = get_variable(name);
     ctx->expr()->accept(this);
     if (meta.type == tromb_t::int_t) {
         uint32_t address = pop_address() - meta.address - 1;
@@ -132,12 +125,8 @@ std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentCo
 }
 
 std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
-    auto&& variables = this->symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (variables.find(name) == variables.end()) {
-        throw std::runtime_error("Unknown variable: " + name);
-    }
-    auto meta = variables[name];
+    auto meta = get_variable(name);
     ctx->expr(1)->accept(this);
     ctx->expr(0)->accept(this);
     if (meta.type == tromb_t::int_array_t) {
@@ -269,12 +258,9 @@ std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext 
 }
 
 std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
-    auto&& variables = symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (variables.find(name) == variables.end()) {
-        throw std::runtime_error("Unknown variable: " + name);
-    }
-    auto meta = variables[name];
+    auto meta = get_variable(name);
+
     if (meta.type == tromb_t::int_t) {
         throw std::runtime_error("Array expected, got int");
     } else if (meta.type == tromb_t::int_array_t) {
@@ -288,12 +274,9 @@ std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccess
 }
 
 std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferenceContext *ctx) {
-    auto&& variables = symbol_table.back().variables;
     std::string name = ctx->IDENTIFIER()->getText();
-    if (variables.find(name) == variables.end()) {
-        throw std::runtime_error("Unknown variable: " + name);
-    }
-    auto meta = variables[name];
+    auto meta = get_variable(name);
+
     if (meta.type == tromb_t::int_t) {
         uint32_t address = push_address() - meta.address - 1;
         bytecode.write((const char*)&address, 4);
