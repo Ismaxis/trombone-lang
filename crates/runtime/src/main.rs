@@ -37,6 +37,7 @@ fn main() -> Result<()> {
     let stream = /* TODO: buffered stream */ ArrayOperationStream::new(instructions.as_ref());
     type RunnerType<'a> = runner::Runner<
         'a,
+        'a,
         ArrayOperationStream<'a>,
         std::io::BufReader<std::io::Stdin>,
         std::io::Stdout,

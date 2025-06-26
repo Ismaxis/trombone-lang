@@ -416,6 +416,7 @@ version = "0.1.0"
 dependencies = [
  "atoi",
  "trombone-common",
+ "trombone-jit",
 ]
 
 [[package]]

@@ -15,6 +15,14 @@ use trombone_common::{TrombValue, bytecode::Operation};
 type Rsp = *mut TrombValue;
 pub type VmExecuteFunc = unsafe extern "C" fn(Rsp) -> Rsp;
 
+pub trait CodeGenTrait<'ctx> {
+    fn jit_compile_basic_block(
+        &self,
+        block_id: usize,
+        operations: &[Operation],
+    ) -> errors::Result<JitFunction<VmExecuteFunc>>;
+}
+
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
@@ -104,25 +112,10 @@ impl<'ctx> VirtualStack<'ctx> {
                 .expect("update stack finalize");
         }
     }
-    // Много переменных и деление на ноль
 }
 
-impl<'ctx> CodeGen<'ctx> {
-    pub fn new(
-        context: &'ctx Context,
-        module: Module<'ctx>,
-        builder: Builder<'ctx>,
-        execution_engine: ExecutionEngine<'ctx>,
-    ) -> Self {
-        Self {
-            context,
-            module,
-            builder,
-            execution_engine,
-        }
-    }
-
-    pub fn jit_compile_basic_block(
+impl<'ctx> CodeGenTrait<'ctx> for CodeGen<'ctx> {
+    fn jit_compile_basic_block(
         &self,
         block_id: usize,
         operations: &[Operation],
@@ -199,6 +192,22 @@ impl<'ctx> CodeGen<'ctx> {
                 .map_err(|err| format!("GetFunctionError: {}", err).into())
         }
     }
+}
+
+impl<'ctx> CodeGen<'ctx> {
+    pub fn new(
+        context: &'ctx Context,
+        module: Module<'ctx>,
+        builder: Builder<'ctx>,
+        execution_engine: ExecutionEngine<'ctx>,
+    ) -> Self {
+        Self {
+            context,
+            module,
+            builder,
+            execution_engine,
+        }
+    }
 
     fn compile_basic_block<'s>(
         &'s self,
@@ -206,9 +215,7 @@ impl<'ctx> CodeGen<'ctx> {
         vstack: &mut VirtualStack<'s>,
         next_block: &BasicBlock,
         error_block: &BasicBlock,
-    )
-    // -> BasicValueEnum<'ctx>
-    {
+    ) {
         for op in operations {
             match op {
                 // Stack operations
@@ -408,8 +415,8 @@ fn ptr_with_offset<'ctx>(
     unsafe { builder.build_in_bounds_gep(i64_type, current_ptr, &[offset_const], name) }.unwrap()
 }
 
-#[cfg(test)]
-mod tests {
+// #[cfg(test)] /* TODO: remove */
+pub mod tests {
     use super::*;
     use inkwell::OptimizationLevel;
 
@@ -748,7 +755,9 @@ mod tests {
         }
     }
 
-    fn init(context: &Context) -> CodeGen {
+    pub type ExportedContext = Context;
+
+    pub fn init(context: &ExportedContext) -> CodeGen {
         let module = context.create_module("unused_module");
         let builder = context.create_builder();
         let execution_engine = module

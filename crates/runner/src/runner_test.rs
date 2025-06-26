@@ -11,6 +11,7 @@ mod tests {
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
     use trombone_common::opcode::{self};
+    use trombone_jit::CodeGenTrait;
 
     struct MockAllocator {
         alloc_count: AtomicUsize,
@@ -68,6 +69,14 @@ mod tests {
 
         fn get_instructions_len(&self) -> usize {
             todo!()
+        }
+
+        fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
+            self.instructions[self.instruction_pointer..]
+                .iter()
+                .take(n)
+                .map(|&x| Instruction::from_u64(x).try_into().unwrap())
+                .collect()
         }
     }
 
@@ -369,8 +378,8 @@ mod tests {
         Ok(())
     }
 
-    type RunnerType<'a> =
-        Runner<'a, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
+    type RunnerType<'a, 'ctx> =
+        Runner<'a, 'ctx, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
 
     #[test]
     fn test_heap_operations() -> Result<()> {
@@ -609,7 +618,19 @@ mod tests {
             alloc_count: AtomicUsize::new(0),
         };
 
-        let mut runner = Runner::new(TestOperationStream::new(), input, output, &mock_allocator);
+        type RunnerTypeLoc<'a> = Runner<
+            'a,
+            'a,
+            TestOperationStream,
+            std::io::Cursor<&'a [u8]>,
+            std::io::Cursor<Vec<u8>>,
+        >;
+
+        let context = trombone_jit::tests::ExportedContext::create();
+        let codegen = trombone_jit::tests::init(&context);
+        let mut runner: RunnerTypeLoc =
+            Runner::new(TestOperationStream::new(), input, output, &mock_allocator);
+        runner.set_codegen(codegen);
 
         let instructions = [
             0xf000000000000000, // READ
@@ -625,7 +646,7 @@ mod tests {
             Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x2).as_u64(),
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000002, // LOCAL_COPY
-            0xe400000000000002, // LOCAL_STORE
+            0xe400000000000002, // HEAP_STORE_PTR
             0x0300000000000001, // LOCAL_COPY
             0x0100000000000001, // PUSH 1
             0xa200000000000000, // ADD
@@ -667,14 +688,22 @@ mod tests {
                 }
             }
         }
+
         assert_eq!(runner.sp, 0);
         assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+
         runner.output.flush()?;
         let output = String::from_utf8(runner.output.into_inner()).unwrap();
         assert_eq!(
             output,
             "> 0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n"
         );
+
+        assert_eq!(
+            runner.basic_block_stats,
+            vec![(8, 42)].into_iter().collect()
+        );
+
         Ok(())
     }
 }
