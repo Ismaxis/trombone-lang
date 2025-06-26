@@ -17,9 +17,9 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER} && \
 	apt install -y \
-		libpolly-${LLVM_VER}-dev \
-		zlib1g-dev \
-		libzstd-dev
+	libpolly-${LLVM_VER}-dev \
+	zlib1g-dev \
+	libzstd-dev
 
 RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 
@@ -28,3 +28,4 @@ COPY ./crates ./crates
 COPY ./Cargo.toml .
 COPY ./Cargo.lock .
 RUN cargo test --no-run
+CMD [ "cargo", "test", "--all", "--workspace" ]
