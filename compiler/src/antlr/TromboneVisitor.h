@@ -47,6 +47,8 @@ public:
 
     virtual std::any visitWhileStmt(TromboneParser::WhileStmtContext *context) = 0;
 
+    virtual std::any visitFuncCallStmt(TromboneParser::FuncCallStmtContext *context) = 0;
+
     virtual std::any visitIfStmt(TromboneParser::IfStmtContext *context) = 0;
 
     virtual std::any visitFuncCall(TromboneParser::FuncCallContext *context) = 0;

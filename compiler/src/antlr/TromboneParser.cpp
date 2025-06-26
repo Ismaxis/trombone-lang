@@ -54,8 +54,8 @@ void tromboneParserInitialize() {
     std::vector<std::string>{
       "program", "functionDecl", "paramList", "param", "returnType", "type", 
       "block", "statement", "varDecl", "assignment", "arrayAssignment", 
-      "returnStmt", "printStmt", "whileStmt", "ifStmt", "funcCall", "argList", 
-      "expr"
+      "returnStmt", "printStmt", "whileStmt", "funcCallStmt", "ifStmt", 
+      "funcCall", "argList", "expr"
     },
     std::vector<std::string>{
       "", "'fn'", "'('", "')'", "','", "':'", "'->'", "'int'", "'['", "']'", 
@@ -70,73 +70,75 @@ void tromboneParserInitialize() {
     }
   );
   static const int32_t serializedATNSegment[] = {
-  	4,1,35,213,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
+  	4,1,35,218,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
   	7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,
-  	14,2,15,7,15,2,16,7,16,2,17,7,17,1,0,4,0,38,8,0,11,0,12,0,39,1,0,1,0,
-  	1,1,1,1,1,1,1,1,3,1,48,8,1,1,1,1,1,3,1,52,8,1,1,1,1,1,1,2,1,2,1,2,5,2,
-  	59,8,2,10,2,12,2,62,9,2,1,3,1,3,1,3,1,3,1,4,1,4,1,4,1,5,1,5,1,5,1,5,3,
-  	5,75,8,5,1,6,1,6,5,6,79,8,6,10,6,12,6,82,9,6,1,6,1,6,1,7,1,7,1,7,1,7,
-  	1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,3,7,106,
-  	8,7,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,9,1,9,1,9,1,9,1,10,1,10,1,10,1,10,1,
-  	10,1,10,1,10,1,11,1,11,1,11,1,12,1,12,1,12,1,12,1,12,1,13,1,13,1,13,1,
-  	13,1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,14,5,14,146,8,14,10,14,12,14,
-  	149,9,14,1,14,1,14,3,14,153,8,14,1,15,1,15,1,15,3,15,158,8,15,1,15,1,
-  	15,1,16,1,16,1,16,5,16,165,8,16,10,16,12,16,168,9,16,1,17,1,17,1,17,1,
-  	17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,3,17,185,8,
-  	17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,3,17,197,8,17,1,
-  	17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,5,17,208,8,17,10,17,12,17,
-  	211,9,17,1,17,0,1,34,18,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,
-  	34,0,3,1,0,20,21,1,0,22,23,1,0,24,29,222,0,37,1,0,0,0,2,43,1,0,0,0,4,
-  	55,1,0,0,0,6,63,1,0,0,0,8,67,1,0,0,0,10,74,1,0,0,0,12,76,1,0,0,0,14,105,
-  	1,0,0,0,16,107,1,0,0,0,18,114,1,0,0,0,20,118,1,0,0,0,22,125,1,0,0,0,24,
-  	128,1,0,0,0,26,133,1,0,0,0,28,137,1,0,0,0,30,154,1,0,0,0,32,161,1,0,0,
-  	0,34,196,1,0,0,0,36,38,3,2,1,0,37,36,1,0,0,0,38,39,1,0,0,0,39,37,1,0,
-  	0,0,39,40,1,0,0,0,40,41,1,0,0,0,41,42,5,0,0,1,42,1,1,0,0,0,43,44,5,1,
-  	0,0,44,45,5,32,0,0,45,47,5,2,0,0,46,48,3,4,2,0,47,46,1,0,0,0,47,48,1,
-  	0,0,0,48,49,1,0,0,0,49,51,5,3,0,0,50,52,3,8,4,0,51,50,1,0,0,0,51,52,1,
-  	0,0,0,52,53,1,0,0,0,53,54,3,12,6,0,54,3,1,0,0,0,55,60,3,6,3,0,56,57,5,
-  	4,0,0,57,59,3,6,3,0,58,56,1,0,0,0,59,62,1,0,0,0,60,58,1,0,0,0,60,61,1,
-  	0,0,0,61,5,1,0,0,0,62,60,1,0,0,0,63,64,5,32,0,0,64,65,5,5,0,0,65,66,3,
-  	10,5,0,66,7,1,0,0,0,67,68,5,6,0,0,68,69,3,10,5,0,69,9,1,0,0,0,70,75,5,
-  	7,0,0,71,72,5,8,0,0,72,73,5,7,0,0,73,75,5,9,0,0,74,70,1,0,0,0,74,71,1,
-  	0,0,0,75,11,1,0,0,0,76,80,5,10,0,0,77,79,3,14,7,0,78,77,1,0,0,0,79,82,
-  	1,0,0,0,80,78,1,0,0,0,80,81,1,0,0,0,81,83,1,0,0,0,82,80,1,0,0,0,83,84,
-  	5,11,0,0,84,13,1,0,0,0,85,86,3,16,8,0,86,87,5,12,0,0,87,106,1,0,0,0,88,
-  	89,3,18,9,0,89,90,5,12,0,0,90,106,1,0,0,0,91,92,3,20,10,0,92,93,5,12,
-  	0,0,93,106,1,0,0,0,94,95,3,30,15,0,95,96,5,12,0,0,96,106,1,0,0,0,97,98,
-  	3,22,11,0,98,99,5,12,0,0,99,106,1,0,0,0,100,101,3,24,12,0,101,102,5,12,
-  	0,0,102,106,1,0,0,0,103,106,3,26,13,0,104,106,3,28,14,0,105,85,1,0,0,
-  	0,105,88,1,0,0,0,105,91,1,0,0,0,105,94,1,0,0,0,105,97,1,0,0,0,105,100,
-  	1,0,0,0,105,103,1,0,0,0,105,104,1,0,0,0,106,15,1,0,0,0,107,108,5,13,0,
-  	0,108,109,5,32,0,0,109,110,5,5,0,0,110,111,3,10,5,0,111,112,5,14,0,0,
-  	112,113,3,34,17,0,113,17,1,0,0,0,114,115,5,32,0,0,115,116,5,14,0,0,116,
-  	117,3,34,17,0,117,19,1,0,0,0,118,119,5,32,0,0,119,120,5,8,0,0,120,121,
-  	3,34,17,0,121,122,5,9,0,0,122,123,5,14,0,0,123,124,3,34,17,0,124,21,1,
-  	0,0,0,125,126,5,15,0,0,126,127,3,34,17,0,127,23,1,0,0,0,128,129,5,16,
-  	0,0,129,130,5,2,0,0,130,131,3,34,17,0,131,132,5,3,0,0,132,25,1,0,0,0,
-  	133,134,5,17,0,0,134,135,3,34,17,0,135,136,3,12,6,0,136,27,1,0,0,0,137,
-  	138,5,18,0,0,138,139,3,34,17,0,139,147,3,12,6,0,140,141,5,19,0,0,141,
-  	142,5,18,0,0,142,143,3,34,17,0,143,144,3,12,6,0,144,146,1,0,0,0,145,140,
-  	1,0,0,0,146,149,1,0,0,0,147,145,1,0,0,0,147,148,1,0,0,0,148,152,1,0,0,
-  	0,149,147,1,0,0,0,150,151,5,19,0,0,151,153,3,12,6,0,152,150,1,0,0,0,152,
-  	153,1,0,0,0,153,29,1,0,0,0,154,155,5,32,0,0,155,157,5,2,0,0,156,158,3,
-  	32,16,0,157,156,1,0,0,0,157,158,1,0,0,0,158,159,1,0,0,0,159,160,5,3,0,
-  	0,160,31,1,0,0,0,161,166,3,34,17,0,162,163,5,4,0,0,163,165,3,34,17,0,
-  	164,162,1,0,0,0,165,168,1,0,0,0,166,164,1,0,0,0,166,167,1,0,0,0,167,33,
-  	1,0,0,0,168,166,1,0,0,0,169,170,6,17,-1,0,170,171,5,32,0,0,171,172,5,
-  	8,0,0,172,173,3,34,17,0,173,174,5,9,0,0,174,197,1,0,0,0,175,197,3,30,
-  	15,0,176,177,5,30,0,0,177,178,5,2,0,0,178,197,5,3,0,0,179,180,5,31,0,
-  	0,180,181,5,2,0,0,181,184,3,34,17,0,182,183,5,4,0,0,183,185,3,34,17,0,
-  	184,182,1,0,0,0,184,185,1,0,0,0,185,186,1,0,0,0,186,187,5,3,0,0,187,197,
-  	1,0,0,0,188,189,5,2,0,0,189,190,3,34,17,0,190,191,5,3,0,0,191,197,1,0,
-  	0,0,192,193,5,23,0,0,193,197,3,34,17,3,194,197,5,33,0,0,195,197,5,32,
-  	0,0,196,169,1,0,0,0,196,175,1,0,0,0,196,176,1,0,0,0,196,179,1,0,0,0,196,
-  	188,1,0,0,0,196,192,1,0,0,0,196,194,1,0,0,0,196,195,1,0,0,0,197,209,1,
-  	0,0,0,198,199,10,11,0,0,199,200,7,0,0,0,200,208,3,34,17,12,201,202,10,
-  	10,0,0,202,203,7,1,0,0,203,208,3,34,17,11,204,205,10,9,0,0,205,206,7,
-  	2,0,0,206,208,3,34,17,10,207,198,1,0,0,0,207,201,1,0,0,0,207,204,1,0,
-  	0,0,208,211,1,0,0,0,209,207,1,0,0,0,209,210,1,0,0,0,210,35,1,0,0,0,211,
-  	209,1,0,0,0,15,39,47,51,60,74,80,105,147,152,157,166,184,196,207,209
+  	14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,1,0,4,0,40,8,0,11,0,12,0,41,
+  	1,0,1,0,1,1,1,1,1,1,1,1,3,1,50,8,1,1,1,1,1,3,1,54,8,1,1,1,1,1,1,2,1,2,
+  	1,2,5,2,61,8,2,10,2,12,2,64,9,2,1,3,1,3,1,3,1,3,1,4,1,4,1,4,1,5,1,5,1,
+  	5,1,5,3,5,77,8,5,1,6,1,6,5,6,81,8,6,10,6,12,6,84,9,6,1,6,1,6,1,7,1,7,
+  	1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,7,1,
+  	7,3,7,108,8,7,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,9,1,9,1,9,1,9,1,10,1,10,1,
+  	10,1,10,1,10,1,10,1,10,1,11,1,11,3,11,130,8,11,1,12,1,12,1,12,1,12,1,
+  	12,1,13,1,13,1,13,1,13,1,14,1,14,1,15,1,15,1,15,1,15,1,15,1,15,1,15,1,
+  	15,5,15,151,8,15,10,15,12,15,154,9,15,1,15,1,15,3,15,158,8,15,1,16,1,
+  	16,1,16,3,16,163,8,16,1,16,1,16,1,17,1,17,1,17,5,17,170,8,17,10,17,12,
+  	17,173,9,17,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,
+  	18,1,18,1,18,1,18,3,18,190,8,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,
+  	18,1,18,1,18,3,18,202,8,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,
+  	18,5,18,213,8,18,10,18,12,18,216,9,18,1,18,0,1,36,19,0,2,4,6,8,10,12,
+  	14,16,18,20,22,24,26,28,30,32,34,36,0,3,1,0,20,21,1,0,22,23,1,0,24,29,
+  	227,0,39,1,0,0,0,2,45,1,0,0,0,4,57,1,0,0,0,6,65,1,0,0,0,8,69,1,0,0,0,
+  	10,76,1,0,0,0,12,78,1,0,0,0,14,107,1,0,0,0,16,109,1,0,0,0,18,116,1,0,
+  	0,0,20,120,1,0,0,0,22,127,1,0,0,0,24,131,1,0,0,0,26,136,1,0,0,0,28,140,
+  	1,0,0,0,30,142,1,0,0,0,32,159,1,0,0,0,34,166,1,0,0,0,36,201,1,0,0,0,38,
+  	40,3,2,1,0,39,38,1,0,0,0,40,41,1,0,0,0,41,39,1,0,0,0,41,42,1,0,0,0,42,
+  	43,1,0,0,0,43,44,5,0,0,1,44,1,1,0,0,0,45,46,5,1,0,0,46,47,5,32,0,0,47,
+  	49,5,2,0,0,48,50,3,4,2,0,49,48,1,0,0,0,49,50,1,0,0,0,50,51,1,0,0,0,51,
+  	53,5,3,0,0,52,54,3,8,4,0,53,52,1,0,0,0,53,54,1,0,0,0,54,55,1,0,0,0,55,
+  	56,3,12,6,0,56,3,1,0,0,0,57,62,3,6,3,0,58,59,5,4,0,0,59,61,3,6,3,0,60,
+  	58,1,0,0,0,61,64,1,0,0,0,62,60,1,0,0,0,62,63,1,0,0,0,63,5,1,0,0,0,64,
+  	62,1,0,0,0,65,66,5,32,0,0,66,67,5,5,0,0,67,68,3,10,5,0,68,7,1,0,0,0,69,
+  	70,5,6,0,0,70,71,3,10,5,0,71,9,1,0,0,0,72,77,5,7,0,0,73,74,5,8,0,0,74,
+  	75,5,7,0,0,75,77,5,9,0,0,76,72,1,0,0,0,76,73,1,0,0,0,77,11,1,0,0,0,78,
+  	82,5,10,0,0,79,81,3,14,7,0,80,79,1,0,0,0,81,84,1,0,0,0,82,80,1,0,0,0,
+  	82,83,1,0,0,0,83,85,1,0,0,0,84,82,1,0,0,0,85,86,5,11,0,0,86,13,1,0,0,
+  	0,87,88,3,16,8,0,88,89,5,12,0,0,89,108,1,0,0,0,90,91,3,18,9,0,91,92,5,
+  	12,0,0,92,108,1,0,0,0,93,94,3,20,10,0,94,95,5,12,0,0,95,108,1,0,0,0,96,
+  	97,3,28,14,0,97,98,5,12,0,0,98,108,1,0,0,0,99,100,3,22,11,0,100,101,5,
+  	12,0,0,101,108,1,0,0,0,102,103,3,24,12,0,103,104,5,12,0,0,104,108,1,0,
+  	0,0,105,108,3,26,13,0,106,108,3,30,15,0,107,87,1,0,0,0,107,90,1,0,0,0,
+  	107,93,1,0,0,0,107,96,1,0,0,0,107,99,1,0,0,0,107,102,1,0,0,0,107,105,
+  	1,0,0,0,107,106,1,0,0,0,108,15,1,0,0,0,109,110,5,13,0,0,110,111,5,32,
+  	0,0,111,112,5,5,0,0,112,113,3,10,5,0,113,114,5,14,0,0,114,115,3,36,18,
+  	0,115,17,1,0,0,0,116,117,5,32,0,0,117,118,5,14,0,0,118,119,3,36,18,0,
+  	119,19,1,0,0,0,120,121,5,32,0,0,121,122,5,8,0,0,122,123,3,36,18,0,123,
+  	124,5,9,0,0,124,125,5,14,0,0,125,126,3,36,18,0,126,21,1,0,0,0,127,129,
+  	5,15,0,0,128,130,3,36,18,0,129,128,1,0,0,0,129,130,1,0,0,0,130,23,1,0,
+  	0,0,131,132,5,16,0,0,132,133,5,2,0,0,133,134,3,36,18,0,134,135,5,3,0,
+  	0,135,25,1,0,0,0,136,137,5,17,0,0,137,138,3,36,18,0,138,139,3,12,6,0,
+  	139,27,1,0,0,0,140,141,3,32,16,0,141,29,1,0,0,0,142,143,5,18,0,0,143,
+  	144,3,36,18,0,144,152,3,12,6,0,145,146,5,19,0,0,146,147,5,18,0,0,147,
+  	148,3,36,18,0,148,149,3,12,6,0,149,151,1,0,0,0,150,145,1,0,0,0,151,154,
+  	1,0,0,0,152,150,1,0,0,0,152,153,1,0,0,0,153,157,1,0,0,0,154,152,1,0,0,
+  	0,155,156,5,19,0,0,156,158,3,12,6,0,157,155,1,0,0,0,157,158,1,0,0,0,158,
+  	31,1,0,0,0,159,160,5,32,0,0,160,162,5,2,0,0,161,163,3,34,17,0,162,161,
+  	1,0,0,0,162,163,1,0,0,0,163,164,1,0,0,0,164,165,5,3,0,0,165,33,1,0,0,
+  	0,166,171,3,36,18,0,167,168,5,4,0,0,168,170,3,36,18,0,169,167,1,0,0,0,
+  	170,173,1,0,0,0,171,169,1,0,0,0,171,172,1,0,0,0,172,35,1,0,0,0,173,171,
+  	1,0,0,0,174,175,6,18,-1,0,175,176,5,32,0,0,176,177,5,8,0,0,177,178,3,
+  	36,18,0,178,179,5,9,0,0,179,202,1,0,0,0,180,202,3,32,16,0,181,182,5,30,
+  	0,0,182,183,5,2,0,0,183,202,5,3,0,0,184,185,5,31,0,0,185,186,5,2,0,0,
+  	186,189,3,36,18,0,187,188,5,4,0,0,188,190,3,36,18,0,189,187,1,0,0,0,189,
+  	190,1,0,0,0,190,191,1,0,0,0,191,192,5,3,0,0,192,202,1,0,0,0,193,194,5,
+  	2,0,0,194,195,3,36,18,0,195,196,5,3,0,0,196,202,1,0,0,0,197,198,5,23,
+  	0,0,198,202,3,36,18,3,199,202,5,33,0,0,200,202,5,32,0,0,201,174,1,0,0,
+  	0,201,180,1,0,0,0,201,181,1,0,0,0,201,184,1,0,0,0,201,193,1,0,0,0,201,
+  	197,1,0,0,0,201,199,1,0,0,0,201,200,1,0,0,0,202,214,1,0,0,0,203,204,10,
+  	11,0,0,204,205,7,0,0,0,205,213,3,36,18,12,206,207,10,10,0,0,207,208,7,
+  	1,0,0,208,213,3,36,18,11,209,210,10,9,0,0,210,211,7,2,0,0,211,213,3,36,
+  	18,10,212,203,1,0,0,0,212,206,1,0,0,0,212,209,1,0,0,0,213,216,1,0,0,0,
+  	214,212,1,0,0,0,214,215,1,0,0,0,215,37,1,0,0,0,216,214,1,0,0,0,16,41,
+  	49,53,62,76,82,107,129,152,157,162,171,189,201,212,214
   };
   staticData->serializedATN = antlr4::atn::SerializedATNView(serializedATNSegment, sizeof(serializedATNSegment) / sizeof(serializedATNSegment[0]));
 
@@ -230,17 +232,17 @@ TromboneParser::ProgramContext* TromboneParser::program() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(37); 
+    setState(39); 
     _errHandler->sync(this);
     _la = _input->LA(1);
     do {
-      setState(36);
+      setState(38);
       functionDecl();
-      setState(39); 
+      setState(41); 
       _errHandler->sync(this);
       _la = _input->LA(1);
     } while (_la == TromboneParser::T__0);
-    setState(41);
+    setState(43);
     match(TromboneParser::EOF);
    
   }
@@ -302,31 +304,31 @@ TromboneParser::FunctionDeclContext* TromboneParser::functionDecl() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(43);
-    match(TromboneParser::T__0);
-    setState(44);
-    match(TromboneParser::IDENTIFIER);
     setState(45);
-    match(TromboneParser::T__1);
+    match(TromboneParser::T__0);
+    setState(46);
+    match(TromboneParser::IDENTIFIER);
     setState(47);
+    match(TromboneParser::T__1);
+    setState(49);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == TromboneParser::IDENTIFIER) {
-      setState(46);
+      setState(48);
       paramList();
     }
-    setState(49);
-    match(TromboneParser::T__2);
     setState(51);
+    match(TromboneParser::T__2);
+    setState(53);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == TromboneParser::T__5) {
-      setState(50);
+      setState(52);
       returnType();
     }
-    setState(53);
+    setState(55);
     block();
    
   }
@@ -380,17 +382,17 @@ TromboneParser::ParamListContext* TromboneParser::paramList() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(55);
+    setState(57);
     param();
-    setState(60);
+    setState(62);
     _errHandler->sync(this);
     _la = _input->LA(1);
     while (_la == TromboneParser::T__3) {
-      setState(56);
+      setState(58);
       match(TromboneParser::T__3);
-      setState(57);
+      setState(59);
       param();
-      setState(62);
+      setState(64);
       _errHandler->sync(this);
       _la = _input->LA(1);
     }
@@ -445,11 +447,11 @@ TromboneParser::ParamContext* TromboneParser::param() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(63);
-    match(TromboneParser::IDENTIFIER);
-    setState(64);
-    match(TromboneParser::T__4);
     setState(65);
+    match(TromboneParser::IDENTIFIER);
+    setState(66);
+    match(TromboneParser::T__4);
+    setState(67);
     type();
    
   }
@@ -498,9 +500,9 @@ TromboneParser::ReturnTypeContext* TromboneParser::returnType() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(67);
+    setState(69);
     match(TromboneParser::T__5);
-    setState(68);
+    setState(70);
     type();
    
   }
@@ -544,23 +546,23 @@ TromboneParser::TypeContext* TromboneParser::type() {
     exitRule();
   });
   try {
-    setState(74);
+    setState(76);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case TromboneParser::T__6: {
         enterOuterAlt(_localctx, 1);
-        setState(70);
+        setState(72);
         match(TromboneParser::T__6);
         break;
       }
 
       case TromboneParser::T__7: {
         enterOuterAlt(_localctx, 2);
-        setState(71);
-        match(TromboneParser::T__7);
-        setState(72);
-        match(TromboneParser::T__6);
         setState(73);
+        match(TromboneParser::T__7);
+        setState(74);
+        match(TromboneParser::T__6);
+        setState(75);
         match(TromboneParser::T__8);
         break;
       }
@@ -620,20 +622,20 @@ TromboneParser::BlockContext* TromboneParser::block() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(76);
+    setState(78);
     match(TromboneParser::T__9);
-    setState(80);
+    setState(82);
     _errHandler->sync(this);
     _la = _input->LA(1);
     while ((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & 4295467008) != 0)) {
-      setState(77);
+      setState(79);
       statement();
-      setState(82);
+      setState(84);
       _errHandler->sync(this);
       _la = _input->LA(1);
     }
-    setState(83);
+    setState(85);
     match(TromboneParser::T__10);
    
   }
@@ -664,8 +666,8 @@ TromboneParser::ArrayAssignmentContext* TromboneParser::StatementContext::arrayA
   return getRuleContext<TromboneParser::ArrayAssignmentContext>(0);
 }
 
-TromboneParser::FuncCallContext* TromboneParser::StatementContext::funcCall() {
-  return getRuleContext<TromboneParser::FuncCallContext>(0);
+TromboneParser::FuncCallStmtContext* TromboneParser::StatementContext::funcCallStmt() {
+  return getRuleContext<TromboneParser::FuncCallStmtContext>(0);
 }
 
 TromboneParser::ReturnStmtContext* TromboneParser::StatementContext::returnStmt() {
@@ -709,73 +711,73 @@ TromboneParser::StatementContext* TromboneParser::statement() {
     exitRule();
   });
   try {
-    setState(105);
+    setState(107);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 6, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(85);
+      setState(87);
       varDecl();
-      setState(86);
+      setState(88);
       match(TromboneParser::T__11);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(88);
+      setState(90);
       assignment();
-      setState(89);
+      setState(91);
       match(TromboneParser::T__11);
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
-      setState(91);
+      setState(93);
       arrayAssignment();
-      setState(92);
+      setState(94);
       match(TromboneParser::T__11);
       break;
     }
 
     case 4: {
       enterOuterAlt(_localctx, 4);
-      setState(94);
-      funcCall();
-      setState(95);
+      setState(96);
+      funcCallStmt();
+      setState(97);
       match(TromboneParser::T__11);
       break;
     }
 
     case 5: {
       enterOuterAlt(_localctx, 5);
-      setState(97);
+      setState(99);
       returnStmt();
-      setState(98);
+      setState(100);
       match(TromboneParser::T__11);
       break;
     }
 
     case 6: {
       enterOuterAlt(_localctx, 6);
-      setState(100);
+      setState(102);
       printStmt();
-      setState(101);
+      setState(103);
       match(TromboneParser::T__11);
       break;
     }
 
     case 7: {
       enterOuterAlt(_localctx, 7);
-      setState(103);
+      setState(105);
       whileStmt();
       break;
     }
 
     case 8: {
       enterOuterAlt(_localctx, 8);
-      setState(104);
+      setState(106);
       ifStmt();
       break;
     }
@@ -838,17 +840,17 @@ TromboneParser::VarDeclContext* TromboneParser::varDecl() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(107);
-    match(TromboneParser::T__12);
-    setState(108);
-    match(TromboneParser::IDENTIFIER);
     setState(109);
-    match(TromboneParser::T__4);
+    match(TromboneParser::T__12);
     setState(110);
-    type();
+    match(TromboneParser::IDENTIFIER);
     setState(111);
-    match(TromboneParser::T__13);
+    match(TromboneParser::T__4);
     setState(112);
+    type();
+    setState(113);
+    match(TromboneParser::T__13);
+    setState(114);
     expr(0);
    
   }
@@ -901,11 +903,11 @@ TromboneParser::AssignmentContext* TromboneParser::assignment() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(114);
-    match(TromboneParser::IDENTIFIER);
-    setState(115);
-    match(TromboneParser::T__13);
     setState(116);
+    match(TromboneParser::IDENTIFIER);
+    setState(117);
+    match(TromboneParser::T__13);
+    setState(118);
     expr(0);
    
   }
@@ -962,17 +964,17 @@ TromboneParser::ArrayAssignmentContext* TromboneParser::arrayAssignment() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(118);
-    match(TromboneParser::IDENTIFIER);
-    setState(119);
-    match(TromboneParser::T__7);
     setState(120);
-    expr(0);
+    match(TromboneParser::IDENTIFIER);
     setState(121);
-    match(TromboneParser::T__8);
+    match(TromboneParser::T__7);
     setState(122);
-    match(TromboneParser::T__13);
+    expr(0);
     setState(123);
+    match(TromboneParser::T__8);
+    setState(124);
+    match(TromboneParser::T__13);
+    setState(125);
     expr(0);
    
   }
@@ -1011,6 +1013,7 @@ std::any TromboneParser::ReturnStmtContext::accept(tree::ParseTreeVisitor *visit
 TromboneParser::ReturnStmtContext* TromboneParser::returnStmt() {
   ReturnStmtContext *_localctx = _tracker.createInstance<ReturnStmtContext>(_ctx, getState());
   enterRule(_localctx, 22, TromboneParser::RuleReturnStmt);
+  size_t _la = 0;
 
 #if __cplusplus > 201703L
   auto onExit = finally([=, this] {
@@ -1021,10 +1024,17 @@ TromboneParser::ReturnStmtContext* TromboneParser::returnStmt() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(125);
+    setState(127);
     match(TromboneParser::T__14);
-    setState(126);
-    expr(0);
+    setState(129);
+    _errHandler->sync(this);
+
+    _la = _input->LA(1);
+    if ((((_la & ~ 0x3fULL) == 0) &&
+      ((1ULL << _la) & 16114515972) != 0)) {
+      setState(128);
+      expr(0);
+    }
    
   }
   catch (RecognitionException &e) {
@@ -1072,13 +1082,13 @@ TromboneParser::PrintStmtContext* TromboneParser::printStmt() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(128);
-    match(TromboneParser::T__15);
-    setState(129);
-    match(TromboneParser::T__1);
-    setState(130);
-    expr(0);
     setState(131);
+    match(TromboneParser::T__15);
+    setState(132);
+    match(TromboneParser::T__1);
+    setState(133);
+    expr(0);
+    setState(134);
     match(TromboneParser::T__2);
    
   }
@@ -1131,12 +1141,61 @@ TromboneParser::WhileStmtContext* TromboneParser::whileStmt() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(133);
+    setState(136);
     match(TromboneParser::T__16);
-    setState(134);
+    setState(137);
     expr(0);
-    setState(135);
+    setState(138);
     block();
+   
+  }
+  catch (RecognitionException &e) {
+    _errHandler->reportError(this, e);
+    _localctx->exception = std::current_exception();
+    _errHandler->recover(this, _localctx->exception);
+  }
+
+  return _localctx;
+}
+
+//----------------- FuncCallStmtContext ------------------------------------------------------------------
+
+TromboneParser::FuncCallStmtContext::FuncCallStmtContext(ParserRuleContext *parent, size_t invokingState)
+  : ParserRuleContext(parent, invokingState) {
+}
+
+TromboneParser::FuncCallContext* TromboneParser::FuncCallStmtContext::funcCall() {
+  return getRuleContext<TromboneParser::FuncCallContext>(0);
+}
+
+
+size_t TromboneParser::FuncCallStmtContext::getRuleIndex() const {
+  return TromboneParser::RuleFuncCallStmt;
+}
+
+
+std::any TromboneParser::FuncCallStmtContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<TromboneVisitor*>(visitor))
+    return parserVisitor->visitFuncCallStmt(this);
+  else
+    return visitor->visitChildren(this);
+}
+
+TromboneParser::FuncCallStmtContext* TromboneParser::funcCallStmt() {
+  FuncCallStmtContext *_localctx = _tracker.createInstance<FuncCallStmtContext>(_ctx, getState());
+  enterRule(_localctx, 28, TromboneParser::RuleFuncCallStmt);
+
+#if __cplusplus > 201703L
+  auto onExit = finally([=, this] {
+#else
+  auto onExit = finally([=] {
+#endif
+    exitRule();
+  });
+  try {
+    enterOuterAlt(_localctx, 1);
+    setState(140);
+    funcCall();
    
   }
   catch (RecognitionException &e) {
@@ -1185,7 +1244,7 @@ std::any TromboneParser::IfStmtContext::accept(tree::ParseTreeVisitor *visitor) 
 
 TromboneParser::IfStmtContext* TromboneParser::ifStmt() {
   IfStmtContext *_localctx = _tracker.createInstance<IfStmtContext>(_ctx, getState());
-  enterRule(_localctx, 28, TromboneParser::RuleIfStmt);
+  enterRule(_localctx, 30, TromboneParser::RuleIfStmt);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -1198,38 +1257,38 @@ TromboneParser::IfStmtContext* TromboneParser::ifStmt() {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(137);
+    setState(142);
     match(TromboneParser::T__17);
-    setState(138);
+    setState(143);
     expr(0);
-    setState(139);
+    setState(144);
     block();
-    setState(147);
+    setState(152);
     _errHandler->sync(this);
-    alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 7, _ctx);
+    alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 8, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
       if (alt == 1) {
-        setState(140);
+        setState(145);
         match(TromboneParser::T__18);
-        setState(141);
+        setState(146);
         match(TromboneParser::T__17);
-        setState(142);
+        setState(147);
         expr(0);
-        setState(143);
+        setState(148);
         block(); 
       }
-      setState(149);
+      setState(154);
       _errHandler->sync(this);
-      alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 7, _ctx);
+      alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 8, _ctx);
     }
-    setState(152);
+    setState(157);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == TromboneParser::T__18) {
-      setState(150);
+      setState(155);
       match(TromboneParser::T__18);
-      setState(151);
+      setState(156);
       block();
     }
    
@@ -1272,7 +1331,7 @@ std::any TromboneParser::FuncCallContext::accept(tree::ParseTreeVisitor *visitor
 
 TromboneParser::FuncCallContext* TromboneParser::funcCall() {
   FuncCallContext *_localctx = _tracker.createInstance<FuncCallContext>(_ctx, getState());
-  enterRule(_localctx, 30, TromboneParser::RuleFuncCall);
+  enterRule(_localctx, 32, TromboneParser::RuleFuncCall);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -1284,20 +1343,20 @@ TromboneParser::FuncCallContext* TromboneParser::funcCall() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(154);
+    setState(159);
     match(TromboneParser::IDENTIFIER);
-    setState(155);
+    setState(160);
     match(TromboneParser::T__1);
-    setState(157);
+    setState(162);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & 16114515972) != 0)) {
-      setState(156);
+      setState(161);
       argList();
     }
-    setState(159);
+    setState(164);
     match(TromboneParser::T__2);
    
   }
@@ -1339,7 +1398,7 @@ std::any TromboneParser::ArgListContext::accept(tree::ParseTreeVisitor *visitor)
 
 TromboneParser::ArgListContext* TromboneParser::argList() {
   ArgListContext *_localctx = _tracker.createInstance<ArgListContext>(_ctx, getState());
-  enterRule(_localctx, 32, TromboneParser::RuleArgList);
+  enterRule(_localctx, 34, TromboneParser::RuleArgList);
   size_t _la = 0;
 
 #if __cplusplus > 201703L
@@ -1351,17 +1410,17 @@ TromboneParser::ArgListContext* TromboneParser::argList() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(161);
-    expr(0);
     setState(166);
+    expr(0);
+    setState(171);
     _errHandler->sync(this);
     _la = _input->LA(1);
     while (_la == TromboneParser::T__3) {
-      setState(162);
+      setState(167);
       match(TromboneParser::T__3);
-      setState(163);
-      expr(0);
       setState(168);
+      expr(0);
+      setState(173);
       _errHandler->sync(this);
       _la = _input->LA(1);
     }
@@ -1583,8 +1642,8 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
   TromboneParser::ExprContext *_localctx = _tracker.createInstance<ExprContext>(_ctx, parentState);
   TromboneParser::ExprContext *previousContext = _localctx;
   (void)previousContext; // Silence compiler, in case the context is not used by generated code.
-  size_t startState = 34;
-  enterRecursionRule(_localctx, 34, TromboneParser::RuleExpr, precedence);
+  size_t startState = 36;
+  enterRecursionRule(_localctx, 36, TromboneParser::RuleExpr, precedence);
 
     size_t _la = 0;
 
@@ -1598,21 +1657,21 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(196);
+    setState(201);
     _errHandler->sync(this);
-    switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 12, _ctx)) {
+    switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 13, _ctx)) {
     case 1: {
       _localctx = _tracker.createInstance<ArrayAccessContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
 
-      setState(170);
+      setState(175);
       match(TromboneParser::IDENTIFIER);
-      setState(171);
+      setState(176);
       match(TromboneParser::T__7);
-      setState(172);
+      setState(177);
       expr(0);
-      setState(173);
+      setState(178);
       match(TromboneParser::T__8);
       break;
     }
@@ -1621,7 +1680,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<FuncCallExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(175);
+      setState(180);
       funcCall();
       break;
     }
@@ -1630,11 +1689,11 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ReadExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(176);
+      setState(181);
       match(TromboneParser::T__29);
-      setState(177);
+      setState(182);
       match(TromboneParser::T__1);
-      setState(178);
+      setState(183);
       match(TromboneParser::T__2);
       break;
     }
@@ -1643,23 +1702,23 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ArrayCreateContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(179);
-      match(TromboneParser::T__30);
-      setState(180);
-      match(TromboneParser::T__1);
-      setState(181);
-      expr(0);
       setState(184);
+      match(TromboneParser::T__30);
+      setState(185);
+      match(TromboneParser::T__1);
+      setState(186);
+      expr(0);
+      setState(189);
       _errHandler->sync(this);
 
       _la = _input->LA(1);
       if (_la == TromboneParser::T__3) {
-        setState(182);
+        setState(187);
         match(TromboneParser::T__3);
-        setState(183);
+        setState(188);
         expr(0);
       }
-      setState(186);
+      setState(191);
       match(TromboneParser::T__2);
       break;
     }
@@ -1668,11 +1727,11 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ParensContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(188);
+      setState(193);
       match(TromboneParser::T__1);
-      setState(189);
+      setState(194);
       expr(0);
-      setState(190);
+      setState(195);
       match(TromboneParser::T__2);
       break;
     }
@@ -1681,9 +1740,9 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<UnaryMinusContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(192);
+      setState(197);
       match(TromboneParser::T__22);
-      setState(193);
+      setState(198);
       expr(3);
       break;
     }
@@ -1692,7 +1751,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<IntLiteralContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(194);
+      setState(199);
       match(TromboneParser::NUMBER);
       break;
     }
@@ -1701,7 +1760,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       _localctx = _tracker.createInstance<VarReferenceContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(195);
+      setState(200);
       match(TromboneParser::IDENTIFIER);
       break;
     }
@@ -1710,25 +1769,25 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
       break;
     }
     _ctx->stop = _input->LT(-1);
-    setState(209);
+    setState(214);
     _errHandler->sync(this);
-    alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 14, _ctx);
+    alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 15, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
       if (alt == 1) {
         if (!_parseListeners.empty())
           triggerExitRuleEvent();
         previousContext = _localctx;
-        setState(207);
+        setState(212);
         _errHandler->sync(this);
-        switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 13, _ctx)) {
+        switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 14, _ctx)) {
         case 1: {
           auto newContext = _tracker.createInstance<MulDivContext>(_tracker.createInstance<ExprContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExpr);
-          setState(198);
+          setState(203);
 
           if (!(precpred(_ctx, 11))) throw FailedPredicateException(this, "precpred(_ctx, 11)");
-          setState(199);
+          setState(204);
           antlrcpp::downCast<MulDivContext *>(_localctx)->op = _input->LT(1);
           _la = _input->LA(1);
           if (!(_la == TromboneParser::T__19
@@ -1740,7 +1799,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(200);
+          setState(205);
           expr(12);
           break;
         }
@@ -1749,10 +1808,10 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
           auto newContext = _tracker.createInstance<AddSubContext>(_tracker.createInstance<ExprContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExpr);
-          setState(201);
+          setState(206);
 
           if (!(precpred(_ctx, 10))) throw FailedPredicateException(this, "precpred(_ctx, 10)");
-          setState(202);
+          setState(207);
           antlrcpp::downCast<AddSubContext *>(_localctx)->op = _input->LT(1);
           _la = _input->LA(1);
           if (!(_la == TromboneParser::T__21
@@ -1764,7 +1823,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(203);
+          setState(208);
           expr(11);
           break;
         }
@@ -1773,10 +1832,10 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
           auto newContext = _tracker.createInstance<CompareContext>(_tracker.createInstance<ExprContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExpr);
-          setState(204);
+          setState(209);
 
           if (!(precpred(_ctx, 9))) throw FailedPredicateException(this, "precpred(_ctx, 9)");
-          setState(205);
+          setState(210);
           antlrcpp::downCast<CompareContext *>(_localctx)->op = _input->LT(1);
           _la = _input->LA(1);
           if (!((((_la & ~ 0x3fULL) == 0) &&
@@ -1787,7 +1846,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(206);
+          setState(211);
           expr(10);
           break;
         }
@@ -1796,9 +1855,9 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
           break;
         } 
       }
-      setState(211);
+      setState(216);
       _errHandler->sync(this);
-      alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 14, _ctx);
+      alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 15, _ctx);
     }
   }
   catch (RecognitionException &e) {
@@ -1811,7 +1870,7 @@ TromboneParser::ExprContext* TromboneParser::expr(int precedence) {
 
 bool TromboneParser::sempred(RuleContext *context, size_t ruleIndex, size_t predicateIndex) {
   switch (ruleIndex) {
-    case 17: return exprSempred(antlrcpp::downCast<ExprContext *>(context), predicateIndex);
+    case 18: return exprSempred(antlrcpp::downCast<ExprContext *>(context), predicateIndex);
 
   default:
     break;

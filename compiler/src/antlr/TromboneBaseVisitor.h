@@ -71,6 +71,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitFuncCallStmt(TromboneParser::FuncCallStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override {
     return visitChildren(ctx);
   }

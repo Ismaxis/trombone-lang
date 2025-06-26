@@ -24,8 +24,8 @@ public:
     RuleProgram = 0, RuleFunctionDecl = 1, RuleParamList = 2, RuleParam = 3, 
     RuleReturnType = 4, RuleType = 5, RuleBlock = 6, RuleStatement = 7, 
     RuleVarDecl = 8, RuleAssignment = 9, RuleArrayAssignment = 10, RuleReturnStmt = 11, 
-    RulePrintStmt = 12, RuleWhileStmt = 13, RuleIfStmt = 14, RuleFuncCall = 15, 
-    RuleArgList = 16, RuleExpr = 17
+    RulePrintStmt = 12, RuleWhileStmt = 13, RuleFuncCallStmt = 14, RuleIfStmt = 15, 
+    RuleFuncCall = 16, RuleArgList = 17, RuleExpr = 18
   };
 
   explicit TromboneParser(antlr4::TokenStream *input);
@@ -59,6 +59,7 @@ public:
   class ReturnStmtContext;
   class PrintStmtContext;
   class WhileStmtContext;
+  class FuncCallStmtContext;
   class IfStmtContext;
   class FuncCallContext;
   class ArgListContext;
@@ -169,7 +170,7 @@ public:
     VarDeclContext *varDecl();
     AssignmentContext *assignment();
     ArrayAssignmentContext *arrayAssignment();
-    FuncCallContext *funcCall();
+    FuncCallStmtContext *funcCallStmt();
     ReturnStmtContext *returnStmt();
     PrintStmtContext *printStmt();
     WhileStmtContext *whileStmt();
@@ -265,6 +266,19 @@ public:
   };
 
   WhileStmtContext* whileStmt();
+
+  class  FuncCallStmtContext : public antlr4::ParserRuleContext {
+  public:
+    FuncCallStmtContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    FuncCallContext *funcCall();
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  FuncCallStmtContext* funcCallStmt();
 
   class  IfStmtContext : public antlr4::ParserRuleContext {
   public:
