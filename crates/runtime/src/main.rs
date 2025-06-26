@@ -4,7 +4,10 @@ pub use trombone_common::error::{Error, Result};
 
 use byteorder::{ByteOrder, LittleEndian};
 use clap::Parser;
-use std::fs;
+use std::{
+    fs,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use trombone_common::{bytecode::Instruction, opcode};
 use trombone_runner::runner::{self, ArrayOperationStream};
 
@@ -32,13 +35,54 @@ fn main() -> Result<()> {
     LittleEndian::read_u64_into(&raw, instructions.as_mut());
 
     let stream = /* TODO: buffered stream */ ArrayOperationStream::new(instructions.as_ref());
-    let mut runner = runner::Runner::new_with_defaults(stream);
-    for _ in 0..instructions.len() {
-        runner.evaluate_next_instruction()?;
-    }
+    type RunnerType<'a> = runner::Runner<
+        'a,
+        ArrayOperationStream<'a>,
+        std::io::BufReader<std::io::Stdin>,
+        std::io::Stdout,
+    >;
+
+    let alloc = alloc::MockAllocator {
+        alloc_count: AtomicUsize::new(0),
+    };
+
+    let mut runner = runner::Runner::new(
+        stream,
+        RunnerType::default_input(),
+        RunnerType::default_output(),
+        &alloc,
+    );
+
+    runner.evaluate()?;
     println!("Execution completed!");
     println!("Stack: {:?}", &runner.stack[..runner.sp]);
+    println!("Allocations: {}", alloc.alloc_count.load(Ordering::SeqCst));
     Ok(())
+}
+
+// TODO: remove
+mod alloc {
+    use std::{
+        alloc::{GlobalAlloc, Layout, System},
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+    pub struct MockAllocator {
+        pub alloc_count: AtomicUsize,
+    }
+
+    unsafe impl GlobalAlloc for MockAllocator {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            self.alloc_count.fetch_add(1, Ordering::SeqCst);
+            let ptr = unsafe { System.alloc(layout) };
+            println!("Allocated {} bytes at {:?}", layout.size(), ptr);
+            ptr
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            self.alloc_count.fetch_sub(1, Ordering::SeqCst);
+            println!("Deallocated {} bytes at {:?}", layout.size(), ptr);
+            unsafe { System.dealloc(ptr, layout) }
+        }
+    }
 }
 
 #[allow(dead_code)]

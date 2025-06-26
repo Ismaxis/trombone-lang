@@ -16,6 +16,8 @@ const STACK_SIZE: usize = 1024; // maybe should get it from environment, default
 pub trait OperationStream {
     fn next_instruction(&mut self) -> Result<Operation>;
     fn switch_frame(&mut self, offset: i32);
+    fn get_instruction_pointer(&self) -> usize;
+    fn get_instructions_len(&self) -> usize;
 }
 
 pub struct ArrayOperationStream<'a> {
@@ -41,6 +43,14 @@ impl OperationStream for ArrayOperationStream<'_> {
 
     fn switch_frame(&mut self, offset: i32) {
         self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
+    }
+
+    fn get_instruction_pointer(&self) -> usize {
+        self.instruction_pointer
+    }
+
+    fn get_instructions_len(&self) -> usize {
+        self.instructions.len()
     }
 }
 
@@ -143,6 +153,20 @@ where
             Lsh => self.binary_op(|a, b| a.checked_shl(b as u32).unwrap_or(0)),
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
+            PushRetAddress { operands_count } => {
+                self.push(
+                    (self.stream.get_instruction_pointer() + operands_count as usize + 1)
+                        as TrombValue,
+                );
+            }
+
+            Return { return_value_size } => {
+                self.stack[self.sp - (return_value_size as usize + 1)..self.sp].rotate_left(1);
+                let address = self.pop();
+                self.stream
+                    .switch_frame(address as i32 - self.stream.get_instruction_pointer() as i32);
+            }
+
             // Comparison
             Equal => self.comparison(|a, b| a == b),
             NotEqual => self.comparison(|a, b| a != b),
@@ -237,6 +261,8 @@ where
                 }
             }
             Read => {
+                self.output.write_fmt(format_args!("> "))?;
+                self.output.flush()?;
                 let mut line = String::new();
                 self.input.read_line(&mut line)?;
                 if let Some(value) = atoi::atoi::<TrombValue>(line.as_bytes()) {
@@ -251,6 +277,16 @@ where
                 self.output.write_fmt(format_args!("{}\n", value))?;
             }
         }
+        Ok(())
+    }
+
+    pub fn evaluate(&mut self) -> Result<()> {
+        while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
+            // println!("IP: {}", self.stream.get_instruction_pointer());
+            self.evaluate_next_instruction()?;
+        }
+        // println!("IP: {}", self.stream.get_instruction_pointer());
+
         Ok(())
     }
 

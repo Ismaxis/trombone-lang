@@ -40,6 +40,16 @@ pub const OP_XOR: OpCode = 0xa9;
 pub const OP_LSH: OpCode = 0xaa;
 pub const OP_RSH: OpCode = 0xab;
 
+// Function instructions
+//  +----------+------------------+-----------------------------+
+//  |   0xb1   |      Unused      |         Operands count      |
+//  +----------+------------------+-----------------------------+
+pub const OP_PUSH_RET_ADDRESS: OpCode = 0xb0; // pushes IP + operands count address to top of stack
+//  +----------+------------------+-----------------------------+
+//  |   0xb1   |      Unused      |         Result size         |
+//  +----------+------------------+-----------------------------+
+pub const OP_RET: OpCode = 0xb1; // Pops nth value from stack and jumps to it
+
 // Comparison instructions
 //  63       56 55                                             0
 //  +----------+-----------------------------------------------+

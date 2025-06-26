@@ -1,0 +1,24 @@
+fn sum_array(arr: [int]) -> int {
+    let i: int = 0;
+    let sum: int = 0;
+
+    while i < 3 {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+
+    return sum;
+}
+
+fn main() {
+    let data: [int] = array(0, 0);
+    let i: int = 0;
+
+    while i < 3 {
+        data[i] = read();
+        i = i + 1;
+    }
+
+    let result: int = sum_array(data);
+    print(result);
+}

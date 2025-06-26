@@ -56,6 +56,14 @@ mod tests {
         fn switch_frame(&mut self, offset: i32) {
             self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
         }
+
+        fn get_instruction_pointer(&self) -> usize {
+            self.instruction_pointer
+        }
+
+        fn get_instructions_len(&self) -> usize {
+            todo!()
+        }
     }
 
     #[test]
@@ -516,7 +524,73 @@ mod tests {
         // print(x);
         runner.stream.emplace_instruction(opcode::OP_PRINT, 0);
         runner.evaluate_next_instruction()?;
-        assert_eq!(runner.output.into_inner(), "42\n".as_bytes());
+        assert_eq!(runner.output.into_inner(), "> 42\n".as_bytes());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_functions() -> Result<()> {
+        {
+            // Call with zero operand
+            let mut runner = Runner::new_with_defaults(TestOperationStream::new());
+
+            // foo();
+            runner
+                .stream
+                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 0); // zero operands
+            runner.stream.emplace_instruction(opcode::OP_JMP, 5);
+
+            runner.evaluate_next_instruction()?;
+            runner.evaluate_next_instruction()?;
+
+            assert_eq!(runner.stack[0..runner.sp], [2]);
+        }
+
+        {
+            // Call with one operand
+            let mut runner = Runner::new_with_defaults(TestOperationStream::new());
+
+            // foo(42);
+            runner
+                .stream
+                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 1); // one operand
+            runner.stream.emplace_instruction(opcode::OP_PUSH, 42);
+            runner.stream.emplace_instruction(opcode::OP_JMP, 5);
+
+            runner.evaluate_next_instruction()?;
+            runner.evaluate_next_instruction()?;
+            runner.evaluate_next_instruction()?;
+
+            assert_eq!(runner.stack[0..runner.sp], [3, 42]);
+        }
+
+        {
+            // Void return
+            let mut runner = Runner::new_with_defaults(TestOperationStream::new());
+
+            runner.stack[0] = 1488;
+            runner.sp = 1;
+            runner.stream.emplace_instruction(opcode::OP_RET, 0);
+
+            runner.evaluate_next_instruction()?;
+            assert_eq!(runner.sp, 0);
+            assert_eq!(runner.stream.get_instruction_pointer(), 1488);
+        }
+
+        {
+            // Result return
+            let mut runner = Runner::new_with_defaults(TestOperationStream::new());
+
+            runner.stack[0..2].copy_from_slice(&[1337, 0xDEADBEEF]);
+            runner.sp = 2;
+            runner.stream.emplace_instruction(opcode::OP_RET, 1);
+
+            runner.evaluate_next_instruction()?;
+            assert_eq!(runner.sp, 1);
+            assert_eq!(&runner.stack[0..runner.sp], &[0xDEADBEEF]);
+            assert_eq!(runner.stream.get_instruction_pointer(), 1337);
+        }
 
         Ok(())
     }

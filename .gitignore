@@ -19,3 +19,6 @@ cpp/
 # Added by cargo
 
 /target
+
+# Tromb compiler output
+out/
