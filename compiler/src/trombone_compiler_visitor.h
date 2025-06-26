@@ -151,7 +151,7 @@ private:
   }
 
   void enter_scope() {
-    symbol_table.push_back(scope());
+    symbol_table.push_back(scope(next_address));
     next_address = 0;
   }  
   void exit_scope() {
