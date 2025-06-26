@@ -26,36 +26,41 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     }
 }
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
-    // bytecode.write((const char*)&reserved, 7);
-    // bytecode.write((const char*)&op_jmp, 1);
+    bytecode.write((const char*)&reserved, 7);
+    bytecode.write((const char*)&op_jmp, 1);
     visitChildren(ctx);
-    // auto main_meta = get_function("main");
-    // uint32_t address = main_meta.address / 8;
-    // bytecode.seekp(0);
-    // bytecode.write((const char*)&address, 4);
+    auto main_meta = get_function("main");
+    uint32_t address = main_meta.address / 8;
+    bytecode.seekp(0);
+    bytecode.write((const char*)&address, 4);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDeclContext *ctx) {
-    // auto return_ctx = ctx->returnType();
-    // std::optional<tromb_t> return_type;
-    // if (return_ctx) {
-    //     return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
-    // }
-    // enter_scope();
-    ctx->paramList()->accept(this);
-    // symbol_table.back().start_rsp -= next_address;
-    // func_meta meta(bytecode.tellp(), return_type);
-    // std::string name = ctx->IDENTIFIER()->getText();
-    // add_function(name, meta);
+    auto return_ctx = ctx->returnType();
+    std::optional<tromb_t> return_type;
+    if (return_ctx) {
+        return_type = std::any_cast<tromb_t>(ctx->returnType()->accept(this));
+    }
 
-    // visitChildren(ctx->block());
-    // clear_scope();
-    // uint32_t address = return_ctx ? 1 : 0;
-    // bytecode.write((const char*)&address, 4);
-    // bytecode.write((const char*)&reserved, 3);
-    // bytecode.write((const char*)&op_ret, 1);
-    // exit_scope();
+    func_meta meta(bytecode.tellp(), return_type);
+    std::string name = ctx->IDENTIFIER()->getText();
+    add_function(name, meta);
+
+    enter_scope();
+    auto param_ctx = ctx->paramList();
+    if (param_ctx) {
+        param_ctx->accept(this);
+    }
+    symbol_table.back().start_rsp -= next_address;
+    
+    visitChildren(ctx->block());
+    clear_scope();
+    uint32_t address = return_ctx ? 1 : 0;
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op_ret, 1);
+    exit_scope();
 
     return std::any();
 }
