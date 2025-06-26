@@ -137,6 +137,10 @@ where
                 *self.get_variable(variable_offset) = value;
             }
 
+            BasicBlockStart { block_type: _block_type } => {
+                println!("BasicBlockStart is not implemented yet");
+            }
+
             // Arithmetic
             Neg => self.unary_op(|a| a.wrapping_neg()),
             Not => self.unary_op(|a| !a),
