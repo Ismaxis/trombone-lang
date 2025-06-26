@@ -52,9 +52,10 @@ std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDe
     if (param_ctx) {
         param_ctx->accept(this);
     }
-    symbol_table.back().start_rsp -= next_address;
-    
-    visitChildren(ctx->block());
+    // symbol_table.back().start_rsp -= next_address;
+
+    // visitChildren(ctx->block());
+    ctx->block()->accept(this);
     clear_scope();
     uint32_t address = return_ctx ? 1 : 0;
     bytecode.write((const char*)&address, 4);
@@ -241,12 +242,17 @@ std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *c
 std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
     auto meta = get_function(name);
-    uint32_t address = meta.address;
+    std::uint32_t argcount = ctx->argList()->expr().size();
+    bytecode.write((const char *)&argcount, 4);
+    bytecode.write((const char *)&reserved, 3);
+    bytecode.write((const char *)&op_push_ret_address, 1);
     ctx->argList()->accept(this);
-    address = next_address - address;
+
+    std::uint32_t address =
+        (meta.address - static_cast<int>(bytecode.tellp())) / 8;
     bytecode.write((const char*)&address, 4);
     bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_push_ret_address, 1);
+    bytecode.write((const char *)&op_jmp, 1);
     return std::any();
 }
 

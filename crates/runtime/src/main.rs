@@ -20,6 +20,8 @@ struct Args {
     // Jit compilation threshold
     #[arg(long, default_value_t = 8)]
     jit_threshold: usize,
+    // #[clap(action)]
+    // print_instructions: bool
     //
     // TODO: debug flag, step by step execution
 }
@@ -64,6 +66,12 @@ fn main() -> Result<()> {
     } else {
         println!("JIT compilation threshold: {}", args.jit_threshold);
         runner.set_codegen(codegen, args.jit_threshold);
+    }
+
+    if true == true {
+        for (i, op) in runner.stream.get_next_n(runner.stream.get_instructions_len()).into_iter().enumerate() {
+            println!("{}: {:?}", i, op);
+        }
     }
 
     loop {

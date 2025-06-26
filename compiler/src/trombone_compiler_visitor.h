@@ -166,6 +166,7 @@ private:
 
   void add_function(std::string name, func_meta meta) {
     functions[name] = meta;
+    std::cout << __LINE__ << ": " << next_address << std::endl;
     assert(symbol_table.size() == 0);
     assert(next_address == 0);
   }
