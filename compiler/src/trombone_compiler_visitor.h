@@ -201,16 +201,19 @@ private:
   }
 
   void write_nojit_instruction(const op_code_t& op, uint32_t address = 0) {
-    std::size_t cur = bytecode.tellp();
-    std::size_t len = (cur - last_basic_block) / 8 - 1;
-    bytecode.seekp(last_basic_block);
-    bytecode.write((const char*)&len, 4);
-    bytecode.seekp(cur);
+    write_on_address((static_cast<uint32_t>(bytecode.tellp() - last_basic_block) / 8 - 1), last_basic_block);
 
     write_instruction(op, address);
 
     last_basic_block = bytecode.tellp();
     write_instruction(op_basicblock_start);
+  }
+
+  void write_on_address(uint32_t data, std::size_t address) {
+    std::size_t cur = bytecode.tellp();
+    bytecode.seekp(address);
+    bytecode.write((const char*)&data, 4);
+    bytecode.seekp(cur);
   }
   std::size_t last_basic_block = 0;
 

@@ -10,7 +10,7 @@ static constexpr std::string_view default_output_file = "./out/out.trbc";
 static constexpr auto default_flags = std::ofstream::out | std::ofstream::trunc | std::ofstream::binary;
 
 trombone_compiler_visitor::trombone_compiler_visitor()
-    : bytecode(std::string(default_output_file), default_flags) {}
+    : trombone_compiler_visitor(std::string(default_output_file)) {}
 
 trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     std::filesystem::path output_path(output_file);
@@ -31,9 +31,7 @@ std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext 
     write_instruction(op_basicblock_start);
     visitChildren(ctx);
     auto main_meta = get_function("main");
-    uint32_t address = main_meta.address / 8;
-    bytecode.seekp(0);
-    bytecode.write((const char*)&address, 4);
+    write_on_address(main_meta.address / 8, 0);
     return std::any();
 }
 
@@ -116,9 +114,7 @@ std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentCo
     if (meta.type == tromb_t::int_t) {
         std::cout << __LINE__ << "assign: " << name << ": " << meta.address << std::endl;
         uint32_t address = pop_address() - meta.address - 1;
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_local_store, 1);
+        write_instruction(op_local_store, address);
     } else if (meta.type == tromb_t::int_array_t) {
         //TODO: implement array
         throw std::runtime_error("Not implemented assignment to array");
@@ -135,9 +131,7 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
         uint32_t address = next_address - 1 - meta.address; // different logic for instruction
         pop_address();
         pop_address();
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_heap_store_ptr, 1);
+        write_instruction(op_heap_store_ptr, address);
     }
     return std::any();
 }
@@ -147,11 +141,7 @@ std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtCo
         ctx->expr()->accept(this);
         // result on top of the stack
         uint32_t address = symbol_table.back().start_rsp + 1;
-        // uint32_t address = next_address; // TODO: check +- 1
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_local_store, 1);
-        // pop_address();
+        write_instruction(op_local_store, address);
     }
 
     for (int i = symbol_table.size() - 1; i >= 0; i--) {
@@ -178,13 +168,9 @@ std::any trombone_compiler_visitor::visitWhileStmt(TromboneParser::WhileStmtCont
 
     ctx->block()->accept(this);
     std::size_t block_end = bytecode.tellp();
-    int32_t address = -(block_end - start) / 8;
-    write_nojit_instruction(op_jmp, address);
+    write_nojit_instruction(op_jmp, -(block_end - start) / 8);
 
-    bytecode.seekp(condition_jump);
-    address = (block_end - condition_jump) / 8 + 1;
-    bytecode.write((const char*)&address, 4);
-    bytecode.seekp(block_end + 16);
+    write_on_address((block_end - condition_jump) / 8 + 1, condition_jump);
     return std::any();
 }
 
@@ -206,31 +192,20 @@ std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *c
         block_locations.push_back(block_end);
         if (block_locations.size() > condition_locations.size()) {
             //else
-            bytecode.seekp(if_end_location);
-            int32_t address = (block_start - if_end_location) / 8;
-            bytecode.write((const char*)&address, 4);
-            bytecode.seekp(block_end);
-            break;
+            write_on_address((block_start - if_end_location) / 8, if_end_location);
+        } else {
+            std::size_t condition_location = condition_locations[block_locations.size() - 1];
+            write_on_address((block_start - condition_location) / 8, condition_location);
+            write_nojit_instruction(op_jmp);
         }
-        std::size_t condition_location = condition_locations[block_locations.size() - 1];
-        bytecode.seekp(condition_location);
-        int32_t address = (block_start - condition_location) / 8;
-        bytecode.write((const char*)&address, 4);
-        bytecode.seekp(block_end);
-        
-        write_nojit_instruction(op_jmp);
     }
     std::size_t current_location = bytecode.tellp();
     if (block_locations.size() == condition_locations.size()) {
         //no else
-        bytecode.seekp(if_end_location);
-        int32_t address = (current_location - if_end_location) / 8;
-        bytecode.write((const char*)&address, 4);
+        write_on_address((current_location - if_end_location) / 8, if_end_location);
     }
     for (std::size_t i = 0; i < condition_locations.size(); ++i) {
-        bytecode.seekp(block_locations[i]);
-        int32_t address = (current_location - block_locations[i]) / 8;
-        bytecode.write((const char*)&address, 4);
+        write_on_address((current_location - block_locations[i]) / 8, block_locations[i]);
     }
     bytecode.seekp(current_location);
     return std::any();
@@ -241,12 +216,10 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     auto meta = get_function(name);
     std::uint32_t argcount = ctx->argList()->expr().size();
     if (meta.return_type.has_value()) {
-        bytecode.write((const char *)&reserved, 7);
-        bytecode.write((const char *)&op_push, 1);
+        write_instruction(op_push);
         push_address(); // reserve space for return value
     }
-    bytecode.write((const char *)&reserved, 7);
-    bytecode.write((const char *)&op_push, 1);
+    write_instruction(op_push);
     push_address(); // reserve space for return address
 
     // Just evaluate arguments, do not do any heap copy for arrays
@@ -262,8 +235,7 @@ std::any trombone_compiler_visitor::visitFuncCallStmt(TromboneParser::FuncCallSt
     auto meta = get_function(fname);
     visitChildren(ctx);
     if (meta.return_type.has_value()) {
-        bytecode.write((const char *)&reserved, 7);
-        bytecode.write((const char *)&op_pop, 1);
+        write_instruction(op_pop);
         pop_address();
     }
     return std::any();
@@ -279,9 +251,6 @@ std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext 
 
 std::any trombone_compiler_visitor::visitFuncCallExpr(TromboneParser::FuncCallExprContext *ctx) {
     return visitChildren(ctx);
-    //TODO: implement
-    throw std::runtime_error("Not implemented visitFuncCallExpr");
-    return std::any();
 }
 
 std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) {
@@ -292,10 +261,7 @@ std::any trombone_compiler_visitor::visitArrayAccess(TromboneParser::ArrayAccess
         throw std::runtime_error("Array expected, got int");
     } else if (meta.type == tromb_t::int_array_t) {
         ctx->expr()->accept(this);
-        uint32_t address = next_address - 1 - meta.address; // different logic for instruction
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_heap_load_ptr, 1);
+        write_instruction(op_heap_load_ptr, next_address - meta.address - 1);
     }
     return std::any();
 }
@@ -305,10 +271,7 @@ std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferen
     auto meta = get_variable(name);
 
     // Use op_local_copy for both int and array variables
-    uint32_t address = next_address - meta.address - 1;
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_local_copy, 1);
+    write_instruction(op_local_copy, next_address - meta.address - 1);
     push_address();
     return std::any();
 }
@@ -322,12 +285,11 @@ std::any trombone_compiler_visitor::visitReadExpr(TromboneParser::ReadExprContex
 std::any trombone_compiler_visitor::visitMulDiv(TromboneParser::MulDivContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
-    bytecode.write((const char*)&reserved, 7);
     std::string op = ctx->op->getText();
     if (op == "*") {
-        bytecode.write((const char*)&op_mul, 1);
+        write_instruction(op_mul);
     } else if (op == "/") {
-        bytecode.write((const char*)&op_div, 1);
+        write_instruction(op_div);
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
@@ -338,12 +300,11 @@ std::any trombone_compiler_visitor::visitMulDiv(TromboneParser::MulDivContext *c
 std::any trombone_compiler_visitor::visitAddSub(TromboneParser::AddSubContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
-    bytecode.write((const char*)&reserved, 7);
     std::string op = ctx->op->getText();
     if (op == "+") {
-        bytecode.write((const char*)&op_add, 1);
+        write_instruction(op_add);
     } else if (op == "-") {
-        bytecode.write((const char*)&op_sub, 1);
+        write_instruction(op_sub);
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
@@ -357,15 +318,13 @@ std::any trombone_compiler_visitor::visitParens(TromboneParser::ParensContext *c
 
 std::any trombone_compiler_visitor::visitUnaryMinus(TromboneParser::UnaryMinusContext *ctx) {
     ctx->expr()->accept(this);
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_neg, 1);
+    write_instruction(op_neg);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitArrayCreate(TromboneParser::ArrayCreateContext *ctx) {
     auto exprs = ctx->expr();
-    size_t size = exprs.size();
-    if (size != 1) {
+    if (exprs.size() != 1) {
         throw std::runtime_error("Default value of array is not supported");
     }
 
@@ -375,10 +334,8 @@ std::any trombone_compiler_visitor::visitArrayCreate(TromboneParser::ArrayCreate
 }
 
 std::any trombone_compiler_visitor::visitIntLiteral(TromboneParser::IntLiteralContext *ctx) {
-    int32_t val = std::stoi(ctx->NUMBER()->getText());
-    bytecode.write((const char*)&val, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_push, 1);
+    uint32_t val = std::stoi(ctx->NUMBER()->getText());
+    write_instruction(op_push, val);
     push_address();
     return std::any();
 }
@@ -386,20 +343,19 @@ std::any trombone_compiler_visitor::visitIntLiteral(TromboneParser::IntLiteralCo
 std::any trombone_compiler_visitor::visitCompare(TromboneParser::CompareContext *ctx) {
     ctx->expr(0)->accept(this);
     ctx->expr(1)->accept(this);
-    bytecode.write((const char*)&reserved, 7);
     std::string op = ctx->op->getText();
     if (op == "==") {
-        bytecode.write((const char*)&op_eq, 1);
+        write_instruction(op_eq);
     } else if (op == "!=") {
-        bytecode.write((const char*)&op_ne, 1);
+        write_instruction(op_ne);
     } else if (op == "<") {
-        bytecode.write((const char*)&op_lt, 1);
+        write_instruction(op_lt);
     } else if (op == ">") {
-        bytecode.write((const char*)&op_gt, 1);
+        write_instruction(op_gt);
     } else if (op == "<=") {
-        bytecode.write((const char*)&op_le, 1);
+        write_instruction(op_le);
     } else if (op == ">=") {
-        bytecode.write((const char*)&op_ge, 1);
+        write_instruction(op_ge);
     } else {
         throw std::runtime_error("Unknown operator: " + op);
     }
