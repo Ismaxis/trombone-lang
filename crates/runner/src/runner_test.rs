@@ -595,7 +595,7 @@ mod tests {
             // Result return
             let mut runner = Runner::new_with_defaults(TestOperationStream::new());
 
-            runner.stack[0..2].copy_from_slice(&[1337, 0xDEADBEEF]);
+            runner.stack[0..2].copy_from_slice(&[0xDEADBEEF, 1337]);
             runner.sp = 2;
             runner.stream.emplace_instruction(opcode::OP_RET, 1);
 
@@ -680,13 +680,16 @@ mod tests {
 
         while runner.stream.get_instruction_pointer() < instructions.len() {
             match runner.evaluate_next_instruction() {
-                Ok(_) => {}
-                error => {
+                Ok(crate::runner::ReturnCode::Continue) => {}
+                Ok(crate::runner::ReturnCode::Done) => {
+                    break;
+                }
+                Err(error) => {
                     println!(
                         "failed at instruction: {}",
                         runner.stream.get_instruction_pointer()
                     );
-                    return error;
+                    return Err(error);
                 }
             }
         }

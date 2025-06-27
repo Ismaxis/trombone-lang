@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use trombone_common::{bytecode::Instruction, opcode};
-use trombone_runner::runner::{self, ArrayOperationStream};
+use trombone_runner::runner::{self, ArrayOperationStream, OperationStream};
 
 /// Virtual Machine for TromboneLang bytecode
 #[derive(Parser, Debug)]
@@ -20,6 +20,8 @@ struct Args {
     // Jit compilation threshold
     #[arg(long, default_value_t = 8)]
     jit_threshold: usize,
+    // #[clap(action)]
+    // print_instructions: bool
     //
     // TODO: debug flag, step by step execution
 }
@@ -66,7 +68,38 @@ fn main() -> Result<()> {
         runner.set_codegen(codegen, args.jit_threshold);
     }
 
-    runner.evaluate()?;
+    if true == true {
+        for (i, op) in runner
+            .stream
+            .get_next_n(runner.stream.get_instructions_len())
+            .into_iter()
+            .enumerate()
+        {
+            println!("{}: {:?}", i, op);
+        }
+    }
+
+    loop {
+        match runner.evaluate_next_instruction() {
+            Ok(crate::runner::ReturnCode::Continue) => {
+                // println!(
+                //     "ip: {}, stack: {:?}",
+                //     runner.stream.get_instruction_pointer(),
+                //     &runner.stack[..runner.sp]
+                // );
+            }
+            Ok(crate::runner::ReturnCode::Done) => {
+                break;
+            }
+            Err(error) => {
+                println!(
+                    "failed at instruction: {}",
+                    runner.stream.get_instruction_pointer()
+                );
+                return Err(error);
+            }
+        }
+    }
     println!("Execution completed!");
     println!("Stack: {:?}", &runner.stack[..runner.sp]);
     println!("Allocations: {}", alloc.alloc_count.load(Ordering::SeqCst));

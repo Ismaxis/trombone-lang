@@ -48,6 +48,8 @@ public:
   visitWhileStmt(TromboneParser::WhileStmtContext *ctx) override;
   virtual std::any visitIfStmt(TromboneParser::IfStmtContext *ctx) override;
   virtual std::any visitFuncCall(TromboneParser::FuncCallContext *ctx) override;
+  virtual std::any
+  visitFuncCallStmt(TromboneParser::FuncCallStmtContext *context) override;
   virtual std::any visitArgList(TromboneParser::ArgListContext *ctx) override;
   virtual std::any
   visitArrayAccess(TromboneParser::ArrayAccessContext *ctx) override;
@@ -72,6 +74,7 @@ private:
   static inline const op_code_t op_pop = 0x02;
   static inline const op_code_t op_local_copy = 0x03;
   static inline const op_code_t op_local_store = 0x04;
+  static inline const op_code_t op_basicblock_start = 0x05;
   static inline const op_code_t op_neg = 0xa0;
   static inline const op_code_t op_not = 0xa1;
   static inline const op_code_t op_add = 0xa2;
@@ -118,12 +121,11 @@ private:
     }
   };
   struct func_meta {
-    std::vector<tromb_t> args;
     std::optional<tromb_t> return_type;
     address_t address;
     func_meta() {}
-    func_meta(address_t address, std::vector<tromb_t> args, std::optional<tromb_t> return_type = {})
-        : address(address), args(args), return_type(return_type) {}
+    func_meta(address_t address, std::optional<tromb_t> return_type = {})
+        : address(address), return_type(return_type) {}
   };
 
   struct scope {
@@ -133,7 +135,11 @@ private:
   };
 
   void clear_scope() {
-    auto vs = std::views::values(symbol_table.back().variables);
+    clear_scope(symbol_table.back().variables);
+  }
+
+  void clear_scope(std::unordered_map<std::string, var_meta>& variables) {
+    auto vs = std::views::values(variables);
     std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
     std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
       return a.address > b.address; // compare rsp's
@@ -167,6 +173,9 @@ private:
 
   void add_function(std::string name, func_meta meta) {
     functions[name] = meta;
+    std::cout << __LINE__ << ": " << next_address << std::endl;
+    assert(symbol_table.size() == 0);
+    assert(next_address == 0);
   }
 
   var_meta get_variable(std::string name) {
@@ -184,6 +193,29 @@ private:
     }
     throw std::runtime_error("Unknown function: " + name);
   }
+
+  void write_instruction(const op_code_t& op, uint32_t address = 0) {
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op, 1);
+  }
+
+  void write_nojit_instruction(const op_code_t& op, uint32_t address = 0) {
+    write_on_address((static_cast<uint32_t>(bytecode.tellp() - last_basic_block) / 8 - 1), last_basic_block);
+
+    write_instruction(op, address);
+
+    last_basic_block = bytecode.tellp();
+    write_instruction(op_basicblock_start);
+  }
+
+  void write_on_address(uint32_t data, std::size_t address) {
+    std::size_t cur = bytecode.tellp();
+    bytecode.seekp(address);
+    bytecode.write((const char*)&data, 4);
+    bytecode.seekp(cur);
+  }
+  std::size_t last_basic_block = 0;
 
   std::vector<scope> symbol_table;
   std::unordered_map<std::string, func_meta> functions;

@@ -66,7 +66,7 @@ pub enum Operation {
 
     // Functions
     PushRetAddress { operands_count: Literal },
-    Return { return_value_size: Literal },
+    Return,
 
     // Comparison
     Equal,
@@ -132,9 +132,7 @@ impl TryFrom<Instruction> for Operation {
             OP_PUSH_RET_ADDRESS => PushRetAddress {
                 operands_count: value.extract_immediate(),
             },
-            OP_RET => Return {
-                return_value_size: value.extract_immediate(),
-            },
+            OP_RET => Return,
 
             // Comparison operations
             OP_EQ => Equal,
@@ -211,7 +209,7 @@ impl From<Operation> for Instruction {
             PushRetAddress { operands_count } => {
                 Instruction::from_parts(OP_PUSH_RET_ADDRESS, operands_count)
             }
-            Return { return_value_size } => Instruction::from_parts(OP_RET, return_value_size),
+            Return => Instruction::from_parts(OP_RET, 0),
             Equal => Instruction::from_parts(OP_EQ, 0),
             NotEqual => Instruction::from_parts(OP_NE, 0),
             LessThan => Instruction::from_parts(OP_LT, 0),

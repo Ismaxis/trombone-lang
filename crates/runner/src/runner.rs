@@ -117,6 +117,11 @@ where
     }
 }
 
+pub enum ReturnCode {
+    Continue,
+    Done,
+}
+
 impl<'alloc, 'ctx, OpStream, IStream, OStream> Runner<'alloc, 'ctx, OpStream, IStream, OStream>
 where
     OpStream: OperationStream,
@@ -146,7 +151,7 @@ where
         self.codegen = Some((codegen, threshold));
     }
 
-    pub fn evaluate_next_instruction(&mut self) -> Result<()> {
+    pub fn evaluate_next_instruction(&mut self) -> Result<ReturnCode> {
         use Operation::*;
         match self.stream.next_instruction()? {
             // Stack operations
@@ -167,7 +172,7 @@ where
             BasicBlockStart { block_length } => {
                 let (codegen, threshold) = match self.codegen {
                     Some(ref codegen) => codegen,
-                    None => return Ok(()),
+                    None => return Ok(ReturnCode::Continue),
                 };
 
                 let current_ip = self.stream.get_instruction_pointer() - 1;
@@ -185,7 +190,7 @@ where
                     self.sp =
                         unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
                     self.stream.switch_frame(block_length as i32);
-                    return Ok(());
+                    return Ok(ReturnCode::Continue);
                 }
 
                 let cnt = self.basic_block_stats.entry(current_ip).or_insert(0);
@@ -226,14 +231,19 @@ where
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
             PushRetAddress { operands_count } => {
-                self.push(
-                    (self.stream.get_instruction_pointer() + operands_count as usize + 1)
-                        as TrombValue,
-                );
+                // println!(
+                //     "ip: {}, opcount: {}",
+                //     self.stream.get_instruction_pointer(),
+                //     operands_count
+                // );
+                self.stack[self.sp - 1 - operands_count as usize] =
+                    1 + self.stream.get_instruction_pointer() as TrombValue;
             }
 
-            Return { return_value_size } => {
-                self.stack[self.sp - (return_value_size as usize + 1)..self.sp].rotate_left(1);
+            Return => {
+                if self.sp == 0 {
+                    return Ok(ReturnCode::Done);
+                }
                 let address = self.pop();
                 self.stream
                     .switch_frame(address as i32 - self.stream.get_instruction_pointer() as i32);
@@ -265,7 +275,7 @@ where
                 let size = self.pop() as usize;
                 if size == 0 {
                     self.push(0);
-                    return Ok(());
+                    return Ok(ReturnCode::Continue);
                 }
 
                 let ptr = self.allocate_heap_memory(size);
@@ -345,10 +355,10 @@ where
             }
             Print => {
                 let value = self.pop();
-                self.output.write_fmt(format_args!("{}\n", value))?;
+                self.output.write_fmt(format_args!("$$ {}\n", value))?;
             }
         }
-        Ok(())
+        Ok(ReturnCode::Continue)
     }
 
     pub fn evaluate(&mut self) -> Result<()> {

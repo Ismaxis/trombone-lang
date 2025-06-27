@@ -17,7 +17,7 @@ statement
     : varDecl ';'
     | assignment ';'
     | arrayAssignment ';'
-    | funcCall ';'
+    | funcCallStmt ';'
     | returnStmt ';'
     | printStmt ';'
     | whileStmt
@@ -26,9 +26,10 @@ statement
 varDecl     : 'let' IDENTIFIER ':' type '=' expr;
 assignment  : IDENTIFIER '=' expr;
 arrayAssignment : IDENTIFIER '[' expr ']' '=' expr;
-returnStmt  : 'return' expr;
+returnStmt  : 'return' expr?;
 printStmt   : 'print' '(' expr ')';
 whileStmt   : 'while' expr block;
+funcCallStmt: funcCall;
 
 ifStmt
     : 'if' expr block
