@@ -1,40 +1,69 @@
-fn partition(arr: [int], low: int, high: int) -> int {
-    let pivot: int = arr[high];
-    let i: int = low - 1;
-    let j: int = low;
-
-    while j < high {
-        if arr[j] <= pivot {
-            i = i + 1;
-            let temp: int = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-        }
-    }
-
-    let temp: int = arr[i + 1];
-    arr[i + 1] = arr[high];
-    arr[high] = temp;
-
-    return i + 1;
-}
-
-fn quicksort(arr: [int], low: int, high: int) {
-    if low < high {
-        int pi = partition(arr, low, high);
-        
-        quicksort(arr, low, pi - 1);
-        quicksort(arr, pi + 1, high);
-    }
-}
-
 fn main() {
     let n: int = read();
     let arr: [int] = array(n);
+
     let i: int = 0;
     while i < n {
         arr[i] = read();
         i = i + 1;
+    }
+
+    let start: int = (n - 2) / 2;
+    while start >= 0 {
+        let root: int = start;
+        let child: int = root + root + 1;
+        
+        while child < n {
+            if child + 1 < n {
+                if arr[child] < arr[child + 1] {
+                    child = child + 1;
+                }
+            }
+            
+            if arr[root] < arr[child] {
+                let temp: int = arr[root];
+                arr[root] = arr[child];
+                arr[child] = temp;
+                
+                root = child;
+                child = root + root + 1;
+            } else {
+                child = n;
+            }
+        }
+        
+        start = start - 1;
+    }
+    
+    let end: int = n - 1;
+    while end > 0 {
+        let temp: int = arr[0];
+        arr[0] = arr[end];
+        arr[end] = temp;
+        
+        let root: int = 0;
+        let child: int = 1;
+        
+        while child < end {
+            if child + 1 < end {
+                if arr[child] < arr[child + 1] {
+                    child = child + 1;
+                }
+            }
+            
+            if arr[root] < arr[child] {
+                let temp2: int = arr[root];
+                arr[root] = arr[child];
+                arr[child] = temp2;
+                
+                root = child;
+                child = root + root + 1;
+            } else {
+                child = end;
+            }
+        }
+        
+        end = end - 1;
     }
 
     i = 0;
@@ -42,4 +71,6 @@ fn main() {
         print(arr[i]);
         i = i + 1;
     }
+
+    return;
 }
