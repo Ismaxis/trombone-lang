@@ -236,7 +236,8 @@ where
                 //     self.stream.get_instruction_pointer(),
                 //     operands_count
                 // );
-                self.stack[self.sp - 1 - operands_count as usize] = 1 + self.stream.get_instruction_pointer() as TrombValue;
+                self.stack[self.sp - 1 - operands_count as usize] =
+                    1 + self.stream.get_instruction_pointer() as TrombValue;
             }
 
             Return => {
