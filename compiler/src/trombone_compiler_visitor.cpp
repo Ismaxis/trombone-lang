@@ -225,8 +225,13 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     // Just evaluate arguments, do not do any heap copy for arrays
     ctx->argList()->accept(this);
 
-    write_nojit_instruction(op_push_ret_address, argcount);
-    write_nojit_instruction(op_jmp, (meta.address - static_cast<int>(bytecode.tellp())) / 8);
+    write_on_address((static_cast<uint32_t>(bytecode.tellp() - last_basic_block) / 8 - 1), last_basic_block);
+    
+    write_instruction(op_push_ret_address, argcount);
+    write_instruction(op_jmp, (meta.address - static_cast<int>(bytecode.tellp())) / 8);
+    
+    last_basic_block = bytecode.tellp();
+    write_instruction(op_basicblock_start);
     return std::any();
 }
 
