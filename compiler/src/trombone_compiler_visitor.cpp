@@ -26,8 +26,9 @@ trombone_compiler_visitor::trombone_compiler_visitor(std::string output_file) {
     }
 }
 std::any trombone_compiler_visitor::visitProgram(TromboneParser::ProgramContext *ctx) {
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_jmp, 1);
+    write_instruction(op_jmp);
+    last_basic_block = bytecode.tellp();
+    write_instruction(op_basicblock_start);
     visitChildren(ctx);
     auto main_meta = get_function("main");
     uint32_t address = main_meta.address / 8;
@@ -157,15 +158,13 @@ std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtCo
         clear_scope(symbol_table[i].variables);
     }
 
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_ret, 1);
+    write_nojit_instruction(op_ret);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitPrintStmt(TromboneParser::PrintStmtContext *ctx) {
     ctx->expr()->accept(this);
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_print, 1);
+    write_nojit_instruction(op_print);
     pop_address();
     return std::any();
 }
@@ -173,37 +172,32 @@ std::any trombone_compiler_visitor::visitPrintStmt(TromboneParser::PrintStmtCont
 std::any trombone_compiler_visitor::visitWhileStmt(TromboneParser::WhileStmtContext *ctx) {
     std::size_t start = bytecode.tellp();
     ctx->expr()->accept(this);
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_jmp_if_not, 1);
+    std::size_t condition_jump = bytecode.tellp();
+    write_nojit_instruction(op_jmp_if_not);
     pop_address();
 
-    std::size_t block_start = bytecode.tellp();
     ctx->block()->accept(this);
     std::size_t block_end = bytecode.tellp();
     int32_t address = -(block_end - start) / 8;
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_jmp, 1);
+    write_nojit_instruction(op_jmp, address);
 
-    bytecode.seekp(block_start - 8);
-    address = (block_end - block_start) / 8 + 2;
+    bytecode.seekp(condition_jump);
+    address = (block_end - condition_jump) / 8 + 1;
     bytecode.write((const char*)&address, 4);
-    bytecode.seekp(block_end + 8);
+    bytecode.seekp(block_end + 16);
     return std::any();
 }
 
 std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *ctx) {
-    auto conditions = ctx->expr();
     std::vector<std::size_t> condition_locations;
-    for (auto condition : conditions) {
+    for (auto condition : ctx->expr()) {
         condition->accept(this);
         condition_locations.push_back(bytecode.tellp());
-        bytecode.write((const char*)&reserved, 7);
-        bytecode.write((const char*)&op_jmp_if, 1);
+        write_nojit_instruction(op_jmp_if);
         pop_address();
     }
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_jmp, 1);
+    std::size_t if_end_location = bytecode.tellp();
+    write_nojit_instruction(op_jmp);
     std::vector<std::size_t> block_locations;
     for (auto block : ctx->block()) {
         std::size_t block_start = bytecode.tellp();
@@ -212,9 +206,8 @@ std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *c
         block_locations.push_back(block_end);
         if (block_locations.size() > condition_locations.size()) {
             //else
-            std::size_t else_location = condition_locations.back() + 8;
-            bytecode.seekp(else_location);
-            int32_t address = (block_start - else_location) / 8;
+            bytecode.seekp(if_end_location);
+            int32_t address = (block_start - if_end_location) / 8;
             bytecode.write((const char*)&address, 4);
             bytecode.seekp(block_end);
             break;
@@ -225,13 +218,11 @@ std::any trombone_compiler_visitor::visitIfStmt(TromboneParser::IfStmtContext *c
         bytecode.write((const char*)&address, 4);
         bytecode.seekp(block_end);
         
-        bytecode.write((const char*)&reserved, 7);
-        bytecode.write((const char*)&op_jmp, 1);
+        write_nojit_instruction(op_jmp);
     }
     std::size_t current_location = bytecode.tellp();
     if (block_locations.size() == condition_locations.size()) {
         //no else
-        std::size_t if_end_location = condition_locations.back() + 8;
         bytecode.seekp(if_end_location);
         int32_t address = (current_location - if_end_location) / 8;
         bytecode.write((const char*)&address, 4);
@@ -261,15 +252,8 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     // Just evaluate arguments, do not do any heap copy for arrays
     ctx->argList()->accept(this);
 
-    bytecode.write((const char *)&argcount, 4);
-    bytecode.write((const char *)&reserved, 3);
-    bytecode.write((const char *)&op_push_ret_address, 1);
-
-    std::uint32_t address =
-        (meta.address - static_cast<int>(bytecode.tellp())) / 8;
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char *)&op_jmp, 1);
+    write_nojit_instruction(op_push_ret_address, argcount);
+    write_nojit_instruction(op_jmp, (meta.address - static_cast<int>(bytecode.tellp())) / 8);
     return std::any();
 }
 
@@ -330,8 +314,7 @@ std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferen
 }
 
 std::any trombone_compiler_visitor::visitReadExpr(TromboneParser::ReadExprContext *ctx) {
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_read, 1);
+    write_nojit_instruction(op_read);
     push_address();
     return std::any();
 }
@@ -387,8 +370,7 @@ std::any trombone_compiler_visitor::visitArrayCreate(TromboneParser::ArrayCreate
     }
 
     ctx->expr(0)->accept(this);
-    bytecode.write((const char*)&reserved, 7);
-    bytecode.write((const char*)&op_heap_alloc, 1);
+    write_nojit_instruction(op_heap_alloc);
     return std::any();
 }
 

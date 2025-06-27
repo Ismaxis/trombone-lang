@@ -74,6 +74,7 @@ private:
   static inline const op_code_t op_pop = 0x02;
   static inline const op_code_t op_local_copy = 0x03;
   static inline const op_code_t op_local_store = 0x04;
+  static inline const op_code_t op_basicblock_start = 0x05;
   static inline const op_code_t op_neg = 0xa0;
   static inline const op_code_t op_not = 0xa1;
   static inline const op_code_t op_add = 0xa2;
@@ -192,6 +193,26 @@ private:
     }
     throw std::runtime_error("Unknown function: " + name);
   }
+
+  void write_instruction(const op_code_t& op, uint32_t address = 0) {
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op, 1);
+  }
+
+  void write_nojit_instruction(const op_code_t& op, uint32_t address = 0) {
+    std::size_t cur = bytecode.tellp();
+    std::size_t len = (cur - last_basic_block) / 8 - 1;
+    bytecode.seekp(last_basic_block);
+    bytecode.write((const char*)&len, 4);
+    bytecode.seekp(cur);
+
+    write_instruction(op, address);
+
+    last_basic_block = bytecode.tellp();
+    write_instruction(op_basicblock_start);
+  }
+  std::size_t last_basic_block = 0;
 
   std::vector<scope> symbol_table;
   std::unordered_map<std::string, func_meta> functions;
