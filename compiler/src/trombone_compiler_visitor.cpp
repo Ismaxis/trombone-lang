@@ -145,11 +145,12 @@ std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtCo
     if (ctx->expr() != nullptr) {
         ctx->expr()->accept(this);
         // result on top of the stack
-        uint32_t address = next_address; // TODO: check +- 1
+        uint32_t address = symbol_table.back().start_rsp + 1;
+        // uint32_t address = next_address; // TODO: check +- 1
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_local_store, 1);
-        pop_address();
+        // pop_address();
     }
 
     for (int i = symbol_table.size() - 1; i >= 0; i--) {
