@@ -56,11 +56,6 @@ std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDe
 
     // visitChildren(ctx->block());
     ctx->block()->accept(this);
-    clear_scope();
-    uint32_t address = return_ctx ? 1 : 0;
-    bytecode.write((const char*)&address, 4);
-    bytecode.write((const char*)&reserved, 3);
-    bytecode.write((const char*)&op_ret, 1);
     exit_scope();
 
     return std::any();
@@ -95,7 +90,7 @@ std::any trombone_compiler_visitor::visitType(TromboneParser::TypeContext *ctx) 
 std::any trombone_compiler_visitor::visitBlock(TromboneParser::BlockContext *ctx) {
     enter_scope();
     visitChildren(ctx);
-    clear_scope();
+    clear_scope(); // useless when block is the main block of the func, because return will clear the scopes
     exit_scope();
     return std::any();
 }
@@ -145,23 +140,34 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
     return std::any();
 }
 
-// address, op1, op2, op3, return_value ...
+// <-
+// result
+// local3
+// local2
+// local1
+// op3
+// op2
+// op1
+// address
+// return value
 
 std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
-    if (ctx->expr() == nullptr) {
-
-    } else {
+    if (ctx->expr() != nullptr) {
         ctx->expr()->accept(this);
-        bytecode.write((const char*)&next_address, 4);
+        // result on top of the stack
+        uint32_t address = next_address; // TODO: check +- 1
+        bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_local_store, 1);
         pop_address();
-        uint32_t address = 1;
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_ret, 1);
-        clear_scope();
     }
+
+    for (int i = symbol_table.size() - 1; i >= 0; i--) {
+        clear_scope(symbol_table[i].variables);
+    }
+
+    bytecode.write((const char*)&reserved, 7);
+    bytecode.write((const char*)&op_ret, 1);
     return std::any();
 }
 
@@ -252,11 +258,19 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     std::string name = ctx->IDENTIFIER()->getText();
     auto meta = get_function(name);
     std::uint32_t argcount = ctx->argList()->expr().size();
+    bytecode.write((const char *)&reserved, 7);
+    bytecode.write((const char *)&op_push, 1);
+    push_address(); // reserve space for return address
+    if (meta.return_type.has_value()) {
+        bytecode.write((const char *)&reserved, 7);
+        bytecode.write((const char *)&op_push, 1);
+        push_address(); // reserve space for return value
+    }
+    ctx->argList()->accept(this);
     bytecode.write((const char *)&argcount, 4);
     bytecode.write((const char *)&reserved, 3);
     bytecode.write((const char *)&op_push_ret_address, 1);
-    ctx->argList()->accept(this);
-
+    
     std::uint32_t address =
         (meta.address - static_cast<int>(bytecode.tellp())) / 8;
     bytecode.write((const char*)&address, 4);
@@ -265,10 +279,16 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     return std::any();
 }
 
-std::any trombone_compiler_visitor::visitFuncCallStmt(
-    TromboneParser::FuncCallStmtContext *ctx) {
-    
-  return std::any{};
+std::any trombone_compiler_visitor::visitFuncCallStmt(TromboneParser::FuncCallStmtContext *ctx) {
+    std::string fname = ctx->funcCall()->IDENTIFIER()->getText();
+    auto meta = get_function(fname);
+    visitChildren(ctx);
+    if (meta.return_type.has_value()) {
+        bytecode.write((const char *)&reserved, 7);
+        bytecode.write((const char *)&op_pop, 1);
+        pop_address();
+    }
+    return std::any();
 }
 
 std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext *ctx) {

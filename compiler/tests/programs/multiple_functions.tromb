@@ -1,7 +1,10 @@
 fn foo(i: int, j: int) {
     print(i + j);
+    return;
 }
 
 fn main() {
     foo(2, 3);
+    print(2);
+    return;
 }

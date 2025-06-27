@@ -236,17 +236,13 @@ where
                     self.stream.get_instruction_pointer(),
                     operands_count
                 );
-                self.push(
-                    (self.stream.get_instruction_pointer() + operands_count as usize + 1)
-                        as TrombValue,
-                );
+                self.stack[self.sp - 1 - operands_count as usize] = 1 + self.stream.get_instruction_pointer() as TrombValue;
             }
 
-            Return { return_value_size } => {
+            Return => {
                 if self.sp == 0 {
                     return Ok(ReturnCode::Done);
                 }
-                self.stack[self.sp - (return_value_size as usize + 1)..self.sp].rotate_left(1);
                 let address = self.pop();
                 self.stream
                     .switch_frame(address as i32 - self.stream.get_instruction_pointer() as i32);

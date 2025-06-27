@@ -595,7 +595,7 @@ mod tests {
             // Result return
             let mut runner = Runner::new_with_defaults(TestOperationStream::new());
 
-            runner.stack[0..2].copy_from_slice(&[1337, 0xDEADBEEF]);
+            runner.stack[0..2].copy_from_slice(&[0xDEADBEEF, 1337]);
             runner.sp = 2;
             runner.stream.emplace_instruction(opcode::OP_RET, 1);
 

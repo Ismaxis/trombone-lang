@@ -1,0 +1,15 @@
+fn foo(i: int, j: int) -> int {
+    return i + j;
+}
+
+fn main() {
+    let value: int = foo(2, 3);
+    let i: int = 0;
+
+    while i < value {
+        i = i + 1
+        print(value + foo(-2, -3));
+    }
+
+    return;
+}

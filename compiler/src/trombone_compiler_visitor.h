@@ -134,7 +134,11 @@ private:
   };
 
   void clear_scope() {
-    auto vs = std::views::values(symbol_table.back().variables);
+    clear_scope(symbol_table.back().variables);
+  }
+
+  void clear_scope(std::unordered_map<std::string, var_meta>& variables) {
+    auto vs = std::views::values(variables);
     std::vector<var_meta> symbol_table_sorted(vs.begin(), vs.end());
     std::sort(symbol_table_sorted.begin(), symbol_table_sorted.end(), [](const var_meta &a, const var_meta &b) {
       return a.address > b.address; // compare rsp's
