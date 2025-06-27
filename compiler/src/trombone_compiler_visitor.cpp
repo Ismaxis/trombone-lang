@@ -258,11 +258,13 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     bytecode.write((const char *)&op_push, 1);
     push_address(); // reserve space for return address
 
+    // Just evaluate arguments, do not do any heap copy for arrays
     ctx->argList()->accept(this);
+
     bytecode.write((const char *)&argcount, 4);
     bytecode.write((const char *)&reserved, 3);
     bytecode.write((const char *)&op_push_ret_address, 1);
-    
+
     std::uint32_t address =
         (meta.address - static_cast<int>(bytecode.tellp())) / 8;
     bytecode.write((const char*)&address, 4);
@@ -318,17 +320,12 @@ std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferen
     std::string name = ctx->IDENTIFIER()->getText();
     auto meta = get_variable(name);
 
-    if (meta.type == tromb_t::int_t) {
-        uint32_t address = next_address - meta.address - 1;
-        std::cout << __LINE__ << "var ref: " << name << ": " << meta.address << " " << address << std::endl;
-        bytecode.write((const char*)&address, 4);
-        bytecode.write((const char*)&reserved, 3);
-        bytecode.write((const char*)&op_local_copy, 1);
-        push_address();
-    } else if (meta.type == tromb_t::int_array_t) {
-        //TODO: implement array
-        throw std::runtime_error("Not implemented visitVarReference for array"); 
-    }
+    // Use op_local_copy for both int and array variables
+    uint32_t address = next_address - meta.address - 1;
+    bytecode.write((const char*)&address, 4);
+    bytecode.write((const char*)&reserved, 3);
+    bytecode.write((const char*)&op_local_copy, 1);
+    push_address();
     return std::any();
 }
 
