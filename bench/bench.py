@@ -13,7 +13,7 @@ _FACTORIAL_CALCULATION_FILE = "factorial_calculation"
 _ARRAY_SORTING_FILE = "array_sorting"
 _PRIME_NUMBER_GENERATION_FILE = "prime_number_generation"
 
-_EXTENSION = ".cpp"
+_EXTENSION = ".tromb"
 
 def setup_logging():
     """Setup logging configuration"""
@@ -29,7 +29,7 @@ def setup_logging():
 def compile_program(compiler_path, source_file, output_file, logger):
     """Compile a program"""
     try:
-        cmd = [compiler_path, '-O3', source_file, '-o', output_file]
+        cmd = [compiler_path, source_file, output_file]
         logger.info(f"Compiling: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -189,7 +189,7 @@ def test_sorting(runtime_path, program_path, logger):
     for i, numbers in enumerate(test_cases, 1):
         logger.info(f"Testing sorting, case {i}: {len(numbers)} elements")
         n = len(numbers)
-        input_data = f"{n}\n" + " ".join(map(str, numbers)) + "\n"
+        input_data = f"{n}\n" + "\n".join(map(str, numbers)) + "\n"
         
         exec_time, output, success = run_program_with_input(runtime_path, program_path, input_data, logger, timeout=30)
         
