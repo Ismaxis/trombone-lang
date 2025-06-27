@@ -81,7 +81,13 @@ fn main() -> Result<()> {
 
     loop {
         match runner.evaluate_next_instruction() {
-            Ok(crate::runner::ReturnCode::Continue) => {}
+            Ok(crate::runner::ReturnCode::Continue) => {
+                println!(
+                    "ip: {}, stack: {:?}",
+                    runner.stream.get_instruction_pointer(),
+                    &runner.stack[..runner.sp]
+                );
+            }
             Ok(crate::runner::ReturnCode::Done) => {
                 break;
             }

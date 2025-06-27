@@ -1,0 +1,14 @@
+fn factorial(n: int, a: int, b: int, c: int) -> int {
+    if n <= 1 {
+        return 1;
+    }
+    let res: int = n * factorial(n - 1, 69, 70, 71);
+    return res;
+}
+
+fn main() {
+    let res2: int = factorial(2, 69, 70, 71);
+    print(res2);
+
+    return;
+}

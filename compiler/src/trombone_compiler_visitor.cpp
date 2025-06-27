@@ -52,9 +52,9 @@ std::any trombone_compiler_visitor::visitFunctionDecl(TromboneParser::FunctionDe
     if (param_ctx) {
         param_ctx->accept(this);
     }
-    // symbol_table.back().start_rsp -= next_address;
+    std::cout << __LINE__ << ": " << next_address << std::endl;
+    // symbol_table.back().start_rsp = next_address;
 
-    // visitChildren(ctx->block());
     ctx->block()->accept(this);
     exit_scope();
 
@@ -113,6 +113,7 @@ std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentCo
     auto meta = get_variable(name);
     ctx->expr()->accept(this);
     if (meta.type == tromb_t::int_t) {
+        std::cout << __LINE__ << "assign: " << name << ": " << meta.address << std::endl;
         uint32_t address = pop_address() - meta.address - 1;
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
@@ -139,17 +140,6 @@ std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAs
     }
     return std::any();
 }
-
-// <-
-// result
-// local3
-// local2
-// local1
-// op3
-// op2
-// op1
-// address
-// return value
 
 std::any trombone_compiler_visitor::visitReturnStmt(TromboneParser::ReturnStmtContext *ctx) {
     if (ctx->expr() != nullptr) {
@@ -258,14 +248,15 @@ std::any trombone_compiler_visitor::visitFuncCall(TromboneParser::FuncCallContex
     std::string name = ctx->IDENTIFIER()->getText();
     auto meta = get_function(name);
     std::uint32_t argcount = ctx->argList()->expr().size();
-    bytecode.write((const char *)&reserved, 7);
-    bytecode.write((const char *)&op_push, 1);
-    push_address(); // reserve space for return address
     if (meta.return_type.has_value()) {
         bytecode.write((const char *)&reserved, 7);
         bytecode.write((const char *)&op_push, 1);
         push_address(); // reserve space for return value
     }
+    bytecode.write((const char *)&reserved, 7);
+    bytecode.write((const char *)&op_push, 1);
+    push_address(); // reserve space for return address
+
     ctx->argList()->accept(this);
     bytecode.write((const char *)&argcount, 4);
     bytecode.write((const char *)&reserved, 3);
@@ -294,7 +285,7 @@ std::any trombone_compiler_visitor::visitFuncCallStmt(TromboneParser::FuncCallSt
 std::any trombone_compiler_visitor::visitArgList(TromboneParser::ArgListContext *ctx) {
     for (auto arg : ctx->expr()) {
         arg->accept(this);
-        push_address();
+        pop_address();
     }
     return std::any();
 }
@@ -327,10 +318,12 @@ std::any trombone_compiler_visitor::visitVarReference(TromboneParser::VarReferen
     auto meta = get_variable(name);
 
     if (meta.type == tromb_t::int_t) {
-        uint32_t address = push_address() - meta.address - 1;
+        uint32_t address = next_address - meta.address - 1;
+        std::cout << __LINE__ << "var ref: " << name << ": " << meta.address << " " << address << std::endl;
         bytecode.write((const char*)&address, 4);
         bytecode.write((const char*)&reserved, 3);
         bytecode.write((const char*)&op_local_copy, 1);
+        push_address();
     } else if (meta.type == tromb_t::int_array_t) {
         //TODO: implement array
         throw std::runtime_error("Not implemented visitVarReference for array"); 
