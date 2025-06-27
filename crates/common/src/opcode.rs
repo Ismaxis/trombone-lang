@@ -54,11 +54,11 @@ pub const OP_RSH: OpCode = 0xab;
 //  +----------+------------------+-----------------------------+
 //  |   0xb1   |      Unused      |         Operands count      |
 //  +----------+------------------+-----------------------------+
-pub const OP_PUSH_RET_ADDRESS: OpCode = 0xb0; // pushes IP + operands count address to top of stack
+pub const OP_PUSH_RET_ADDRESS: OpCode = 0xb0; // pushes IP + operands count address to top of stack // NOJIT
 //  +----------+------------------+-----------------------------+
 //  |   0xb1   |      Unused      |         Result size         |
 //  +----------+------------------+-----------------------------+
-pub const OP_RET: OpCode = 0xb1; // Pops nth value from stack and jumps to it
+pub const OP_RET: OpCode = 0xb1; // Pops nth value from stack and jumps to it // NOJIT
 
 // Comparison instructions
 //  63       56 55                                             0
@@ -77,9 +77,9 @@ pub const OP_GE: OpCode = 0xc5; // Greater than or equal
 // +----------+------------------+-----------------------------+
 // | 0xd0-d2  |      Unused      |         Jump Offset         |
 // +----------+------------------+-----------------------------+
-pub const OP_JMP: OpCode = 0xd0; // Unconditional jump
-pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true
-pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false
+pub const OP_JMP: OpCode = 0xd0; // Unconditional jump // NOJIT
+pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true // NOJIT 
+pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false // NOJIT
 
 // Heap instructions
 //   63       56 55                                              0
@@ -87,15 +87,15 @@ pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false
 //   | 0xe0-e1  |                     Unused                     |
 //   +----------+------------------------------------------------+
 // Allocates region of memory, count of TromValues popped from stack
-pub const OP_HEAP_ALLOC: OpCode = 0xe0;
+pub const OP_HEAP_ALLOC: OpCode = 0xe0; // NOJIT
 // Decrements reference count, pops pointer from stack
-pub const OP_HEAP_POP_PTR: OpCode = 0xe1;
+pub const OP_HEAP_POP_PTR: OpCode = 0xe1; // NOJIT
 //   63       56 55              32 31                           0
 //   +----------+------------------+-----------------------------+
 //   |  0xe2-e4 |      Unused      |      Offset to variable     |
 //   +----------+------------------+-----------------------------+
 // `ptr` - variable by offset
-pub const OP_HEAP_COPY_PTR: OpCode = 0xe2; // Copies and pushes `ptr`, increments refcount
+pub const OP_HEAP_COPY_PTR: OpCode = 0xe2; // Copies and pushes `ptr`, increments refcount // NOJIT
 // `offset` - top of stack
 // `ptr` - variable by offset
 pub const OP_HEAP_LOAD_PTR: OpCode = 0xe3; // Pushes `ptr` + `offset`, increments refcount
@@ -109,5 +109,5 @@ pub const OP_HEAP_STORE_PTR: OpCode = 0xe4; // Stores `value` to `ptr` + `offset
 //  +----------+-----------------------------------------------+
 //  | 0xf0-f1  |                   Unused                      |
 //  +----------+-----------------------------------------------+
-pub const OP_READ: OpCode = 0xf0; // Read next int from input stream and push to stack
-pub const OP_PRINT: OpCode = 0xf1; // Pop value from stack and print to output stream
+pub const OP_READ: OpCode = 0xf0; // Read next int from input stream and push to stack // NOJIT
+pub const OP_PRINT: OpCode = 0xf1; // Pop value from stack and print to output stream // NOJIT
