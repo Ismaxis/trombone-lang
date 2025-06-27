@@ -8,4 +8,6 @@ fn factorial(n: int) -> int {
 fn main() {
     let n: int = read();
     print(factorial(n));
+
+    return;
 }
