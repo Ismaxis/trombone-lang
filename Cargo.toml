@@ -11,3 +11,4 @@ trombone-common = { path = "./crates/common" }
 trombone-runtime = { path = "./crates/runtime" }
 trombone-jit = { path = "./crates/jit" }
 trombone-runner = { path = "./crates/runner" }
+trombone-compiler = { path = "./crates/compiler" }
