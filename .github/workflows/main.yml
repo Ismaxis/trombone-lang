@@ -13,13 +13,13 @@ jobs:
       - uses: mbrobbel/rustfmt-check@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-  # test-runtime:
-  #   needs: format
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Docker testing
-  #       uses: ./docker/runtime/
+  test-runtime:
+    needs: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker testing
+        uses: ./docker/runtime/
   # test-compiler:
   #   needs: format
   #   runs-on: ubuntu-latest

@@ -51,7 +51,7 @@ pub const OP_RSH: OpCode = 0xab;
 //  +----------+------------------+-----------------------------+
 //  |   0xb1   |      Unused      |         Operands count      |
 //  +----------+------------------+-----------------------------+
-pub const OP_PUSH_RET_ADDRESS: OpCode = 0xb0; // pushes IP + operands count address to top of stack // NOJIT
+pub const OP_PUSH_RET_ADDRESS: OpCode = 0xb0; // pushes (IP + operands count) address to top of stack // NOJIT
 //  +----------+------------------+-----------------------------+
 //  |   0xb1   |      Unused      |         Result size         |
 //  +----------+------------------+-----------------------------+

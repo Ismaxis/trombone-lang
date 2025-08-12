@@ -231,11 +231,6 @@ where
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
             PushRetAddress { operands_count } => {
-                // println!(
-                //     "ip: {}, opcount: {}",
-                //     self.stream.get_instruction_pointer(),
-                //     operands_count
-                // );
                 self.stack[self.sp - 1 - operands_count as usize] =
                     1 + self.stream.get_instruction_pointer() as TrombValue;
             }
