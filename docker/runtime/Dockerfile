@@ -28,4 +28,4 @@ RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 WORKDIR /trombone
 COPY . /trombone
 
-CMD [ "cargo", "test", "--all", "--workspace" ]
+CMD [ "cargo", "+stable", "test", "--all", "--workspace" ]
