@@ -1,0 +1,78 @@
+use crate::ast::{Program, FuncDeclaration, Type, Param, Statement, Expression};
+use std::str::FromStr;
+
+grammar;
+
+pub Program: Program = <FuncDeclaration*> => <>;
+
+FuncDeclaration: FuncDeclaration = { 
+    "fn" <Ident> "(" <Comma<Param>> ")" <ReturnType?> <Block> => FuncDeclaration::new(<>)
+};
+
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e { 
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+
+Ident: String = <r"[a-zA-Z_][a-zA-Z_0-9]*"> => String::from(<>);
+
+ReturnType: Type = "->" <t:Type> => <>;
+
+Type: Type = {
+    "int" => Type::Int,
+    "[" "int" "]" => Type::ArrInt
+}
+
+Param: Param = <Ident> ":" <Type> => Param::new(<>);
+
+Block: Vec<Statement> = "{" <Statement*> "}" => <>;
+
+Statement: Statement = {
+    "let" <i:Ident> ":" <t: Type> "=" <e: Expression> ";" => Statement::VarDeclaration {identifier: i, type_: t, value: e},
+    <i:Ident> "=" <e: Expression> ";" => Statement::Assignment {identifier: i, value: e},
+    <i:Ident> "[" <idx: Expression> "]" "=" <e: Expression> ";" => Statement::ArrayAssignment {identifier: i, index: idx, value: e},
+    <i:Ident> "(" <args: Comma<Expression>>  ")" ";" => Statement::FuncCallStatement {identifier: i, arguments: args},
+    "return" <e: Expression?> ";" => Statement::ReturnStatement {return_value: e},
+    "while" <cond: Expression> <b: Block> => Statement::WhileStatement {condition: cond, statements: b},
+    "if" <cond: Expression> <then: Block> <mut elifs:("else" "if" <Expression> <Block>)*> <el:("else" <Block>)?>  => {
+        let mut arms = vec![(cond, then)];
+        arms.append(&mut elifs);
+        Statement::IfStatement {arms, el}
+    },
+};
+
+Expression: Expression = {
+    #[precedence(level="0")]
+    Term,
+    "-" <Expression>                       => Expression::UnaryMinus { val: Box::new(<>) },
+
+    #[precedence(level="1")] #[assoc(side="left")]
+    <lhs:Expression> "*" <rhs:Expression>  => Expression::Mul {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> "/" <rhs:Expression>  => Expression::Div {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <lhs:Expression> "+" <rhs:Expression>  => Expression::Add {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> "-" <rhs:Expression>  => Expression::Sub {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <lhs:Expression> "<" <rhs:Expression>  => Expression::Less {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> ">" <rhs:Expression>  => Expression::Greater {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> "<=" <rhs:Expression> => Expression::LessEq {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> ">=" <rhs:Expression> => Expression::GreaterEq {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> "==" <rhs:Expression> => Expression::Eq {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+    <lhs:Expression> "!=" <rhs:Expression> => Expression::NonEq {lhs: Box::new(lhs), rhs: Box::new(rhs)},
+};
+
+Term: Expression = {
+    "(" <e: Expression> ")"                     => e,
+    <i:Ident> "[" <e: Expression> "]"           => Expression::ArrayAccess {identifier: i, index: Box::new(e) },
+    <i:Ident> "(" <args: Comma<Expression>> ")" => Expression::FuncCall {identifier: i, arguments: args},
+    <r"[0-9]+">                                 => Expression::Literal {val: i32::from_str(<>).unwrap()},
+    <i:Ident>                                   => Expression::VarReference {identifier: i},
+}
