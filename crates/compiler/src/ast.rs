@@ -3,10 +3,10 @@ pub type Program = Vec<FuncDeclaration>;
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct FuncDeclaration {
-    identifier: String,
-    params: Vec<Param>,
-    return_type: Option<Type>,
-    statements: Vec<Statement>,
+    pub identifier: String,
+    pub params: Vec<Param>,
+    pub return_type: Option<Type>,
+    pub statements: Vec<Statement>,
 }
 
 impl FuncDeclaration {
@@ -28,8 +28,8 @@ impl FuncDeclaration {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Param {
-    identifier: String,
-    type_: Type,
+    pub identifier: String,
+    pub type_: Type,
 }
 
 impl Param {

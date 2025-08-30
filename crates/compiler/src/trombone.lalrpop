@@ -43,7 +43,7 @@ Statement: Statement = {
     "if" <cond: Expression> <then: Block> <mut elifs:("else" "if" <Expression> <Block>)*> <el:("else" <Block>)?>  => {
         let mut arms = vec![(cond, then)];
         arms.append(&mut elifs);
-        Statement::IfStatement {arms, el}  
+        Statement::IfStatement {arms, el}
     },
 };
 
@@ -70,9 +70,9 @@ Expression: Expression = {
 };
 
 Term: Expression = {
-    "(" <e: Expression> ")"                      => e,
-    <i:Ident> "[" <e: Expression> "]"            => Expression::ArrayAccess {identifier: i, index: Box::new(e) },
-    <i:Ident> "(" <args: Comma<Expression>>  ")" => Expression::FuncCall {identifier: i, arguments: args},
-    <r"[0-9]+">                                  => Expression::Literal {val: i32::from_str(<>).unwrap()},
-    <i:Ident>                                    => Expression::VarReference {identifier: i},
+    "(" <e: Expression> ")"                     => e,
+    <i:Ident> "[" <e: Expression> "]"           => Expression::ArrayAccess {identifier: i, index: Box::new(e) },
+    <i:Ident> "(" <args: Comma<Expression>> ")" => Expression::FuncCall {identifier: i, arguments: args},
+    <r"[0-9]+">                                 => Expression::Literal {val: i32::from_str(<>).unwrap()},
+    <i:Ident>                                   => Expression::VarReference {identifier: i},
 }
