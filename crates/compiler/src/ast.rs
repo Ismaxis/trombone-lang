@@ -1,9 +1,11 @@
 pub type Program = Vec<FuncDeclaration>;
 
+pub type Identifier = String;
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct FuncDeclaration {
-    pub identifier: String,
+    pub identifier: Identifier,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub statements: Vec<Statement>,
@@ -11,7 +13,7 @@ pub struct FuncDeclaration {
 
 impl FuncDeclaration {
     pub fn new(
-        identifier: String,
+        identifier: Identifier,
         params: Vec<Param>,
         return_type: Option<Type>,
         statements: Vec<Statement>,
@@ -28,17 +30,17 @@ impl FuncDeclaration {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Param {
-    pub identifier: String,
+    pub identifier: Identifier,
     pub type_: Type,
 }
 
 impl Param {
-    pub fn new(identifier: String, type_: Type) -> Self {
+    pub fn new(identifier: Identifier, type_: Type) -> Self {
         Self { identifier, type_ }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Type {
     Int,
     ArrInt,
@@ -49,16 +51,16 @@ pub type Block = Vec<Statement>;
 #[derive(Debug)]
 pub enum Statement {
     VarDeclaration {
-        identifier: String,
+        identifier: Identifier,
         type_: Type,
         value: Expression,
     },
     Assignment {
-        identifier: String,
+        identifier: Identifier,
         value: Expression,
     },
     ArrayAssignment {
-        identifier: String,
+        identifier: Identifier,
         index: Expression,
         value: Expression,
     },
@@ -122,11 +124,11 @@ pub enum Expression {
     },
     // Terms
     ArrayAccess {
-        identifier: String,
+        identifier: Identifier,
         index: Box<Expression>,
     },
     FuncCall {
-        identifier: String,
+        identifier: Identifier,
         arguments: Vec<Expression>,
     },
     ArrayCreate {
@@ -139,6 +141,6 @@ pub enum Expression {
         val: i32,
     },
     VarReference {
-        identifier: String,
+        identifier: Identifier,
     },
 }

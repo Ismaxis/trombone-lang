@@ -1,4 +1,7 @@
 pub mod ast;
+pub mod instruction_writer;
+pub mod error;
+pub mod visit;
 
 use lalrpop_util::lalrpop_mod;
 
@@ -120,7 +123,9 @@ fn main() {
 }
 
 fn main() {
-    let test = r"fn main() {}";
+    let test = r"fn main() {
+        print(2 + 2);
+    }";
 
     println!("Input: {}", test);
 
