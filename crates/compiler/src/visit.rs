@@ -41,20 +41,81 @@ impl Context {
         });
     }
 
+    /*
+    Next two methods have different semantics. To show difference better, let's
+    explore next scenarios, where these methods are used
+       Examples:
+        - Exit the scope:
+            ```trombone
+                if ... {
+                    let var1: int = 42;
+                    let var2: int = 54;
+                    ...
+                    // <-- you are here
+                }
+            ```
+            In this scenario,
+            - calling `destruct_scope_vars` follows pushing two
+            Operation::Pop - it pops `var2` and `var1`
+            - calling `exit_scope` follows forgetting all information
+            about `var1` and `var2`
+        - Return from function
+            ```trombone
+                fn test(n: int) -> int {
+                    let var1: int = 42;
+                    if n <= 1 {
+                        let var2: int = 52;
+                        if true {
+                            let var3: int = 62;
+                            return 12321; // <---- you are here;
+                        }
+                    }
+                    ...
+                }
+            ```
+            - calling `destruct_scope_vars` follows pushing one Operation::Pop - it
+            pops var3.
+            - calling `exit_scope` follows forgetting `var3`
+            In this scenario, you should call destruct_scope_vars for every scope
+            until function scope,
+            but call exit_scope only for the most inner one.
+            Motivation is next: runtime should destroy `var3`, `var2`, `var1` and
+            `n`, but compiler should forget only `var3`.
+
+     */
+
+    // This method pushes operations that destroy variables
     fn destruct_scope_vars(&mut self) {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
         vs.sort_by(
             |(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address), /* TODO: check order */
         );
 
-        vs.iter().for_each(|x| match x.1.type_ {
-            crate::ast::Type::Int => todo!(),
-            crate::ast::Type::ArrInt => todo!(),
+        let ops = vs
+            .iter()
+            .map(|x| match x.1.type_ {
+                crate::ast::Type::Int => Operation::Pop,
+                crate::ast::Type::ArrInt => Operation::HeapPopPtr,
+            })
+            .collect::<Vec<_>>();
+
+        ops.iter().for_each(|op| {
+            self.write_instruction(*op).unwrap();
         });
     }
 
+    // This method make context forget variables in scope
     fn exit_scope(&mut self) {
-        self.current_rsp = self.scopes.pop().unwrap().start_rsp;
+        let last_scope = self.scopes.pop().unwrap();
+        let prev_sp = last_scope.start_rsp;
+        debug_assert_eq!(
+            prev_sp + last_scope.declared_vars.len(),
+            self.current_rsp,
+            "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
+            prev_sp + last_scope.declared_vars.len(),
+            self.current_rsp
+        );
+        self.current_rsp = prev_sp;
     }
 
     fn cur_scope(&mut self) -> &mut Scope {
