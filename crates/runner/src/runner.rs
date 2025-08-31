@@ -86,7 +86,7 @@ where
 }
 type Threshold = usize;
 
-impl<'alloc, 'ctx, OpStream> Runner<'alloc, 'ctx, OpStream, BufReader<Stdin>, Stdout>
+impl<'alloc, OpStream> Runner<'alloc, '_, OpStream, BufReader<Stdin>, Stdout>
 where
     OpStream: OperationStream,
 {
@@ -182,14 +182,14 @@ where
                     .get(&self.stream.get_instruction_pointer())
                 {
                     let new_stack_ptr =
-                        unsafe { compiled_func(self.stack.as_mut_ptr().offset(self.sp as isize)) };
+                        unsafe { compiled_func(self.stack.as_mut_ptr().add(self.sp)) };
                     if new_stack_ptr.is_null() {
                         return Err("JIT compiled function returned null pointer".into());
                     }
 
                     self.sp =
                         unsafe { new_stack_ptr.offset_from(self.stack.as_mut_ptr()) } as usize;
-                    self.stream.switch_frame(block_length as i32);
+                    self.stream.switch_frame(block_length);
                     return Ok(ReturnCode::Continue);
                 }
 
@@ -205,9 +205,11 @@ where
 
                     let ip = self.stream.get_instruction_pointer();
                     let operations = self.stream.get_next_n(block_length as usize);
-                    let compiled_func = codegen.jit_compile_basic_block(ip, &operations).expect(
-                        format!("JIT compilation failed for basic block at {}", ip).as_str(),
-                    );
+                    let compiled_func = codegen
+                        .jit_compile_basic_block(ip, &operations)
+                        .unwrap_or_else(|_| {
+                            panic!("JIT compilation failed for basic block at {}", ip)
+                        });
 
                     self.basic_block_jitted
                         .insert(ip, unsafe { compiled_func.as_raw() });
@@ -231,11 +233,6 @@ where
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
             PushRetAddress { operands_count } => {
-                // println!(
-                //     "ip: {}, opcount: {}",
-                //     self.stream.get_instruction_pointer(),
-                //     operands_count
-                // );
                 self.stack[self.sp - 1 - operands_count as usize] =
                     1 + self.stream.get_instruction_pointer() as TrombValue;
             }

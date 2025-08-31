@@ -68,26 +68,18 @@ fn main() -> Result<()> {
         runner.set_codegen(codegen, args.jit_threshold);
     }
 
-    if true == true {
-        for (i, op) in runner
-            .stream
-            .get_next_n(runner.stream.get_instructions_len())
-            .into_iter()
-            .enumerate()
-        {
-            println!("{}: {:?}", i, op);
-        }
+    for (i, op) in runner
+        .stream
+        .get_next_n(runner.stream.get_instructions_len())
+        .into_iter()
+        .enumerate()
+    {
+        println!("{}: {:?}", i, op);
     }
 
     loop {
         match runner.evaluate_next_instruction() {
-            Ok(crate::runner::ReturnCode::Continue) => {
-                // println!(
-                //     "ip: {}, stack: {:?}",
-                //     runner.stream.get_instruction_pointer(),
-                //     &runner.stack[..runner.sp]
-                // );
-            }
+            Ok(crate::runner::ReturnCode::Continue) => {}
             Ok(crate::runner::ReturnCode::Done) => {
                 break;
             }

@@ -94,7 +94,7 @@ mod tests {
         })
     }
 
-    fn init(context: &Context) -> (CodeGen, Rc<RefCell<Pcg64>>, Vec<OperationGenerator>) // TODO better result
+    fn init(context: &Context) -> (CodeGen<'_>, Rc<RefCell<Pcg64>>, Vec<OperationGenerator>) // TODO better result
     {
         let generator = Rc::new(RefCell::new(Pcg64::seed_from_u64(SEED)));
 

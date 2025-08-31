@@ -1,4 +1,4 @@
-FROM ubuntu:22.04@sha256:d80997daaa3811b175119350d84305e1ec9129e1799bba0bd1e3120da3ff52c3
+FROM ubuntu:24.04@sha256:7c06e91f61fa88c08cc74f7e1b7c69ae24910d745357e0dfe1d2c0322aaf20f9
 
 USER root
 ARG LLVM_VER=18
@@ -12,7 +12,9 @@ RUN apt-get install -y \
 
 RUN apt-get update
 
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
+	/root/.cargo/bin/rustup install stable && \
+	/root/.cargo/bin/rustup default stable
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VER} && \
@@ -26,4 +28,4 @@ RUN export LLVM_SYS_${LLVM_VER}0_PREFIX=$(llvm-config --prefix)
 WORKDIR /trombone
 COPY . /trombone
 
-CMD [ "cargo", "test", "--all", "--workspace" ]
+CMD [ "cargo", "+stable", "test", "--all", "--workspace" ]
