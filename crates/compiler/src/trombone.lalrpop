@@ -34,17 +34,17 @@ Param: Param = <Ident> ":" <Type> => Param::new(<>);
 Block: Vec<Statement> = "{" <Statement*> "}" => <>;
 
 Statement: Statement = {
-    "let" <i:Ident> ":" <t: Type> "=" <e: Expression> ";" => Statement::VarDeclaration {identifier: i, type_: t, value: e},
-    <i:Ident> "=" <e: Expression> ";" => Statement::Assignment {identifier: i, value: e},
-    <i:Ident> "[" <idx: Expression> "]" "=" <e: Expression> ";" => Statement::ArrayAssignment {identifier: i, index: idx, value: e},
-    <i:Ident> "(" <args: Comma<Expression>>  ")" ";" => Statement::FuncCallStatement {identifier: i, arguments: args},
+    "let" <i: Ident> ":" <t: Type> "=" <e: Expression> ";" => Statement::VarDeclaration {identifier: i, type_: t, value: e},
+    <i: Ident> "=" <e: Expression> ";" => Statement::Assignment {identifier: i, value: e},
+    <i: Ident> "[" <idx: Expression> "]" "=" <e: Expression> ";" => Statement::ArrayAssignment {identifier: i, index: idx, value: e},
     "return" <e: Expression?> ";" => Statement::ReturnStatement {return_value: e},
     "while" <cond: Expression> <b: Block> => Statement::WhileStatement {condition: cond, statements: b},
-    "if" <cond: Expression> <then: Block> <mut elifs:("else" "if" <Expression> <Block>)*> <el:("else" <Block>)?>  => {
+    "if" <cond: Expression> <then: Block> <mut elifs:("else" "if" <Expression> <Block>)*> <el:("else" <Block>)?> => {
         let mut arms = vec![(cond, then)];
         arms.append(&mut elifs);
         Statement::IfStatement {arms, el}
     },
+    <e: Expression> ";" => Statement::ExpressionStatement {expression: e}
 };
 
 Expression: Expression = {

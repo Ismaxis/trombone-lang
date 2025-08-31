@@ -62,10 +62,6 @@ pub enum Statement {
         index: Expression,
         value: Expression,
     },
-    FuncCallStatement {
-        identifier: String,
-        arguments: Vec<Expression>,
-    },
     ReturnStatement {
         return_value: Option<Expression>,
     },
@@ -76,6 +72,9 @@ pub enum Statement {
     IfStatement {
         arms: Vec<(Expression, Block)>,
         el: Option<Block>,
+    },
+    ExpressionStatement {
+        expression: Expression,
     },
 }
 
@@ -121,6 +120,7 @@ pub enum Expression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
+    // Terms
     ArrayAccess {
         identifier: String,
         index: Box<Expression>,
