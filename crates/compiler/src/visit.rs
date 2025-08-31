@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use crate::error::Result;
+
 use trombone_common::bytecode::Operation;
 
 use crate::{
@@ -57,6 +59,11 @@ impl Context {
 
     fn cur_scope(&mut self) -> &mut Scope {
         self.scopes.last_mut().unwrap()
+    }
+
+    fn write_instruction(&mut self, op: Operation) -> Result<usize> {
+        self.current_rsp = (self.current_rsp as isize + op.calc_stack_diff()) as usize;
+        self.writer.write(op)
     }
 }
 

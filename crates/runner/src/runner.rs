@@ -153,7 +153,9 @@ where
 
     pub fn evaluate_next_instruction(&mut self) -> Result<ReturnCode> {
         use Operation::*;
-        match self.stream.next_instruction()? {
+        let prev_sp = self.sp;
+        let operation = self.stream.next_instruction()?;
+        match operation {
             // Stack operations
             PushLiteral { value } => self.push(value as TrombValue),
             Pop => {
@@ -355,6 +357,14 @@ where
                 self.output.write_fmt(format_args!("$$ {}\n", value))?;
             }
         }
+        debug_assert_eq!(
+            (prev_sp as isize + operation.calc_stack_diff()) as usize,
+            self.sp,
+            "Expected that operation '{:?}' change stack on {}, but actual difference is {}",
+            operation,
+            operation.calc_stack_diff(),
+            self.sp as isize - prev_sp as isize
+        );
         Ok(ReturnCode::Continue)
     }
 

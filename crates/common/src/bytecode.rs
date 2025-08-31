@@ -93,6 +93,49 @@ pub enum Operation {
     Print,
 }
 
+impl Operation {
+    // returns the number that will be added to the stack pointer after the operation is evaluated
+    pub fn calc_stack_diff(&self) -> isize {
+        match self {
+            Operation::PushLiteral { .. } => 1,
+            Operation::Pop => -1,
+            Operation::LocalCopy { .. } => 1,
+            Operation::LocalStore { .. } => -1,
+            Operation::BasicBlockStart { .. } => 0,
+            Operation::Neg => 0,
+            Operation::Not => 0,
+            Operation::Add => -1,
+            Operation::Sub => -1,
+            Operation::Mul => -1,
+            Operation::Div => -1,
+            Operation::Mod => -1,
+            Operation::And => -1,
+            Operation::Or => -1,
+            Operation::Xor => -1,
+            Operation::Lsh => -1,
+            Operation::Rsh => -1,
+            Operation::PushRetAddress { .. } => 0,
+            Operation::Return => -1,
+            Operation::Equal => -1,
+            Operation::NotEqual => -1,
+            Operation::LessThan => -1,
+            Operation::GreaterThan => -1,
+            Operation::LessThanOrEqual => -1,
+            Operation::GreaterThanOrEqual => -1,
+            Operation::Jump { .. } => 0,
+            Operation::JumpIf { .. } => -1,
+            Operation::JumpIfNot { .. } => -1,
+            Operation::HeapAlloc => 0,
+            Operation::HeapPopPtr => -1,
+            Operation::HeapCopyPtr { .. } => 1,
+            Operation::HeapLoad { .. } => 0,
+            Operation::HeapStore { .. } => -2,
+            Operation::Read => 1,
+            Operation::Print => -1,
+        }
+    }
+}
+
 impl TryFrom<Instruction> for Operation {
     fn try_from(value: Instruction) -> Result<Self> {
         use crate::opcode::*;
