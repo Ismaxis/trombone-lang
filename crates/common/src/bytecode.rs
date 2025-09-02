@@ -94,7 +94,7 @@ pub enum Operation {
 }
 
 impl Operation {
-    // returns the number that will be added to the stack pointer after the operation is evaluated
+    // returns the difference of stack pointers before and after operation evaluation
     pub fn calc_stack_diff(&self) -> isize {
         match self {
             Operation::PushLiteral { .. } => 1,

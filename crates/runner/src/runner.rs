@@ -360,7 +360,7 @@ where
         debug_assert_eq!(
             (prev_sp as isize + operation.calc_stack_diff()) as usize,
             self.sp,
-            "Expected that operation '{:?}' change stack on {}, but actual difference is {}",
+            "Expected that operation '{:?}' changes stack by {}, but actual difference is {}",
             operation,
             operation.calc_stack_diff(),
             self.sp as isize - prev_sp as isize
