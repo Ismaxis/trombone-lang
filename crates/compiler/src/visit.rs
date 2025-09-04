@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::error::Result;
+use crate::{ast::Expression, error::Result};
 
 use trombone_common::bytecode::Operation;
 
@@ -31,6 +31,19 @@ impl Context {
 
     fn declare_func(&mut self, id: Identifier, meta: FuncMeta) {
         self.declared_funcs.insert(id, meta);
+    }
+
+    fn get_var(&mut self, id: Identifier) -> Option<VarMeta> {
+        for scope in self.scopes.iter().rev() {
+            let opMeta = scope.declared_vars.get(&id);
+            if opMeta.is_some() {
+                return opMeta.cloned();
+            }
+        }
+
+        None
+        // let res = self.declared_vars.insert(id, meta);
+        // debug_assert!(res.is_none());
     }
 
     fn enter_scope(&mut self, tag: ScopeTag) {
@@ -85,11 +98,9 @@ impl Context {
      */
 
     // This method pushes operations that destroy variables
-    fn destruct_scope_vars(&mut self) {
+    fn destruct_scope_vars(&mut self) -> Vec<Operation> {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
-        vs.sort_by(
-            |(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address), /* TODO: check order */
-        );
+        vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
         let ops = vs
             .iter()
@@ -99,9 +110,7 @@ impl Context {
             })
             .collect::<Vec<_>>();
 
-        ops.iter().for_each(|op| {
-            self.write_instruction(*op).unwrap();
-        });
+        return ops;
     }
 
     // This method make context forget variables in scope
@@ -137,7 +146,8 @@ struct Scope {
 
 impl Scope {
     fn declare_var(&mut self, id: Identifier, meta: VarMeta) {
-        debug_assert!(self.declared_vars.insert(id, meta).is_none());
+        let res = self.declared_vars.insert(id, meta);
+        debug_assert!(res.is_none());
     }
 }
 
@@ -152,16 +162,21 @@ struct FuncMeta {
     //
 }
 
+#[derive(Clone)]
 struct VarMeta {
-    address: usize,
+    address: usize, // rsp at the moment of declaration
     type_: crate::ast::Type,
 }
 
+// Impl
+
 impl FuncDeclaration {
     pub fn visit(&self, ctx: &mut Context) -> Vec<Operation> {
+        debug_assert_eq!(ctx.current_rsp, 0, "no stack at the beggining of the func");
+
         // prep
         ctx.declare_func(self.identifier.clone(), FuncMeta {});
-        ctx.enter_scope(ScopeTag::Func);
+        ctx.enter_scope(ScopeTag::Func); // scope for params
 
         // params
         for param in &self.params {
@@ -177,18 +192,74 @@ impl FuncDeclaration {
         let ops = self
             .statements
             .iter()
-            .map(|x| x.visit())
+            .map(|x| x.visit(ctx))
             .flatten()
             .collect::<Vec<Operation>>();
 
-        // DEBUG
+        // operands are cleared in return // ReturnStatement is essential
+        debug_assert!(matches!(ops.last(), Some(Operation::Return)));
 
         return ops;
     }
 }
 
 impl Statement {
-    pub fn visit(&self) -> Vec<Operation> {
-        Vec::new()
+    pub fn visit(&self, ctx: &mut Context) -> Vec<Operation> {
+        match self {
+            Statement::VarDeclaration {
+                identifier,
+                type_,
+                value,
+            } => {
+                let ops = value.visit(ctx);
+                let address = ctx.current_rsp;
+                ctx.cur_scope().declare_var(
+                    identifier.clone(),
+                    VarMeta {
+                        address,
+                        type_: *type_,
+                    },
+                );
+                ctx.current_rsp += 1; // TODO: combine OP push back with rsp adjustments
+                return ops;
+            }
+            Statement::Assignment { identifier, value } => {
+                if let Some(var_meta) = ctx.get_var(identifier.clone()) {
+                    let mut ops = value.visit(ctx);
+                    match var_meta.type_ {
+                        crate::ast::Type::Int => {
+                            let offset = ctx.current_rsp - 1 - var_meta.address - 1; // TODO: check
+                            ops.push(Operation::LocalStore {
+                                variable_offset: offset as i32,
+                            });
+                            ctx.current_rsp -= 1; // TODO: combine OP push back with rsp adjustments
+                            return ops;
+                        }
+                        crate::ast::Type::ArrInt => todo!("Not implemented assignment to array"),
+                    }
+                } else {
+                    todo!("variable not found (implement error handling)")
+                }
+            }
+            Statement::ArrayAssignment {
+                identifier,
+                index,
+                value,
+            } => todo!(),
+            Statement::ReturnStatement { return_value } => todo!(),
+            Statement::WhileStatement {
+                condition,
+                statements,
+            } => todo!(),
+            Statement::IfStatement { arms, el } => todo!(),
+            Statement::ExpressionStatement { expression } => todo!(),
+        }
+        // Vec::new()
+    }
+}
+
+impl Expression {
+    pub fn visit(&self, _ctx: &mut crate::visit::Context) -> Vec<Operation> {
+        todo!()
     }
 }
