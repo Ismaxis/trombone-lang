@@ -65,7 +65,7 @@ pub enum Operation {
     Rsh,
 
     // Functions
-    PushRetAddress { operands_count: Literal },
+    SetRetAddress { operands_count: Literal },
     Return,
 
     // Comparison
@@ -96,32 +96,34 @@ pub enum Operation {
 impl Operation {
     // returns the difference of stack pointers before and after operation evaluation
     pub fn calc_stack_diff(&self) -> isize {
+        let UNARY_OP = 0;
+        let BINARY_OP = -1;
         match self {
             Operation::PushLiteral { .. } => 1,
             Operation::Pop => -1,
             Operation::LocalCopy { .. } => 1,
             Operation::LocalStore { .. } => -1,
             Operation::BasicBlockStart { .. } => 0,
-            Operation::Neg => 0,
-            Operation::Not => 0,
-            Operation::Add => -1,
-            Operation::Sub => -1,
-            Operation::Mul => -1,
-            Operation::Div => -1,
-            Operation::Mod => -1,
-            Operation::And => -1,
-            Operation::Or => -1,
-            Operation::Xor => -1,
-            Operation::Lsh => -1,
-            Operation::Rsh => -1,
-            Operation::PushRetAddress { .. } => 0,
+            Operation::Neg => UNARY_OP,
+            Operation::Not => UNARY_OP,
+            Operation::Add => BINARY_OP,
+            Operation::Sub => BINARY_OP,
+            Operation::Mul => BINARY_OP,
+            Operation::Div => BINARY_OP,
+            Operation::Mod => BINARY_OP,
+            Operation::And => BINARY_OP,
+            Operation::Or => BINARY_OP,
+            Operation::Xor => BINARY_OP,
+            Operation::Lsh => BINARY_OP,
+            Operation::Rsh => BINARY_OP,
+            Operation::SetRetAddress { .. } => 0,
             Operation::Return => -1,
-            Operation::Equal => -1,
-            Operation::NotEqual => -1,
-            Operation::LessThan => -1,
-            Operation::GreaterThan => -1,
-            Operation::LessThanOrEqual => -1,
-            Operation::GreaterThanOrEqual => -1,
+            Operation::Equal => BINARY_OP,
+            Operation::NotEqual => BINARY_OP,
+            Operation::LessThan => BINARY_OP,
+            Operation::GreaterThan => BINARY_OP,
+            Operation::LessThanOrEqual => BINARY_OP,
+            Operation::GreaterThanOrEqual => BINARY_OP,
             Operation::Jump { .. } => 0,
             Operation::JumpIf { .. } => -1,
             Operation::JumpIfNot { .. } => -1,
@@ -172,7 +174,7 @@ impl TryFrom<Instruction> for Operation {
             OP_RSH => Rsh,
 
             // Function operations
-            OP_PUSH_RET_ADDRESS => PushRetAddress {
+            OP_PUSH_RET_ADDRESS => SetRetAddress {
                 operands_count: value.extract_immediate(),
             },
             OP_RET => Return,
@@ -249,7 +251,7 @@ impl From<Operation> for Instruction {
             Xor => Instruction::from_parts(OP_XOR, 0),
             Lsh => Instruction::from_parts(OP_LSH, 0),
             Rsh => Instruction::from_parts(OP_RSH, 0),
-            PushRetAddress { operands_count } => {
+            SetRetAddress { operands_count } => {
                 Instruction::from_parts(OP_PUSH_RET_ADDRESS, operands_count)
             }
             Return => Instruction::from_parts(OP_RET, 0),

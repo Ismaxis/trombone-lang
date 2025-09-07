@@ -234,7 +234,7 @@ where
             Lsh => self.binary_op(|a, b| a.checked_shl(b as u32).unwrap_or(0)),
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
-            PushRetAddress { operands_count } => {
+            SetRetAddress { operands_count } => {
                 self.stack[self.sp - 1 - operands_count as usize] =
                     1 + self.stream.get_instruction_pointer() as TrombValue;
             }
@@ -353,7 +353,7 @@ where
                 }
             }
             Print => {
-                let value = self.pop();
+                let value = self.pop(); // TODO: Change semantic according to https://github.com/Ismaxis/trombone-lang/pull/52#discussion_r2317237090
                 self.output.write_fmt(format_args!("$$ {}\n", value))?;
             }
         }

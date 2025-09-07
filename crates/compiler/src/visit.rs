@@ -97,7 +97,7 @@ impl Context {
 
      */
 
-    // This method pushes operations that destroy variables
+    // Generates operations to destroy variables in current scope
     fn destruct_scope_vars(&mut self) -> Vec<Operation> {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
