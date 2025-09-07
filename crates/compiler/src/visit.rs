@@ -11,6 +11,36 @@ use crate::{
     instruction_writer::InstructionWriter,
 };
 
+#[derive(Clone)]
+enum NotCompletedOperation {
+    Completed(Operation),
+    Jump,
+    ConditionalJump,
+}
+
+impl NotCompletedOperation {
+    fn calc_stack_diff(&self) -> isize {
+        let unused_value = 1337;
+        match self {
+            Self::Completed(op) => op.calc_stack_diff(),
+            Self::Jump => Operation::Jump { offset: unused_value }.calc_stack_diff(),
+            Self::ConditionalJump => Operation::JumpIf { offset: unused_value }.calc_stack_diff(),
+        }
+    }
+}
+
+impl From<Operation> for NotCompletedOperation {
+    fn from(value: Operation) -> Self {
+        Self::Completed(value)
+    }
+}
+
+fn add_operation(ops: &mut Vec<NotCompletedOperation>, op: NotCompletedOperation, ctx: &mut Context) {
+    let stack_diff = op.calc_stack_diff();
+    ops.push(op.clone().into());
+    ctx.current_rsp = (ctx.current_rsp as isize + stack_diff) as usize;
+}
+
 pub struct Context {
     current_rsp: usize,
     declared_funcs: HashMap<Identifier, FuncMeta>,
@@ -98,19 +128,17 @@ impl Context {
      */
 
     // Generates operations to destroy variables in current scope
-    fn destruct_scope_vars(&mut self) -> Vec<Operation> {
+    fn destruct_scope_vars(&mut self) -> Vec<NotCompletedOperation> {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
-        let ops = vs
+        vs
             .iter()
             .map(|x| match x.1.type_ {
                 crate::ast::Type::Int => Operation::Pop,
                 crate::ast::Type::ArrInt => Operation::HeapPopPtr,
-            })
-            .collect::<Vec<_>>();
-
-        return ops;
+            }.into())
+            .collect::<Vec<NotCompletedOperation>>()
     }
 
     // This method make context forget variables in scope
@@ -171,7 +199,7 @@ struct VarMeta {
 // Impl
 
 impl FuncDeclaration {
-    pub fn visit(&self, ctx: &mut Context) -> Vec<Operation> {
+    pub fn visit(&self, ctx: &mut Context) -> Vec<NotCompletedOperation> {
         debug_assert_eq!(ctx.current_rsp, 0, "no stack at the beggining of the func");
 
         // prep
@@ -194,17 +222,17 @@ impl FuncDeclaration {
             .iter()
             .map(|x| x.visit(ctx))
             .flatten()
-            .collect::<Vec<Operation>>();
+            .collect::<Vec<_>>();
 
         // operands are cleared in return // ReturnStatement is essential
-        debug_assert!(matches!(ops.last(), Some(Operation::Return)));
+        debug_assert!(matches!(ops.last(), Some(NotCompletedOperation::Completed(Operation::Return))));
 
         return ops;
     }
 }
 
 impl Statement {
-    pub fn visit(&self, ctx: &mut Context) -> Vec<Operation> {
+    pub fn visit(&self, ctx: &mut Context) -> Vec<NotCompletedOperation> {
         match self {
             Statement::VarDeclaration {
                 identifier,
@@ -220,7 +248,7 @@ impl Statement {
                         type_: *type_,
                     },
                 );
-                ctx.current_rsp += 1; // TODO: combine OP push back with rsp adjustments
+                ctx.current_rsp += 1; // This is one of the few places where current rsp moves manually, not by operations
                 return ops;
             }
             Statement::Assignment { identifier, value } => {
@@ -229,10 +257,8 @@ impl Statement {
                     match var_meta.type_ {
                         crate::ast::Type::Int => {
                             let offset = ctx.current_rsp - 1 - var_meta.address - 1; // TODO: check
-                            ops.push(Operation::LocalStore {
-                                variable_offset: offset as i32,
-                            });
-                            ctx.current_rsp -= 1; // TODO: combine OP push back with rsp adjustments
+                            let op = Operation::LocalStore { variable_offset: offset as i32 };
+                            add_operation(&mut ops, op.into(), ctx);
                             return ops;
                         }
                         crate::ast::Type::ArrInt => todo!("Not implemented assignment to array"),
@@ -259,7 +285,7 @@ impl Statement {
 }
 
 impl Expression {
-    pub fn visit(&self, _ctx: &mut crate::visit::Context) -> Vec<Operation> {
+    pub fn visit(&self, _ctx: &mut crate::visit::Context) -> Vec<NotCompletedOperation> {
         todo!()
     }
 }
