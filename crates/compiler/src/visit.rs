@@ -23,8 +23,14 @@ impl NotCompletedOperation {
         let unused_value = 1337;
         match self {
             Self::Completed(op) => op.calc_stack_diff(),
-            Self::Jump => Operation::Jump { offset: unused_value }.calc_stack_diff(),
-            Self::ConditionalJump => Operation::JumpIf { offset: unused_value }.calc_stack_diff(),
+            Self::Jump => Operation::Jump {
+                offset: unused_value,
+            }
+            .calc_stack_diff(),
+            Self::ConditionalJump => Operation::JumpIf {
+                offset: unused_value,
+            }
+            .calc_stack_diff(),
         }
     }
 }
@@ -35,7 +41,11 @@ impl From<Operation> for NotCompletedOperation {
     }
 }
 
-fn add_operation(ops: &mut Vec<NotCompletedOperation>, op: NotCompletedOperation, ctx: &mut Context) {
+fn add_operation(
+    ops: &mut Vec<NotCompletedOperation>,
+    op: NotCompletedOperation,
+    ctx: &mut Context,
+) {
     let stack_diff = op.calc_stack_diff();
     ops.push(op.clone().into());
     ctx.current_rsp = (ctx.current_rsp as isize + stack_diff) as usize;
@@ -132,13 +142,34 @@ impl Context {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
-        vs
+        vs.iter()
+            .map(|x| {
+                match x.1.type_ {
+                    crate::ast::Type::Int => Operation::Pop,
+                    crate::ast::Type::ArrInt => Operation::HeapPopPtr,
+                }
+                .into()
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn destruct_all_vars(&mut self) -> Vec<NotCompletedOperation> {
+        let mut vs = self
+            .scopes
             .iter()
-            .map(|x| match x.1.type_ {
-                crate::ast::Type::Int => Operation::Pop,
-                crate::ast::Type::ArrInt => Operation::HeapPopPtr,
-            }.into())
-            .collect::<Vec<NotCompletedOperation>>()
+            .flat_map(|x| x.declared_vars.clone())
+            .collect::<Vec<_>>();
+        vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
+
+        vs.iter()
+            .map(|x| {
+                match x.1.type_ {
+                    crate::ast::Type::Int => Operation::Pop,
+                    crate::ast::Type::ArrInt => Operation::HeapPopPtr,
+                }
+                .into()
+            })
+            .collect::<Vec<_>>()
     }
 
     // This method make context forget variables in scope
@@ -225,7 +256,10 @@ impl FuncDeclaration {
             .collect::<Vec<_>>();
 
         // operands are cleared in return // ReturnStatement is essential
-        debug_assert!(matches!(ops.last(), Some(NotCompletedOperation::Completed(Operation::Return))));
+        debug_assert!(matches!(
+            ops.last(),
+            Some(NotCompletedOperation::Completed(Operation::Return))
+        ));
 
         return ops;
     }
@@ -257,7 +291,9 @@ impl Statement {
                     match var_meta.type_ {
                         crate::ast::Type::Int => {
                             let offset = ctx.current_rsp - 1 - var_meta.address - 1; // TODO: check
-                            let op = Operation::LocalStore { variable_offset: offset as i32 };
+                            let op = Operation::LocalStore {
+                                variable_offset: offset as i32,
+                            };
                             add_operation(&mut ops, op.into(), ctx);
                             return ops;
                         }
@@ -272,7 +308,21 @@ impl Statement {
                 index,
                 value,
             } => todo!(),
-            Statement::ReturnStatement { return_value } => todo!(),
+            Statement::ReturnStatement { return_value } => {
+                let mut ops = Vec::new();
+                if let Some(return_value) = return_value {
+                    ops = return_value.visit(ctx);
+                    let return_value_offset = (ctx.current_rsp - 1) as i32; // TODO: check; abstract calculating it in other method
+                    let set_return_value_op = Operation::LocalStore {
+                        variable_offset: return_value_offset,
+                    };
+                    add_operation(&mut ops, set_return_value_op.into(), ctx);
+                }
+                ops.append(&mut ctx.destruct_all_vars());
+                let return_op = Operation::Return;
+                add_operation(&mut ops, return_op.into(), ctx);
+                ops
+            }
             Statement::WhileStatement {
                 condition,
                 statements,
