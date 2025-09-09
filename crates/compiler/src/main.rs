@@ -125,6 +125,7 @@ fn main() {
 fn main() {
     let test = r"fn main() {
         print(2 + 2);
+        return;
     }";
 
     println!("Input: {}", test);

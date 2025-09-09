@@ -11,8 +11,15 @@ use crate::ast::{FuncDeclaration, Identifier, Statement};
 #[derive(Debug, Clone)]
 pub enum OperationPrototype {
     Defined(Operation),
+    Call {
+        identifier: Identifier,
+    },
     Jump,
-    ConditionalJump,
+    JumpIf,
+    JumpIfNot,
+    SetRetAddress {
+        operands_count: trombone_common::bytecode::Literal,
+    },
 }
 
 impl OperationPrototype {
@@ -20,12 +27,24 @@ impl OperationPrototype {
         let unused_value = 1337;
         match self {
             Self::Defined(op) => op.calc_stack_diff(),
+            Self::Call { identifier: _ } => Operation::Jump {
+                offset: unused_value,
+            }
+            .calc_stack_diff(),
             Self::Jump => Operation::Jump {
                 offset: unused_value,
             }
             .calc_stack_diff(),
-            Self::ConditionalJump => Operation::JumpIf {
+            Self::JumpIf => Operation::JumpIf {
                 offset: unused_value,
+            }
+            .calc_stack_diff(),
+            Self::JumpIfNot => Operation::JumpIfNot {
+                offset: unused_value,
+            }
+            .calc_stack_diff(),
+            Self::SetRetAddress { operands_count } => Operation::SetRetAddress {
+                operands_count: *operands_count,
             }
             .calc_stack_diff(),
         }
@@ -34,7 +53,15 @@ impl OperationPrototype {
 
 impl From<Operation> for OperationPrototype {
     fn from(value: Operation) -> Self {
-        Self::Defined(value)
+        match value {
+            Operation::SetRetAddress { operands_count } => Self::SetRetAddress {
+                operands_count: operands_count,
+            },
+            Operation::Jump { offset: _ } => Self::Jump,
+            Operation::JumpIf { offset: _ } => Self::JumpIf,
+            Operation::JumpIfNot { offset: _ } => Self::JumpIfNot,
+            _ => Self::Defined(value),
+        }
     }
 }
 
@@ -254,11 +281,14 @@ impl FuncDeclaration {
             .flatten()
             .collect::<Vec<_>>();
 
-        // operands are cleared in return // ReturnStatement is essential
-        debug_assert!(matches!(
-            ops.last(),
-            Some(OperationPrototype::Defined(Operation::Return))
-        ));
+        // operands are cleared in return // ReturnStatement is mandatory
+        debug_assert!(
+            matches!(
+                ops.last(),
+                Some(OperationPrototype::Defined(Operation::Return))
+            ),
+            "return statement is mandatory at the end of func"
+        );
 
         return ops;
     }
@@ -351,7 +381,15 @@ impl Expression {
         match self {
             Expression::Mul { lhs: _, rhs: _ } => todo!("Expression::Mul"),
             Expression::Div { lhs: _, rhs: _ } => todo!("Expression::Div"),
-            Expression::Add { lhs: _, rhs: _ } => todo!("Expression::Add"),
+            Expression::Add { lhs, rhs } => {
+                let mut ops = Vec::new();
+                ops.extend(lhs.visit(ctx));
+                ops.extend(rhs.visit(ctx));
+
+                add_operation(ctx, &mut ops, Operation::Add.into());
+
+                ops
+            }
             Expression::Sub { lhs: _, rhs: _ } => todo!("Expression::Sub"),
             Expression::Less { lhs: _, rhs: _ } => todo!("Expression::Less"),
             Expression::Greater { lhs: _, rhs: _ } => todo!("Expression::Greater"),
@@ -390,9 +428,9 @@ impl Expression {
                     let arg_count = arguments.len();
                     let mut ops = Vec::with_capacity(arg_count * 2);
                     if fn_meta.return_type.is_some() {
-                        Self::reserve_for_return_value(ctx, &mut ops)
+                        Self::reserve(ctx, &mut ops); // for return value
                     }
-                    add_operation(ctx, &mut ops, OperationPrototype::Jump);
+                    Self::reserve(ctx, &mut ops); // for return address
 
                     // eval arguments
                     ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
@@ -406,19 +444,29 @@ impl Expression {
                         .into(),
                     );
                     // call
-                    add_operation(ctx, &mut ops, OperationPrototype::Jump);
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        OperationPrototype::Call {
+                            identifier: identifier.clone(),
+                        },
+                    );
                     ops
                 } else {
                     panic!("func '{}' not found", identifier);
                 }
             }
             Expression::UnaryMinus { val: _ } => todo!("Expression::UnaryMinus"),
-            Expression::Literal { val: _ } => todo!("Expression::Literal"),
+            Expression::Literal { val } => {
+                let mut ops = Vec::new();
+                add_operation(ctx, &mut ops, Operation::PushLiteral { value: *val }.into());
+                ops
+            }
             Expression::VarReference { identifier: _ } => todo!("Expression::VarReference"),
         }
     }
 
-    fn reserve_for_return_value(ctx: &mut Context, ops: &mut Vec<OperationPrototype>) {
+    fn reserve(ctx: &mut Context, ops: &mut Vec<OperationPrototype>) {
         let unused_value = 1338;
         add_operation(
             ctx,
