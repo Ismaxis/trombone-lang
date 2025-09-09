@@ -131,9 +131,16 @@ fn main() {
 
     let res = trombone::ProgramParser::new().parse(test);
     if res.is_err() {
-        println!("Error: {}", res.unwrap_err())
-    } else {
-        println!("Output:");
-        println!("{:#?}", res.unwrap());
+        println!("Error: {}", res.unwrap_err());
+        return;
     }
+
+    let res = res.unwrap();
+    println!("Output:");
+    println!("{:#?}", res);
+
+    let mut ctx = visit::Context::new();
+    let ops = res[0].visit(&mut ctx);
+
+    println!("Ops: {:?}", ops);
 }

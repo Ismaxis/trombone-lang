@@ -2,27 +2,24 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::Expression, error::Result};
+use crate::ast::Expression;
 
 use trombone_common::bytecode::Operation;
 
-use crate::{
-    ast::{FuncDeclaration, Identifier, Statement},
-    instruction_writer::InstructionWriter,
-};
+use crate::ast::{FuncDeclaration, Identifier, Statement};
 
-#[derive(Clone)]
-enum NotCompletedOperation {
-    Completed(Operation),
+#[derive(Debug, Clone)]
+pub enum OperationPrototype {
+    Defined(Operation),
     Jump,
     ConditionalJump,
 }
 
-impl NotCompletedOperation {
+impl OperationPrototype {
     fn calc_stack_diff(&self) -> isize {
         let unused_value = 1337;
         match self {
-            Self::Completed(op) => op.calc_stack_diff(),
+            Self::Defined(op) => op.calc_stack_diff(),
             Self::Jump => Operation::Jump {
                 offset: unused_value,
             }
@@ -35,17 +32,13 @@ impl NotCompletedOperation {
     }
 }
 
-impl From<Operation> for NotCompletedOperation {
+impl From<Operation> for OperationPrototype {
     fn from(value: Operation) -> Self {
-        Self::Completed(value)
+        Self::Defined(value)
     }
 }
 
-fn add_operation(
-    ops: &mut Vec<NotCompletedOperation>,
-    op: NotCompletedOperation,
-    ctx: &mut Context,
-) {
+fn add_operation(ops: &mut Vec<OperationPrototype>, op: OperationPrototype, ctx: &mut Context) {
     let stack_diff = op.calc_stack_diff();
     ops.push(op.clone().into());
     ctx.current_rsp = (ctx.current_rsp as isize + stack_diff) as usize;
@@ -55,35 +48,35 @@ pub struct Context {
     current_rsp: usize,
     declared_funcs: HashMap<Identifier, FuncMeta>,
     scopes: Vec<Scope>,
-
-    writer: InstructionWriter<Vec<u8>>,
 }
 
 impl Context {
-    fn new(writer: InstructionWriter<Vec<u8>>) -> Self {
+    pub fn new() -> Self {
         Self {
             current_rsp: 0,
             declared_funcs: HashMap::new(),
             scopes: Vec::new(),
-            writer,
         }
     }
 
     fn declare_func(&mut self, id: Identifier, meta: FuncMeta) {
-        self.declared_funcs.insert(id, meta);
+        let prev = self.declared_funcs.insert(id.clone(), meta);
+        if prev.is_some() {
+            panic!("func '{}' already defined", id);
+        }
     }
 
-    fn get_var(&mut self, id: Identifier) -> Option<VarMeta> {
-        for scope in self.scopes.iter().rev() {
-            let opMeta = scope.declared_vars.get(&id);
-            if opMeta.is_some() {
-                return opMeta.cloned();
-            }
-        }
+    fn get_func(&self, id: &Identifier) -> Option<FuncMeta> {
+        self.declared_funcs.get(id).cloned()
+    }
 
-        None
-        // let res = self.declared_vars.insert(id, meta);
-        // debug_assert!(res.is_none());
+    fn get_var(&mut self, id: &Identifier) -> Option<VarMeta> {
+        self.scopes
+            .iter()
+            .rev()
+            .filter_map(|x| x.declared_vars.get(id))
+            .next()
+            .cloned()
     }
 
     fn enter_scope(&mut self, tag: ScopeTag) {
@@ -138,7 +131,7 @@ impl Context {
      */
 
     // Generates operations to destroy variables in current scope
-    fn destruct_scope_vars(&mut self) -> Vec<NotCompletedOperation> {
+    fn destruct_scope_vars(&mut self) -> Vec<OperationPrototype> {
         let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
@@ -153,7 +146,7 @@ impl Context {
             .collect::<Vec<_>>()
     }
 
-    fn destruct_all_vars(&mut self) -> Vec<NotCompletedOperation> {
+    fn destruct_all_vars(&mut self) -> Vec<OperationPrototype> {
         let mut vs = self
             .scopes
             .iter()
@@ -189,11 +182,6 @@ impl Context {
     fn cur_scope(&mut self) -> &mut Scope {
         self.scopes.last_mut().unwrap()
     }
-
-    fn write_instruction(&mut self, op: Operation) -> Result<usize> {
-        self.current_rsp = (self.current_rsp as isize + op.calc_stack_diff()) as usize;
-        self.writer.write(op)
-    }
 }
 
 struct Scope {
@@ -217,8 +205,9 @@ enum ScopeTag {
 
 // Meta
 
+#[derive(Clone)]
 struct FuncMeta {
-    //
+    return_type: Option<crate::ast::Type>,
 }
 
 #[derive(Clone)]
@@ -230,11 +219,19 @@ struct VarMeta {
 // Impl
 
 impl FuncDeclaration {
-    pub fn visit(&self, ctx: &mut Context) -> Vec<NotCompletedOperation> {
-        debug_assert_eq!(ctx.current_rsp, 0, "no stack at the beggining of the func");
+    pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
+        debug_assert_eq!(
+            ctx.current_rsp, 0,
+            "should be no stack at the beggining of the func"
+        );
 
         // prep
-        ctx.declare_func(self.identifier.clone(), FuncMeta {});
+        ctx.declare_func(
+            self.identifier.clone(),
+            FuncMeta {
+                return_type: self.return_type,
+            },
+        );
         ctx.enter_scope(ScopeTag::Func); // scope for params
 
         // params
@@ -258,7 +255,7 @@ impl FuncDeclaration {
         // operands are cleared in return // ReturnStatement is essential
         debug_assert!(matches!(
             ops.last(),
-            Some(NotCompletedOperation::Completed(Operation::Return))
+            Some(OperationPrototype::Defined(Operation::Return))
         ));
 
         return ops;
@@ -266,7 +263,7 @@ impl FuncDeclaration {
 }
 
 impl Statement {
-    pub fn visit(&self, ctx: &mut Context) -> Vec<NotCompletedOperation> {
+    pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         match self {
             Statement::VarDeclaration {
                 identifier,
@@ -283,10 +280,10 @@ impl Statement {
                     },
                 );
                 ctx.current_rsp += 1; // This is one of the few places where current rsp moves manually, not by operations
-                return ops;
+                ops
             }
             Statement::Assignment { identifier, value } => {
-                if let Some(var_meta) = ctx.get_var(identifier.clone()) {
+                if let Some(var_meta) = ctx.get_var(identifier) {
                     let mut ops = value.visit(ctx);
                     match var_meta.type_ {
                         crate::ast::Type::Int => {
@@ -304,10 +301,10 @@ impl Statement {
                 }
             }
             Statement::ArrayAssignment {
-                identifier,
-                index,
-                value,
-            } => todo!(),
+                identifier: _,
+                index: _,
+                value: _,
+            } => todo!("ArrayAssignment"),
             Statement::ReturnStatement { return_value } => {
                 let mut ops = Vec::new();
                 if let Some(return_value) = return_value {
@@ -324,18 +321,94 @@ impl Statement {
                 ops
             }
             Statement::WhileStatement {
-                condition,
-                statements,
-            } => todo!(),
-            Statement::IfStatement { arms, el } => todo!(),
-            Statement::ExpressionStatement { expression } => todo!(),
+                condition: _,
+                statements: _,
+            } => todo!("WhileStatement"),
+            Statement::IfStatement { arms: _, el: _ } => todo!("IfStatement"),
+            Statement::ExpressionStatement { expression } => {
+                let mut ops = expression.visit(ctx);
+                if let Some(expr_type) = expression.get_type(ctx) {
+                    discard_value(expr_type, &mut ops);
+                }
+                ops
+            }
         }
-        // Vec::new()
     }
 }
 
+fn discard_value(return_type: crate::ast::Type, ops: &mut Vec<OperationPrototype>) {
+    let pop_op = match return_type {
+        crate::ast::Type::Int => Operation::Pop.into(),
+        crate::ast::Type::ArrInt => Operation::HeapPopPtr.into(),
+    };
+    ops.push(pop_op);
+}
+
 impl Expression {
-    pub fn visit(&self, _ctx: &mut crate::visit::Context) -> Vec<NotCompletedOperation> {
-        todo!()
+    pub fn visit(&self, _ctx: &mut Context) -> Vec<OperationPrototype> {
+        match self {
+            Expression::Mul { lhs: _, rhs: _ } => todo!(),
+            Expression::Div { lhs: _, rhs: _ } => todo!(),
+            Expression::Add { lhs: _, rhs: _ } => todo!(),
+            Expression::Sub { lhs: _, rhs: _ } => todo!(),
+            Expression::Less { lhs: _, rhs: _ } => todo!(),
+            Expression::Greater { lhs: _, rhs: _ } => todo!(),
+            Expression::LessEq { lhs: _, rhs: _ } => todo!(),
+            Expression::GreaterEq { lhs: _, rhs: _ } => todo!(),
+            Expression::Eq { lhs: _, rhs: _ } => todo!(),
+            Expression::NonEq { lhs: _, rhs: _ } => todo!(),
+            Expression::ArrayAccess {
+                identifier: _,
+                index: _,
+            } => todo!(),
+            Expression::FuncCall {
+                identifier: _,
+                arguments: _,
+            } => todo!(),
+            Expression::UnaryMinus { val: _ } => todo!(),
+            Expression::Literal { val: _ } => todo!(),
+            Expression::VarReference { identifier: _ } => todo!(),
+        }
+    }
+
+    fn get_type(&self, ctx: &mut Context) -> Option<crate::ast::Type> {
+        match self {
+            Expression::Mul { lhs: _, rhs: _ }
+            | Expression::Div { lhs: _, rhs: _ }
+            | Expression::Add { lhs: _, rhs: _ }
+            | Expression::Sub { lhs: _, rhs: _ }
+            | Expression::Less { lhs: _, rhs: _ }
+            | Expression::Greater { lhs: _, rhs: _ }
+            | Expression::LessEq { lhs: _, rhs: _ }
+            | Expression::GreaterEq { lhs: _, rhs: _ }
+            | Expression::Eq { lhs: _, rhs: _ }
+            | Expression::NonEq { lhs: _, rhs: _ } => Some(crate::ast::Type::Int),
+            Expression::ArrayAccess {
+                identifier: _,
+                index: _,
+            } => {
+                // NOTE: for now only ints can be stored in array
+                Some(crate::ast::Type::Int)
+            }
+            Expression::FuncCall {
+                identifier,
+                arguments: _,
+            } => {
+                if let Some(fn_meta) = ctx.get_func(&identifier) {
+                    fn_meta.return_type.clone()
+                } else {
+                    panic!("func '{}' not found", identifier);
+                }
+            }
+            Expression::UnaryMinus { val: _ } => Some(crate::ast::Type::Int),
+            Expression::Literal { val: _ } => Some(crate::ast::Type::Int),
+            Expression::VarReference { identifier } => {
+                if let Some(var_meta) = ctx.get_var(identifier) {
+                    Some(var_meta.type_)
+                } else {
+                    panic!("var '{}' not found", identifier);
+                }
+            }
+        }
     }
 }

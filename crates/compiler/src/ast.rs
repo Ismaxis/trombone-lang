@@ -131,9 +131,6 @@ pub enum Expression {
         identifier: Identifier,
         arguments: Vec<Expression>,
     },
-    ArrayCreate {
-        arguments: Vec<Expression>,
-    },
     UnaryMinus {
         val: Box<Expression>,
     },
