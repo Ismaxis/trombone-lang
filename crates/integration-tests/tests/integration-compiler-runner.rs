@@ -7,6 +7,35 @@ mod tests {
 
     use trombone_compiler_lib::*;
 
+    macro_rules! setup_runner {
+        () => {
+            Runner::new(
+                SimpleTestOperationStream::new(),
+                std::io::Cursor::new("".as_bytes()),
+                std::io::Cursor::new(Vec::new()),
+                RunnerType::default_allocator(),
+            )
+        };
+    }
+
+    fn run_test<'a>(
+        runner: &mut Runner<
+            'a,
+            'a,
+            SimpleTestOperationStream,
+            std::io::Cursor<&'a [u8]>,
+            std::io::Cursor<Vec<u8>>,
+        >,
+        program: &str,
+    ) -> Result<String> {
+        runner
+            .stream
+            .emplace_operations(compile_from_string(program.to_string()));
+        runner.evaluate()?;
+
+        Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
+    }
+
     #[test]
     fn single_print() -> Result<()> {
         let program = r"
@@ -15,25 +44,10 @@ fn main() {
     return;
 }
         ";
+        let mut runner = setup_runner!();
+        let result = run_test(&mut runner, program)?;
 
-        let ops = compile_from_string(program.to_string());
-
-        let input = std::io::Cursor::new("".as_bytes());
-        let output = std::io::Cursor::new(Vec::new());
-
-        let mut runner = Runner::new(
-            SimpleTestOperationStream::new(),
-            input,
-            output,
-            RunnerType::default_allocator(),
-        );
-
-        runner.stream.emplace_operations(ops);
-        runner.evaluate()?;
-        assert_eq!(
-            String::from_utf8(runner.output.into_inner()).unwrap(),
-            "$$ 42\n".to_string()
-        );
+        assert_eq!(result, "$$ 42\n".to_string());
         Ok(())
     }
 
