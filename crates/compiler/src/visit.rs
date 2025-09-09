@@ -59,7 +59,7 @@ impl Context {
         }
     }
 
-    fn declare_func(&mut self, id: Identifier, meta: FuncMeta) {
+    pub fn declare_func(&mut self, id: Identifier, meta: FuncMeta) {
         let prev = self.declared_funcs.insert(id.clone(), meta);
         if prev.is_some() {
             panic!("func '{}' already defined", id);
@@ -206,9 +206,9 @@ enum ScopeTag {
 // Meta
 
 #[derive(Clone)]
-struct FuncMeta {
-    arguments_types: Vec<crate::ast::Type>,
-    return_type: Option<crate::ast::Type>,
+pub struct FuncMeta {
+    pub arguments_types: Vec<crate::ast::Type>,
+    pub return_type: Option<crate::ast::Type>,
 }
 
 #[derive(Clone)]

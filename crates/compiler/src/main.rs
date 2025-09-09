@@ -140,7 +140,34 @@ fn main() {
     println!("{:#?}", res);
 
     let mut ctx = visit::Context::new();
+    define_buildin_funcs(&mut ctx);
     let ops = res[0].visit(&mut ctx);
 
     println!("Ops: {:?}", ops);
+}
+
+fn define_buildin_funcs(ctx: &mut visit::Context) {
+    ctx.declare_func(
+        "print".into(),
+        visit::FuncMeta {
+            arguments_types: vec![ast::Type::Int],
+            return_type: None,
+        },
+    );
+
+    ctx.declare_func(
+        "read".into(),
+        visit::FuncMeta {
+            arguments_types: vec![],
+            return_type: Some(ast::Type::Int),
+        },
+    );
+
+    ctx.declare_func(
+        "array".into(),
+        visit::FuncMeta {
+            arguments_types: vec![ast::Type::Int],
+            return_type: Some(ast::Type::ArrInt),
+        },
+    );
 }
