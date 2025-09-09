@@ -38,7 +38,7 @@ impl From<Operation> for OperationPrototype {
     }
 }
 
-fn add_operation(ops: &mut Vec<OperationPrototype>, op: OperationPrototype, ctx: &mut Context) {
+fn add_operation(ctx: &mut Context, ops: &mut Vec<OperationPrototype>, op: OperationPrototype) {
     let stack_diff = op.calc_stack_diff();
     ops.push(op.clone().into());
     ctx.current_rsp = (ctx.current_rsp as isize + stack_diff) as usize;
@@ -207,6 +207,7 @@ enum ScopeTag {
 
 #[derive(Clone)]
 struct FuncMeta {
+    arguments_types: Vec<crate::ast::Type>,
     return_type: Option<crate::ast::Type>,
 }
 
@@ -229,6 +230,7 @@ impl FuncDeclaration {
         ctx.declare_func(
             self.identifier.clone(),
             FuncMeta {
+                arguments_types: self.params.iter().map(|x| x.type_).collect(),
                 return_type: self.return_type,
             },
         );
@@ -291,7 +293,7 @@ impl Statement {
                             let op = Operation::LocalStore {
                                 variable_offset: offset as i32,
                             };
-                            add_operation(&mut ops, op.into(), ctx);
+                            add_operation(ctx, &mut ops, op.into());
                             return ops;
                         }
                         crate::ast::Type::ArrInt => todo!("Not implemented assignment to array"),
@@ -313,11 +315,11 @@ impl Statement {
                     let set_return_value_op = Operation::LocalStore {
                         variable_offset: return_value_offset,
                     };
-                    add_operation(&mut ops, set_return_value_op.into(), ctx);
+                    add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
                 ops.append(&mut ctx.destruct_all_vars());
                 let return_op = Operation::Return;
-                add_operation(&mut ops, return_op.into(), ctx);
+                add_operation(ctx, &mut ops, return_op.into());
                 ops
             }
             Statement::WhileStatement {
@@ -345,30 +347,87 @@ fn discard_value(return_type: crate::ast::Type, ops: &mut Vec<OperationPrototype
 }
 
 impl Expression {
-    pub fn visit(&self, _ctx: &mut Context) -> Vec<OperationPrototype> {
+    pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         match self {
-            Expression::Mul { lhs: _, rhs: _ } => todo!(),
-            Expression::Div { lhs: _, rhs: _ } => todo!(),
-            Expression::Add { lhs: _, rhs: _ } => todo!(),
-            Expression::Sub { lhs: _, rhs: _ } => todo!(),
-            Expression::Less { lhs: _, rhs: _ } => todo!(),
-            Expression::Greater { lhs: _, rhs: _ } => todo!(),
-            Expression::LessEq { lhs: _, rhs: _ } => todo!(),
-            Expression::GreaterEq { lhs: _, rhs: _ } => todo!(),
-            Expression::Eq { lhs: _, rhs: _ } => todo!(),
-            Expression::NonEq { lhs: _, rhs: _ } => todo!(),
+            Expression::Mul { lhs: _, rhs: _ } => todo!("Expression::Mul"),
+            Expression::Div { lhs: _, rhs: _ } => todo!("Expression::Div"),
+            Expression::Add { lhs: _, rhs: _ } => todo!("Expression::Add"),
+            Expression::Sub { lhs: _, rhs: _ } => todo!("Expression::Sub"),
+            Expression::Less { lhs: _, rhs: _ } => todo!("Expression::Less"),
+            Expression::Greater { lhs: _, rhs: _ } => todo!("Expression::Greater"),
+            Expression::LessEq { lhs: _, rhs: _ } => todo!("Expression::LessEq"),
+            Expression::GreaterEq { lhs: _, rhs: _ } => todo!("Expression::GreaterEq"),
+            Expression::Eq { lhs: _, rhs: _ } => todo!("Expression::Eq"),
+            Expression::NonEq { lhs: _, rhs: _ } => todo!("Expression::NonEq"),
             Expression::ArrayAccess {
                 identifier: _,
                 index: _,
-            } => todo!(),
+            } => todo!("Expression::ArrayAccess"),
             Expression::FuncCall {
-                identifier: _,
-                arguments: _,
-            } => todo!(),
-            Expression::UnaryMinus { val: _ } => todo!(),
-            Expression::Literal { val: _ } => todo!(),
-            Expression::VarReference { identifier: _ } => todo!(),
+                identifier,
+                arguments,
+            } => {
+                if let Some(fn_meta) = ctx.get_func(identifier) {
+                    // check types
+                    let given_types = arguments
+                        .iter()
+                        .map(|x| x.get_type(ctx))
+                        .collect::<Vec<_>>();
+                    let declared_types = fn_meta
+                        .arguments_types
+                        .iter()
+                        .cloned()
+                        .map(|x| Some(x))
+                        .collect::<Vec<_>>();
+                    if given_types != declared_types {
+                        // TODO: compare iterators and eval only on error
+                        panic!(
+                            "given types does not match declared: {:?} != {:?}",
+                            given_types, declared_types
+                        )
+                    }
+
+                    let arg_count = arguments.len();
+                    let mut ops = Vec::with_capacity(arg_count * 2);
+                    if fn_meta.return_type.is_some() {
+                        Self::reserve_for_return_value(ctx, &mut ops)
+                    }
+                    add_operation(ctx, &mut ops, OperationPrototype::Jump);
+
+                    // eval arguments
+                    ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
+
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::SetRetAddress {
+                            operands_count: arg_count as i32,
+                        }
+                        .into(),
+                    );
+                    // call
+                    add_operation(ctx, &mut ops, OperationPrototype::Jump);
+                    ops
+                } else {
+                    panic!("func '{}' not found", identifier);
+                }
+            }
+            Expression::UnaryMinus { val: _ } => todo!("Expression::UnaryMinus"),
+            Expression::Literal { val: _ } => todo!("Expression::Literal"),
+            Expression::VarReference { identifier: _ } => todo!("Expression::VarReference"),
         }
+    }
+
+    fn reserve_for_return_value(ctx: &mut Context, ops: &mut Vec<OperationPrototype>) {
+        let unused_value = 1338;
+        add_operation(
+            ctx,
+            ops,
+            Operation::PushLiteral {
+                value: unused_value,
+            }
+            .into(),
+        );
     }
 
     fn get_type(&self, ctx: &mut Context) -> Option<crate::ast::Type> {
