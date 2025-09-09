@@ -86,7 +86,7 @@ impl Context {
         }
     }
 
-    pub fn declare_func(&mut self, id: Identifier, meta: FuncMeta) {
+    pub fn declare_func(&mut self, id: &Identifier, meta: FuncMeta) {
         let prev = self.declared_funcs.insert(id.clone(), meta);
         if prev.is_some() {
             panic!("func '{}' already defined", id);
@@ -255,7 +255,7 @@ impl FuncDeclaration {
 
         // prep
         ctx.declare_func(
-            self.identifier.clone(),
+            &self.identifier,
             FuncMeta {
                 arguments_types: self.params.iter().map(|x| x.type_).collect(),
                 return_type: self.return_type,
@@ -435,6 +435,10 @@ impl Expression {
                     // eval arguments
                     ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
 
+                    if Self::handle_builtins(ctx, &mut ops, identifier) {
+                        return ops;
+                    }
+
                     add_operation(
                         ctx,
                         &mut ops,
@@ -463,6 +467,22 @@ impl Expression {
                 ops
             }
             Expression::VarReference { identifier: _ } => todo!("Expression::VarReference"),
+        }
+    }
+
+    fn handle_builtins(
+        ctx: &mut Context,
+        ops: &mut Vec<OperationPrototype>,
+        identifier: &Identifier,
+    ) -> bool {
+        match identifier.as_str() {
+            "print" => {
+                add_operation(ctx, ops, Operation::Print.into());
+                true
+            }
+            "read" => todo!("builtin: read()"),
+            "array" => todo!("builtin: array(n)"),
+            _ => false,
         }
     }
 

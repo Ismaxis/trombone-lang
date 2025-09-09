@@ -174,7 +174,7 @@ impl TryFrom<Instruction> for Operation {
             OP_RSH => Rsh,
 
             // Function operations
-            OP_PUSH_RET_ADDRESS => SetRetAddress {
+            OP_SET_RET_ADDRESS => SetRetAddress {
                 operands_count: value.extract_immediate(),
             },
             OP_RET => Return,
@@ -252,7 +252,7 @@ impl From<Operation> for Instruction {
             Lsh => Instruction::from_parts(OP_LSH, 0),
             Rsh => Instruction::from_parts(OP_RSH, 0),
             SetRetAddress { operands_count } => {
-                Instruction::from_parts(OP_PUSH_RET_ADDRESS, operands_count)
+                Instruction::from_parts(OP_SET_RET_ADDRESS, operands_count)
             }
             Return => Instruction::from_parts(OP_RET, 0),
             Equal => Instruction::from_parts(OP_EQ, 0),

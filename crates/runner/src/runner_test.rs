@@ -552,7 +552,7 @@ mod tests {
             runner.stream.emplace_instruction(opcode::OP_PUSH, 0); // reserve space for return address
             runner
                 .stream
-                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 0); // zero operands
+                .emplace_instruction(opcode::OP_SET_RET_ADDRESS, 0); // zero operands
             runner.stream.emplace_instruction(opcode::OP_JMP, 5);
 
             for _ in 0..3 {
@@ -570,7 +570,7 @@ mod tests {
             runner.stream.emplace_instruction(opcode::OP_PUSH, 42); // push operand
             runner
                 .stream
-                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 1); // one operand
+                .emplace_instruction(opcode::OP_SET_RET_ADDRESS, 1); // one operand
             runner.stream.emplace_instruction(opcode::OP_JMP, 5);
 
             for _ in 0..4 {

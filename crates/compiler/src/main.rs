@@ -149,7 +149,7 @@ fn main() {
 
 fn define_buildin_funcs(ctx: &mut visit::Context) {
     ctx.declare_func(
-        "print".into(),
+        &"print".to_string(),
         visit::FuncMeta {
             arguments_types: vec![ast::Type::Int],
             return_type: None,
@@ -157,7 +157,7 @@ fn define_buildin_funcs(ctx: &mut visit::Context) {
     );
 
     ctx.declare_func(
-        "read".into(),
+        &"read".to_string(),
         visit::FuncMeta {
             arguments_types: vec![],
             return_type: Some(ast::Type::Int),
@@ -165,7 +165,7 @@ fn define_buildin_funcs(ctx: &mut visit::Context) {
     );
 
     ctx.declare_func(
-        "array".into(),
+        &"array".to_string(),
         visit::FuncMeta {
             arguments_types: vec![ast::Type::Int],
             return_type: Some(ast::Type::ArrInt),
