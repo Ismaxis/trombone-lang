@@ -354,7 +354,7 @@ where
             }
             Print => {
                 let value = self.pop(); // TODO: Change semantic according to https://github.com/Ismaxis/trombone-lang/pull/52#discussion_r2317237090
-                self.output.write_fmt(format_args!("$$ {}\n", value))?;
+                self.output.write_fmt(format_args!("$ {}\n", value))?;
             }
         }
         debug_assert_eq!(

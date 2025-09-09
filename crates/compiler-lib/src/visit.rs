@@ -425,19 +425,18 @@ impl Expression {
                         )
                     }
 
+                    let mut ops = Vec::new();
+                    if Self::handle_builtins(ctx, &mut ops, identifier, arguments) {
+                        return ops;
+                    }
+
                     let arg_count = arguments.len();
-                    let mut ops = Vec::with_capacity(arg_count * 2);
                     if fn_meta.return_type.is_some() {
                         Self::reserve(ctx, &mut ops); // for return value
                     }
                     Self::reserve(ctx, &mut ops); // for return address
 
-                    // eval arguments
-                    ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
-
-                    if Self::handle_builtins(ctx, &mut ops, identifier) {
-                        return ops;
-                    }
+                    Self::eval_arguments(ctx, &mut ops, arguments);
 
                     add_operation(
                         ctx,
@@ -466,21 +465,52 @@ impl Expression {
                 add_operation(ctx, &mut ops, Operation::PushLiteral { value: *val }.into());
                 ops
             }
-            Expression::VarReference { identifier: _ } => todo!("Expression::VarReference"),
+            Expression::VarReference { identifier } => {
+                let mut ops = Vec::new();
+
+                if let Some(var_meta) = ctx.get_var(identifier) {
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::LocalCopy {
+                            variable_offset: ctx.current_rsp as i32 - 1 - var_meta.address as i32,
+                        }
+                        .into(),
+                    );
+                } else {
+                    panic!("var '{}' not found", identifier);
+                }
+
+                ops
+            }
         }
+    }
+
+    fn eval_arguments(
+        ctx: &mut Context,
+        ops: &mut Vec<OperationPrototype>,
+        arguments: &Vec<Expression>,
+    ) {
+        ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
     }
 
     fn handle_builtins(
         ctx: &mut Context,
         ops: &mut Vec<OperationPrototype>,
         identifier: &Identifier,
+        arguments: &Vec<Expression>,
     ) -> bool {
         match identifier.as_str() {
             "print" => {
+                Self::eval_arguments(ctx, ops, arguments);
                 add_operation(ctx, ops, Operation::Print.into());
                 true
             }
-            "read" => todo!("builtin: read()"),
+            "read" => {
+                Self::eval_arguments(ctx, ops, arguments);
+                add_operation(ctx, ops, Operation::Read.into());
+                true    
+            },
             "array" => todo!("builtin: array(n)"),
             _ => false,
         }

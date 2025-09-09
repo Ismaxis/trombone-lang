@@ -8,10 +8,10 @@ mod tests {
     use trombone_compiler_lib::*;
 
     macro_rules! setup_runner {
-        () => {
+        ($input:literal) => {
             Runner::new(
                 SimpleTestOperationStream::new(),
-                std::io::Cursor::new("".as_bytes()),
+                std::io::Cursor::new($input.as_bytes()),
                 std::io::Cursor::new(Vec::new()),
                 RunnerType::default_allocator(),
             )
@@ -44,10 +44,26 @@ fn main() {
     return;
 }
         ";
-        let mut runner = setup_runner!();
+        let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
 
-        assert_eq!(result, "$$ 42\n".to_string());
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn read_and_print() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = read();
+    print(x);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("42");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "> $ 42\n".to_string());
         Ok(())
     }
 

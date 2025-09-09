@@ -2,7 +2,8 @@ use trombone_compiler_lib::*;
 
 fn main() {
     let test = r"fn main() {
-        print(2 + 2);
+        let x: int = read();
+        print(x);
         return;
     }";
 

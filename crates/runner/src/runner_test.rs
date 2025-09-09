@@ -470,7 +470,7 @@ mod tests {
         // print(x);
         runner.stream.emplace_instruction(opcode::OP_PRINT, 0);
         runner.evaluate_next_instruction()?;
-        assert_eq!(runner.output.into_inner(), "> $$ 42\n".as_bytes());
+        assert_eq!(runner.output.into_inner(), "> $ 42\n".as_bytes());
 
         Ok(())
     }
@@ -635,7 +635,7 @@ mod tests {
         let output = String::from_utf8(runner.output.into_inner()).unwrap();
         assert_eq!(
             output,
-            "> $$ 0\n$$ 1\n$$ 2\n$$ 3\n$$ 4\n$$ 5\n$$ 6\n$$ 7\n$$ 8\n$$ 9\n$$ 10\n$$ 11\n$$ 12\n$$ 13\n$$ 14\n$$ 15\n$$ 16\n$$ 17\n$$ 18\n$$ 19\n$$ 20\n$$ 21\n$$ 22\n$$ 23\n$$ 24\n$$ 25\n$$ 26\n$$ 27\n$$ 28\n$$ 29\n$$ 30\n$$ 31\n$$ 32\n$$ 33\n$$ 34\n$$ 35\n$$ 36\n$$ 37\n$$ 38\n$$ 39\n$$ 40\n$$ 41\n"
+            "> $ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ 5\n$ 6\n$ 7\n$ 8\n$ 9\n$ 10\n$ 11\n$ 12\n$ 13\n$ 14\n$ 15\n$ 16\n$ 17\n$ 18\n$ 19\n$ 20\n$ 21\n$ 22\n$ 23\n$ 24\n$ 25\n$ 26\n$ 27\n$ 28\n$ 29\n$ 30\n$ 31\n$ 32\n$ 33\n$ 34\n$ 35\n$ 36\n$ 37\n$ 38\n$ 39\n$ 40\n$ 41\n"
         );
 
         assert_eq!(
