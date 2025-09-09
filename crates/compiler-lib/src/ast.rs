@@ -3,7 +3,7 @@ pub type Program = Vec<FuncDeclaration>;
 pub type Identifier = String;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FuncDeclaration {
     pub identifier: Identifier,
     pub params: Vec<Param>,
@@ -28,7 +28,7 @@ impl FuncDeclaration {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Param {
     pub identifier: Identifier,
     pub type_: Type,
@@ -48,7 +48,7 @@ pub enum Type {
 
 pub type Block = Vec<Statement>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     VarDeclaration {
         identifier: Identifier,
@@ -80,7 +80,7 @@ pub enum Statement {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Mul {
         lhs: Box<Expression>,

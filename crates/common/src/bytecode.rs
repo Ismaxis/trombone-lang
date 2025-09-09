@@ -96,8 +96,8 @@ pub enum Operation {
 impl Operation {
     // returns the difference of stack pointers before and after operation evaluation
     pub fn calc_stack_diff(&self) -> isize {
-        let UNARY_OP = 0;
-        let BINARY_OP = -1;
+        const UNARY_OP: isize = 0;
+        const BINARY_OP: isize = -1;
         match self {
             Operation::PushLiteral { .. } => 1,
             Operation::Pop => -1,

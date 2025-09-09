@@ -370,9 +370,11 @@ where
 
     pub fn evaluate(&mut self) -> Result<()> {
         while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
+            // TODO: proper debug mode
             // println!("IP: {}", self.stream.get_instruction_pointer());
             self.evaluate_next_instruction()?;
         }
+        // TODO: proper debug mode
         // println!("IP: {}", self.stream.get_instruction_pointer());
 
         Ok(())
