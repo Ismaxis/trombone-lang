@@ -302,8 +302,14 @@ impl Statement {
                 type_,
                 value,
             } => {
-                let ops = value.visit(ctx);
                 let address = ctx.current_rsp;
+                let ops = value.visit(ctx);
+                assert_eq!(
+                    address,
+                    ctx.current_rsp - 1,
+                    "expression evaluation should advance rsp"
+                );
+
                 ctx.cur_scope().declare_var(
                     identifier.clone(),
                     VarMeta {
@@ -311,7 +317,7 @@ impl Statement {
                         type_: *type_,
                     },
                 );
-                ctx.current_rsp += 1; // This is one of the few places where current rsp moves manually, not by operations
+
                 ops
             }
             Statement::Assignment { identifier, value } => {
@@ -348,8 +354,7 @@ impl Statement {
                     add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
                 ops.append(&mut ctx.destruct_all_vars());
-                let return_op = Operation::Return;
-                add_operation(ctx, &mut ops, return_op.into());
+                add_operation(ctx, &mut ops, Operation::Return.into());
                 ops
             }
             Statement::WhileStatement {
@@ -379,24 +384,24 @@ fn discard_value(return_type: crate::ast::Type, ops: &mut Vec<OperationPrototype
 impl Expression {
     pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         match self {
-            Expression::Mul { lhs: _, rhs: _ } => todo!("Expression::Mul"),
-            Expression::Div { lhs: _, rhs: _ } => todo!("Expression::Div"),
-            Expression::Add { lhs, rhs } => {
+            Expression::Mul { lhs, rhs }
+            | Expression::Div { lhs, rhs }
+            | Expression::Add { lhs, rhs }
+            | Expression::Sub { lhs, rhs }
+            | Expression::Less { lhs, rhs }
+            | Expression::Greater { lhs, rhs }
+            | Expression::LessEq { lhs, rhs }
+            | Expression::GreaterEq { lhs, rhs }
+            | Expression::Eq { lhs, rhs }
+            | Expression::NonEq { lhs, rhs } => {
                 let mut ops = Vec::new();
                 ops.extend(lhs.visit(ctx));
                 ops.extend(rhs.visit(ctx));
 
-                add_operation(ctx, &mut ops, Operation::Add.into());
+                add_operation(ctx, &mut ops, self.get_operation().into());
 
                 ops
             }
-            Expression::Sub { lhs: _, rhs: _ } => todo!("Expression::Sub"),
-            Expression::Less { lhs: _, rhs: _ } => todo!("Expression::Less"),
-            Expression::Greater { lhs: _, rhs: _ } => todo!("Expression::Greater"),
-            Expression::LessEq { lhs: _, rhs: _ } => todo!("Expression::LessEq"),
-            Expression::GreaterEq { lhs: _, rhs: _ } => todo!("Expression::GreaterEq"),
-            Expression::Eq { lhs: _, rhs: _ } => todo!("Expression::Eq"),
-            Expression::NonEq { lhs: _, rhs: _ } => todo!("Expression::NonEq"),
             Expression::ArrayAccess {
                 identifier: _,
                 index: _,
@@ -426,17 +431,17 @@ impl Expression {
                     }
 
                     let mut ops = Vec::new();
-                    if Self::handle_builtins(ctx, &mut ops, identifier, arguments) {
+                    if handle_builtins(ctx, &mut ops, identifier, arguments) {
                         return ops;
                     }
 
                     let arg_count = arguments.len();
                     if fn_meta.return_type.is_some() {
-                        Self::reserve(ctx, &mut ops); // for return value
+                        reserve(ctx, &mut ops); // for return value
                     }
-                    Self::reserve(ctx, &mut ops); // for return address
+                    reserve(ctx, &mut ops); // for return address
 
-                    Self::eval_arguments(ctx, &mut ops, arguments);
+                    eval_arguments(ctx, &mut ops, arguments);
 
                     add_operation(
                         ctx,
@@ -486,48 +491,6 @@ impl Expression {
         }
     }
 
-    fn eval_arguments(
-        ctx: &mut Context,
-        ops: &mut Vec<OperationPrototype>,
-        arguments: &Vec<Expression>,
-    ) {
-        ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
-    }
-
-    fn handle_builtins(
-        ctx: &mut Context,
-        ops: &mut Vec<OperationPrototype>,
-        identifier: &Identifier,
-        arguments: &Vec<Expression>,
-    ) -> bool {
-        match identifier.as_str() {
-            "print" => {
-                Self::eval_arguments(ctx, ops, arguments);
-                add_operation(ctx, ops, Operation::Print.into());
-                true
-            }
-            "read" => {
-                Self::eval_arguments(ctx, ops, arguments);
-                add_operation(ctx, ops, Operation::Read.into());
-                true    
-            },
-            "array" => todo!("builtin: array(n)"),
-            _ => false,
-        }
-    }
-
-    fn reserve(ctx: &mut Context, ops: &mut Vec<OperationPrototype>) {
-        let unused_value = 1338;
-        add_operation(
-            ctx,
-            ops,
-            Operation::PushLiteral {
-                value: unused_value,
-            }
-            .into(),
-        );
-    }
-
     fn get_type(&self, ctx: &mut Context) -> Option<crate::ast::Type> {
         match self {
             Expression::Mul { lhs: _, rhs: _ }
@@ -568,4 +531,63 @@ impl Expression {
             }
         }
     }
+
+    fn get_operation(&self) -> Operation {
+        match self {
+            Expression::Mul { lhs: _, rhs: _ } => Operation::Mul,
+            Expression::Div { lhs: _, rhs: _ } => Operation::Div,
+            Expression::Add { lhs: _, rhs: _ } => Operation::Add,
+            Expression::Sub { lhs: _, rhs: _ } => Operation::Sub,
+            Expression::Less { lhs: _, rhs: _ } => Operation::LessThan,
+            Expression::Greater { lhs: _, rhs: _ } => Operation::GreaterThan,
+            Expression::LessEq { lhs: _, rhs: _ } => Operation::LessThanOrEqual,
+            Expression::GreaterEq { lhs: _, rhs: _ } => Operation::GreaterThanOrEqual,
+            Expression::Eq { lhs: _, rhs: _ } => Operation::Equal,
+            Expression::NonEq { lhs: _, rhs: _ } => Operation::NotEqual,
+            Expression::UnaryMinus { val: _ } => Operation::Not,
+            other => panic!("no operaton for '{:?}'", other),
+        }
+    }
+}
+
+fn eval_arguments(
+    ctx: &mut Context,
+    ops: &mut Vec<OperationPrototype>,
+    arguments: &Vec<Expression>,
+) {
+    ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
+}
+
+fn handle_builtins(
+    ctx: &mut Context,
+    ops: &mut Vec<OperationPrototype>,
+    identifier: &Identifier,
+    arguments: &Vec<Expression>,
+) -> bool {
+    match identifier.as_str() {
+        "print" => {
+            eval_arguments(ctx, ops, arguments);
+            add_operation(ctx, ops, Operation::Print.into());
+            true
+        }
+        "read" => {
+            eval_arguments(ctx, ops, arguments);
+            add_operation(ctx, ops, Operation::Read.into());
+            true
+        }
+        "array" => todo!("builtin: array(n)"),
+        _ => false,
+    }
+}
+
+fn reserve(ctx: &mut Context, ops: &mut Vec<OperationPrototype>) {
+    let unused_value = 1338;
+    add_operation(
+        ctx,
+        ops,
+        Operation::PushLiteral {
+            value: unused_value,
+        }
+        .into(),
+    );
 }

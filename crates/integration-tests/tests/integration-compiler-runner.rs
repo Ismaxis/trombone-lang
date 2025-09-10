@@ -68,6 +68,25 @@ fn main() {
     }
 
     #[test]
+    fn variables_access() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = read();
+    let y: int = read();
+    let z: int = x + y;
+    let a: int = z * z * x * y;
+    print(a * (2 * x + y + z));
+    return;
+}
+        ";
+        let mut runner = setup_runner!("10\n100");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "> > $ 2783000000\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn factorial() {
         let test = r"
         fn factorial(n: int) -> int {
