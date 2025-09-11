@@ -313,7 +313,7 @@ impl Statement {
                         crate::ast::Type::ArrInt => todo!("Not implemented assignment to array"),
                     }
                 } else {
-                    todo!("variable not found (implement error handling)")
+                    panic!("Assignment: var not found {}", identifier);
                 }
             }
             Statement::ArrayAssignment {

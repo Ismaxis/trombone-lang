@@ -175,6 +175,28 @@ fn foo() -> int {
     }
 
     #[test]
+    fn function_call_discard() -> Result<()> {
+        let program = r"
+fn main() {
+    foo();
+    foo();
+    foo();
+    return;
+}
+
+fn foo() -> int {
+    read();
+    return 42;
+}
+        ";
+        let mut runner = setup_runner!("1\n1\n1\n");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "> > > ".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn function_call_inc() -> Result<()> {
         let program = r"
 fn main() {
