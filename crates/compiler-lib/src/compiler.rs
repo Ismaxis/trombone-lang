@@ -44,15 +44,15 @@ pub fn compile_from_string(program: String) -> Vec<Operation> {
         .enumerate()
         .rev() // this is needed for basicBlockStart to calculate basic block len
         .map(|(i, x)| match x {
-            visit::OperationPrototype::Defined(operation) => operation.clone(),
+            visit::OperationPrototype::Defined(operation) => *operation,
             visit::OperationPrototype::Call {
                 identifier,
                 arg_count: _,
             } => {
                 if let Some(func_address) = funcs_addresses.get(identifier) {
-                    return Operation::Jump {
+                    Operation::Jump {
                         offset: *func_address - (i as i32),
-                    };
+                    }
                 } else {
                     panic!("OperationPrototype::Call: func '{}' not found", identifier);
                 }

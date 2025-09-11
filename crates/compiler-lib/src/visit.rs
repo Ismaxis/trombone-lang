@@ -46,7 +46,7 @@ impl From<Operation> for OperationPrototype {
 
 fn add_operation(ctx: &mut Context, ops: &mut Vec<OperationPrototype>, op: OperationPrototype) {
     let stack_diff = op.calc_stack_diff();
-    ops.push(op.clone().into());
+    ops.push(op.clone());
     ctx.current_rsp = (ctx.current_rsp as isize + stack_diff) as usize;
 }
 
@@ -54,6 +54,12 @@ pub struct Context {
     current_rsp: usize,
     declared_funcs: HashMap<Identifier, FuncMeta>,
     scopes: Vec<Scope>,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Context {
@@ -255,8 +261,7 @@ impl FuncDeclaration {
         let ops = self
             .statements
             .iter()
-            .map(|x| x.visit(ctx))
-            .flatten()
+            .flat_map(|x| x.visit(ctx))
             .collect::<Vec<_>>();
 
         // operands are cleared in return // ReturnStatement is mandatory
@@ -268,7 +273,7 @@ impl FuncDeclaration {
             "return statement is mandatory at the end of func"
         );
 
-        return ops;
+        ops
     }
 }
 
@@ -308,7 +313,7 @@ impl Statement {
                                 variable_offset: offset as i32,
                             };
                             add_operation(ctx, &mut ops, op.into());
-                            return ops;
+                            ops
                         }
                         crate::ast::Type::ArrInt => todo!("Not implemented assignment to array"),
                     }
@@ -403,7 +408,7 @@ impl Expression {
                         .arguments_types
                         .iter()
                         .cloned()
-                        .map(|x| Some(x)) // TODO: add explicit void type
+                        .map(Some) // TODO: add explicit void type
                         .collect::<Vec<_>>();
                     if given_types != declared_types {
                         // TODO: compare iterators and eval only on error
@@ -503,8 +508,8 @@ impl Expression {
                 identifier,
                 arguments: _,
             } => {
-                if let Some(fn_meta) = ctx.get_func(&identifier) {
-                    fn_meta.return_type.clone()
+                if let Some(fn_meta) = ctx.get_func(identifier) {
+                    fn_meta.return_type
                 } else {
                     panic!("FuncCall: func '{}' not found", identifier);
                 }
@@ -539,19 +544,15 @@ impl Expression {
     }
 }
 
-fn eval_arguments(
-    ctx: &mut Context,
-    ops: &mut Vec<OperationPrototype>,
-    arguments: &Vec<Expression>,
-) {
-    ops.extend(arguments.iter().map(|x| x.visit(ctx)).flatten());
+fn eval_arguments(ctx: &mut Context, ops: &mut Vec<OperationPrototype>, arguments: &[Expression]) {
+    ops.extend(arguments.iter().flat_map(|x| x.visit(ctx)));
 }
 
 fn handle_builtins(
     ctx: &mut Context,
     ops: &mut Vec<OperationPrototype>,
     identifier: &Identifier,
-    arguments: &Vec<Expression>,
+    arguments: &[Expression],
 ) -> bool {
     match identifier.as_str() {
         "print" => {

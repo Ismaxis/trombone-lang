@@ -670,6 +670,12 @@ pub mod test_utils {
         pub instruction_pointer: usize,
     }
 
+    impl Default for SimpleTestOperationStream {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl SimpleTestOperationStream {
         pub fn new() -> Self {
             Self {
@@ -715,6 +721,12 @@ pub mod test_utils {
     pub struct TestOperationStream {
         pub instructions: std::vec::Vec<u64>,
         pub instruction_pointer: usize,
+    }
+
+    impl Default for TestOperationStream {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl TestOperationStream {
@@ -768,6 +780,12 @@ pub mod test_utils {
     pub struct MockAllocator {
         pub alloc_count: AtomicUsize,
         // TODO: track allocations and deallocations more precisely
+    }
+
+    impl Default for MockAllocator {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl MockAllocator {

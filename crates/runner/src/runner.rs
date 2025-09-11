@@ -372,10 +372,8 @@ where
             // TODO: proper debug mode
             // println!("IP: {}", self.stream.get_instruction_pointer());
             match self.evaluate_next_instruction() {
-                Ok(ok) => match ok {
-                    ReturnCode::Done => break,
-                    _ => {}
-                },
+                Ok(ReturnCode::Done) => break,
+                Ok(_) => {}
                 Err(e) => {
                     return Err(e);
                 }
