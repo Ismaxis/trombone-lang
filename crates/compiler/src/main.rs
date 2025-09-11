@@ -3,15 +3,12 @@ use trombone_compiler_lib::*;
 fn main() {
     let test = r"
 fn main() {
-    foo(42);
-    foo(42);
-    foo(42);
+    print(foo());
     return;
 }
 
-fn foo(x: int) {
-    print(x);
-    return;
+fn foo() -> int {
+    return 42;
 }
     ";
 

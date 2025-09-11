@@ -325,7 +325,7 @@ impl Statement {
                 let mut ops = Vec::new();
                 if let Some(return_value) = return_value {
                     ops = return_value.visit(ctx);
-                    let return_value_offset = (ctx.current_rsp - 1) as i32; // TODO: check; abstract calculating it in other method
+                    let return_value_offset = (ctx.current_rsp - 1 - 1) as i32; // TODO: abstract calculating it in other method
                     let set_return_value_op = Operation::LocalStore {
                         variable_offset: return_value_offset,
                     };
@@ -458,14 +458,19 @@ impl Expression {
                 let mut ops = Vec::new();
 
                 if let Some(var_meta) = ctx.get_var(identifier) {
-                    add_operation(
-                        ctx,
-                        &mut ops,
-                        Operation::LocalCopy {
-                            variable_offset: ctx.current_rsp as i32 - 1 - var_meta.address as i32,
-                        }
-                        .into(),
-                    );
+                    match var_meta.type_ {
+                        crate::ast::Type::Int => add_operation(
+                            ctx,
+                            &mut ops,
+                            Operation::LocalCopy {
+                                variable_offset: ctx.current_rsp as i32
+                                    - 1
+                                    - var_meta.address as i32,
+                            }
+                            .into(),
+                        ),
+                        crate::ast::Type::ArrInt => todo!("Expression::VarReference ArrInt"),
+                    }
                 } else {
                     panic!("VarReference: var '{}' not found", identifier);
                 }

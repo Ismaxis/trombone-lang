@@ -154,6 +154,68 @@ fn foo(x: int, y: int, z: int) {
     }
 
     #[test]
+    fn function_call_with_return() -> Result<()> {
+        let program = r"
+fn main() {
+    print(foo());
+    print(foo());
+    print(foo());
+    return;
+}
+
+fn foo() -> int {
+    return 42;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n$ 42\n$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_inc() -> Result<()> {
+        let program = r"
+fn main() {
+    print(foo(42));
+    print(foo(43) + foo(44));
+    return;
+}
+
+fn foo(x: int) -> int {
+    return x + 1;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 43\n$ 89\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_sum() -> Result<()> {
+        let program = r"
+fn main() {
+    print(foo(1, 2));
+    print(foo(3, 4));
+    print(foo(4, 6));
+    return;
+}
+
+fn foo(x: int, y: int) -> int {
+    return x + y;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 3\n$ 7\n$ 10\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn factorial() {
         let test = r"
         fn factorial(n: int) -> int {
