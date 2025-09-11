@@ -372,7 +372,7 @@ impl Statement {
             Statement::IfStatement { arms, el } => {
                 // TODO: optimization if only 1 if (no else)
                 assert_eq!(arms.len(), 1, "tmp restriction #1");
-                assert!(el.is_none(), "tmp restriction #2");
+                // assert!(el.is_none(), "tmp restriction #2");
 
                 let arm = arms[0].clone();
 
@@ -383,6 +383,10 @@ impl Statement {
                 {
                     let arm_ops = visit_statements(ctx, &arm.1);
                     debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
+
+                    // let else_ops = vec![];
+                    let else_ops = el.as_ref().map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
 
                     let cond_ops = arm.0.visit(ctx);
                     debug_assert_eq!(ctx.current_rsp, beg_rsp + 1, "cond only pushed 1 value");
@@ -404,12 +408,32 @@ impl Statement {
                         ctx,
                         &mut ops,
                         Operation::Jump {
-                            offset: 1 + arm_ops.len() as i32,
+                            offset: 1
+                                + ((arm_ops.len() + 1)) as i32, // TODO: sum over all arms + 1 to each arm (jump out op)
                         }
                         .into(),
                     );
 
-                    ops.extend(arm_ops);
+                    // arm
+                    {
+                        // block
+                        ops.extend(arm_ops);
+
+                        // jump out
+                        add_operation(
+                            ctx,
+                            &mut ops,
+                            Operation::Jump {
+                                offset: 1
+                                    + (0 /* TODO: sum over all remainig arms*/ 
+                                        + else_ops.len())
+                                        as i32, // TODO: sum of all remainig arms ops
+                            }
+                            .into(),
+                        );
+                    }
+
+                    ops.extend(else_ops);
                 }
 
                 ctx.exit_scope();
