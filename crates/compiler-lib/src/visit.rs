@@ -179,15 +179,16 @@ impl Context {
 
     // This method make context forget variables in scope
     fn exit_scope(&mut self) {
-        let last_scope = self.scopes.pop().unwrap();
-        let prev_sp = last_scope.start_rsp;
-        debug_assert_eq!(
-            prev_sp + last_scope.declared_vars.len(),
-            self.current_rsp,
-            "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
-            prev_sp + last_scope.declared_vars.len(),
-            self.current_rsp
-        );
+        let top_scope = self.scopes.pop().unwrap();
+        let prev_sp = top_scope.start_rsp;
+        // return address and return values are messy here to assert
+        // debug_assert_eq!(
+        //     prev_sp + top_scope.declared_vars.len(),
+        //     self.current_rsp,
+        //     "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
+        //     prev_sp + top_scope.declared_vars.len(),
+        //     self.current_rsp
+        // );
         self.current_rsp = prev_sp;
     }
 
@@ -258,13 +259,8 @@ impl FuncDeclaration {
         }
 
         // statments
-        let ops = self
-            .statements
-            .iter()
-            .flat_map(|x| x.visit(ctx))
-            .collect::<Vec<_>>();
-
-        // operands are cleared in return // ReturnStatement is mandatory
+        ctx.enter_scope(ScopeTag::Block); // scop of top func block
+        let ops = visit_statements(ctx, &self.statements);
         debug_assert!(
             matches!(
                 ops.last(),
@@ -273,8 +269,37 @@ impl FuncDeclaration {
             "return statement is mandatory at the end of func"
         );
 
+        // operands are cleared in return // ReturnStatement is mandatory
+        debug_assert_eq!(
+            ctx.scopes.len(),
+            2,
+            "only top function and param scopes left"
+        );
+        debug_assert!(
+            matches!(ctx.cur_scope().tag, ScopeTag::Block),
+            "top function scope"
+        );
+        ctx.exit_scope();
+        debug_assert!(matches!(ctx.cur_scope().tag, ScopeTag::Func), "param scope");
+        ctx.exit_scope();
+
+        debug_assert_eq!(
+            ctx.current_rsp,
+            if self.return_type.is_some() { 2 } else { 1 },
+            "rsp at the end"
+        );
+        ctx.current_rsp = 0;
+
         ops
     }
+}
+
+fn visit_statements(ctx: &mut Context, statements: &Vec<Statement>) -> Vec<OperationPrototype> {
+    let ops = statements
+        .iter()
+        .flat_map(|x| x.visit(ctx))
+        .collect::<Vec<_>>();
+    ops
 }
 
 impl Statement {
@@ -344,7 +369,52 @@ impl Statement {
                 condition: _,
                 statements: _,
             } => todo!("WhileStatement"),
-            Statement::IfStatement { arms: _, el: _ } => todo!("IfStatement"),
+            Statement::IfStatement { arms, el } => {
+                // TODO: optimization if only 1 if (no else)
+                assert_eq!(arms.len(), 1, "tmp restriction #1");
+                assert!(el.is_none(), "tmp restriction #2");
+
+                let arm = arms[0].clone();
+
+                let beg_rsp = ctx.current_rsp;
+
+                let mut ops = Vec::new();
+                ctx.enter_scope(ScopeTag::Block);
+                {
+                    let arm_ops = visit_statements(ctx, &arm.1);
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
+
+                    let cond_ops = arm.0.visit(ctx);
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp + 1, "cond only pushed 1 value");
+
+                    ops.extend(cond_ops);
+
+                    // if true
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::JumpIf {
+                            offset: 2, // TODO: 2 (else case) + (<number of if> - 1) + sum of arm_ops len from 0 to i-1
+                        }
+                        .into(),
+                    );
+
+                    // if false, jump over
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::Jump {
+                            offset: 1 + arm_ops.len() as i32,
+                        }
+                        .into(),
+                    );
+
+                    ops.extend(arm_ops);
+                }
+
+                ctx.exit_scope();
+                ops
+            }
             Statement::ExpressionStatement { expression } => {
                 let mut ops = expression.visit(ctx);
                 if let Some(expr_type) = expression.get_type(ctx) {

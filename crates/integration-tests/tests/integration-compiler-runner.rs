@@ -28,9 +28,11 @@ mod tests {
         >,
         program: &str,
     ) -> Result<String> {
+        let ops = compiler::compile_from_string(program.to_string());
+        ops.iter().for_each(|x| println!("{:?}", *x));
         runner
             .stream
-            .emplace_operations(compiler::compile_from_string(program.to_string()));
+            .emplace_operations(ops);
         runner.evaluate()?;
 
         Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
@@ -234,6 +236,108 @@ fn foo(x: int, y: int) -> int {
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(result, "$ 3\n$ 7\n$ 10\n".to_string());
+        Ok(())
+    }
+
+    // If
+
+    #[test]
+    fn basic_if() -> Result<()> {
+        let program = r"
+fn main() {
+    if 1 {
+        print(1);
+    }
+    if 0 {
+        print(2);
+    }
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn basic_if_else() -> Result<()> {
+        let program = r"
+fn main() {
+    if 1 {
+        print(1);
+    } else {
+        print(2);
+    }
+    
+    if 0 {
+        print(1);
+    } else {
+        print(2);
+    }
+
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n$ 2\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn if_chain() -> Result<()> {
+        let program = r"
+fn main() {
+    foo(1);
+    foo(2);
+    foo(10);
+    return;
+}
+
+fn foo(x: int) {
+    if x == 1 {
+        print(1);
+    } else if x == 2 {
+        print(2);
+    } else {
+        print(3);
+    }
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn if_chain_no_else() -> Result<()> {
+        let program = r"
+fn main() {
+    foo(1);
+    foo(2);
+    foo(10);
+    return;
+}
+
+fn foo(x: int) {
+    if x == 1 {
+        print(1);
+    } else if x == 2 {
+        print(2);
+    }
+
+    print(3);
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
         Ok(())
     }
 
