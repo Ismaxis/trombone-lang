@@ -3,81 +3,17 @@ mod tests {
     use std::io::Write;
     use std::vec;
 
-    use crate::control_block;
-    use crate::runner::{ArrayOperationStream, OperationStream, Runner};
-    use std::alloc::{GlobalAlloc, Layout, System};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
     use trombone_common::TrombValue;
     use trombone_common::bytecode::{Immediate, Instruction, Operation};
     use trombone_common::error::Result;
     use trombone_common::opcode::{self};
 
-    struct MockAllocator {
-        alloc_count: AtomicUsize,
-        // TODO: track allocations and deallocations more precisely
-    }
+    use crate::control_block;
+    use crate::runner::{ArrayOperationStream, OperationStream, Runner};
 
-    unsafe impl GlobalAlloc for MockAllocator {
-        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            self.alloc_count.fetch_add(1, Ordering::SeqCst);
-            unsafe { System.alloc(layout) }
-        }
-        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-            self.alloc_count.fetch_sub(1, Ordering::SeqCst);
-            unsafe { System.dealloc(ptr, layout) }
-        }
-    }
-
-    struct TestOperationStream {
-        instructions: std::vec::Vec<u64>,
-        instruction_pointer: usize,
-    }
-
-    impl TestOperationStream {
-        fn new() -> TestOperationStream {
-            TestOperationStream {
-                instructions: std::vec::Vec::new(),
-                instruction_pointer: 0,
-            }
-        }
-
-        fn emplace_instruction(&mut self, opcode: u8, immediate: Immediate) {
-            self.instructions
-                .push(Instruction::from_parts(opcode, immediate).as_u64());
-        }
-
-        fn emplace_instruction_raw(&mut self, raw: u64) {
-            self.instructions.push(raw);
-        }
-    }
-
-    impl OperationStream for TestOperationStream {
-        fn next_instruction(&mut self) -> Result<Operation> {
-            let res = self.instructions[self.instruction_pointer];
-            self.instruction_pointer += 1;
-            Instruction::from_u64(res).try_into()
-        }
-
-        fn switch_frame(&mut self, offset: i32) {
-            self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
-        }
-
-        fn get_instruction_pointer(&self) -> usize {
-            self.instruction_pointer
-        }
-
-        fn get_instructions_len(&self) -> usize {
-            todo!()
-        }
-
-        fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
-            self.instructions[self.instruction_pointer..]
-                .iter()
-                .take(n)
-                .map(|&x| Instruction::from_u64(x).try_into().unwrap())
-                .collect()
-        }
-    }
+    use super::test_utils::*;
 
     #[test]
     fn test_stack_operations() -> Result<()> {
@@ -377,9 +313,6 @@ mod tests {
         Ok(())
     }
 
-    type RunnerType<'a, 'ctx> =
-        Runner<'a, 'ctx, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
-
     #[test]
     fn test_heap_operations() -> Result<()> {
         use opcode::*;
@@ -479,7 +412,7 @@ mod tests {
             // [x + i] = (42 + i*10)
             runner
                 .stream
-                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (4 - i));
+                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (3 - i));
         }
         for _ in 0..4 {
             runner.evaluate_next_instruction()?;
@@ -537,7 +470,7 @@ mod tests {
         // print(x);
         runner.stream.emplace_instruction(opcode::OP_PRINT, 0);
         runner.evaluate_next_instruction()?;
-        assert_eq!(runner.output.into_inner(), "> $$ 42\n".as_bytes());
+        assert_eq!(runner.output.into_inner(), "> $ 42\n".as_bytes());
 
         Ok(())
     }
@@ -552,7 +485,7 @@ mod tests {
             runner.stream.emplace_instruction(opcode::OP_PUSH, 0); // reserve space for return address
             runner
                 .stream
-                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 0); // zero operands
+                .emplace_instruction(opcode::OP_SET_RET_ADDRESS, 0); // zero operands
             runner.stream.emplace_instruction(opcode::OP_JMP, 5);
 
             for _ in 0..3 {
@@ -570,7 +503,7 @@ mod tests {
             runner.stream.emplace_instruction(opcode::OP_PUSH, 42); // push operand
             runner
                 .stream
-                .emplace_instruction(opcode::OP_PUSH_RET_ADDRESS, 1); // one operand
+                .emplace_instruction(opcode::OP_SET_RET_ADDRESS, 1); // one operand
             runner.stream.emplace_instruction(opcode::OP_JMP, 5);
 
             for _ in 0..4 {
@@ -648,7 +581,8 @@ mod tests {
             Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x7).as_u64(),
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000002, // LOCAL_COPY
-            0xe400000000000002, // HEAP_STORE_PTR
+            // 0xe400000000000002, // HEAP_STORE_PTR
+            0xe400000000000000, // HEAP_STORE_PTR
             0x0300000000000001, // LOCAL_COPY
             0x0100000000000001, // PUSH 1
             0xa200000000000000, // ADD
@@ -702,7 +636,7 @@ mod tests {
         let output = String::from_utf8(runner.output.into_inner()).unwrap();
         assert_eq!(
             output,
-            "> $$ 0\n$$ 1\n$$ 2\n$$ 3\n$$ 4\n$$ 5\n$$ 6\n$$ 7\n$$ 8\n$$ 9\n$$ 10\n$$ 11\n$$ 12\n$$ 13\n$$ 14\n$$ 15\n$$ 16\n$$ 17\n$$ 18\n$$ 19\n$$ 20\n$$ 21\n$$ 22\n$$ 23\n$$ 24\n$$ 25\n$$ 26\n$$ 27\n$$ 28\n$$ 29\n$$ 30\n$$ 31\n$$ 32\n$$ 33\n$$ 34\n$$ 35\n$$ 36\n$$ 37\n$$ 38\n$$ 39\n$$ 40\n$$ 41\n"
+            "> $ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ 5\n$ 6\n$ 7\n$ 8\n$ 9\n$ 10\n$ 11\n$ 12\n$ 13\n$ 14\n$ 15\n$ 16\n$ 17\n$ 18\n$ 19\n$ 20\n$ 21\n$ 22\n$ 23\n$ 24\n$ 25\n$ 26\n$ 27\n$ 28\n$ 29\n$ 30\n$ 31\n$ 32\n$ 33\n$ 34\n$ 35\n$ 36\n$ 37\n$ 38\n$ 39\n$ 40\n$ 41\n"
         );
 
         assert_eq!(
@@ -711,5 +645,165 @@ mod tests {
         );
 
         Ok(())
+    }
+}
+
+#[allow(unused)]
+pub mod test_utils {
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use crate::runner::Runner;
+    use trombone_common::bytecode::{Immediate, Instruction, Operation};
+    use trombone_common::error::Result;
+
+    use crate::runner::OperationStream;
+
+    pub type RunnerType<'a, 'ctx> =
+        Runner<'a, 'ctx, TestOperationStream, std::io::BufReader<std::io::Stdin>, std::io::Stdout>;
+
+    // Op Streams
+
+    // = Simple Stream
+    pub struct SimpleTestOperationStream {
+        pub operations: Vec<Operation>,
+        pub instruction_pointer: usize,
+    }
+
+    impl Default for SimpleTestOperationStream {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl SimpleTestOperationStream {
+        pub fn new() -> Self {
+            Self {
+                operations: std::vec::Vec::new(),
+                instruction_pointer: 0,
+            }
+        }
+
+        pub fn emplace_operation(&mut self, op: Operation) {
+            self.operations.push(op);
+        }
+
+        pub fn emplace_operations(&mut self, ops: Vec<Operation>) {
+            self.operations.extend(ops);
+        }
+    }
+
+    impl OperationStream for SimpleTestOperationStream {
+        fn next_instruction(&mut self) -> Result<Operation> {
+            let res = self.operations[self.instruction_pointer];
+            self.instruction_pointer += 1;
+            Ok(res)
+        }
+
+        fn switch_frame(&mut self, offset: i32) {
+            self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
+        }
+
+        fn get_instruction_pointer(&self) -> usize {
+            self.instruction_pointer
+        }
+
+        fn get_instructions_len(&self) -> usize {
+            self.operations.len()
+        }
+
+        fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
+            self.operations[self.instruction_pointer..self.instruction_pointer + n].to_vec()
+        }
+    }
+
+    // = Binary Stream
+    pub struct TestOperationStream {
+        pub instructions: std::vec::Vec<u64>,
+        pub instruction_pointer: usize,
+    }
+
+    impl Default for TestOperationStream {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl TestOperationStream {
+        pub fn new() -> TestOperationStream {
+            TestOperationStream {
+                instructions: std::vec::Vec::new(),
+                instruction_pointer: 0,
+            }
+        }
+
+        pub fn emplace_instruction(&mut self, opcode: u8, immediate: Immediate) {
+            self.instructions
+                .push(Instruction::from_parts(opcode, immediate).as_u64());
+        }
+
+        pub fn emplace_instruction_raw(&mut self, raw: u64) {
+            self.instructions.push(raw);
+        }
+    }
+
+    impl OperationStream for TestOperationStream {
+        fn next_instruction(&mut self) -> Result<Operation> {
+            let res = self.instructions[self.instruction_pointer];
+            self.instruction_pointer += 1;
+            Instruction::from_u64(res).try_into()
+        }
+
+        fn switch_frame(&mut self, offset: i32) {
+            self.instruction_pointer = ((self.instruction_pointer as i64) + offset as i64) as usize;
+        }
+
+        fn get_instruction_pointer(&self) -> usize {
+            self.instruction_pointer
+        }
+
+        fn get_instructions_len(&self) -> usize {
+            todo!()
+        }
+
+        fn get_next_n(&mut self, n: usize) -> Vec<Operation> {
+            self.instructions[self.instruction_pointer..]
+                .iter()
+                .take(n)
+                .map(|&x| Instruction::from_u64(x).try_into().unwrap())
+                .collect()
+        }
+    }
+
+    // Alloc
+
+    pub struct MockAllocator {
+        pub alloc_count: AtomicUsize,
+        // TODO: track allocations and deallocations more precisely
+    }
+
+    impl Default for MockAllocator {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl MockAllocator {
+        pub fn new() -> Self {
+            Self {
+                alloc_count: AtomicUsize::new(0),
+            }
+        }
+    }
+
+    unsafe impl GlobalAlloc for MockAllocator {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            self.alloc_count.fetch_add(1, Ordering::SeqCst);
+            unsafe { System.alloc(layout) }
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            self.alloc_count.fetch_sub(1, Ordering::SeqCst);
+            unsafe { System.dealloc(ptr, layout) }
+        }
     }
 }

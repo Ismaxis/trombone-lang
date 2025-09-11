@@ -65,7 +65,7 @@ pub enum Operation {
     Rsh,
 
     // Functions
-    PushRetAddress { operands_count: Literal },
+    SetRetAddress { operands_count: Literal },
     Return,
 
     // Comparison
@@ -91,6 +91,51 @@ pub enum Operation {
     // IO
     Read,
     Print,
+}
+
+impl Operation {
+    // returns the difference of stack pointers before and after operation evaluation
+    pub fn calc_stack_diff(&self) -> isize {
+        const UNARY_OP: isize = 0;
+        const BINARY_OP: isize = -1;
+        match self {
+            Operation::PushLiteral { .. } => 1,
+            Operation::Pop => -1,
+            Operation::LocalCopy { .. } => 1,
+            Operation::LocalStore { .. } => -1,
+            Operation::BasicBlockStart { .. } => 0,
+            Operation::Neg => UNARY_OP,
+            Operation::Not => UNARY_OP,
+            Operation::Add => BINARY_OP,
+            Operation::Sub => BINARY_OP,
+            Operation::Mul => BINARY_OP,
+            Operation::Div => BINARY_OP,
+            Operation::Mod => BINARY_OP,
+            Operation::And => BINARY_OP,
+            Operation::Or => BINARY_OP,
+            Operation::Xor => BINARY_OP,
+            Operation::Lsh => BINARY_OP,
+            Operation::Rsh => BINARY_OP,
+            Operation::SetRetAddress { .. } => 0,
+            Operation::Return => -1,
+            Operation::Equal => BINARY_OP,
+            Operation::NotEqual => BINARY_OP,
+            Operation::LessThan => BINARY_OP,
+            Operation::GreaterThan => BINARY_OP,
+            Operation::LessThanOrEqual => BINARY_OP,
+            Operation::GreaterThanOrEqual => BINARY_OP,
+            Operation::Jump { .. } => 0,
+            Operation::JumpIf { .. } => -1,
+            Operation::JumpIfNot { .. } => -1,
+            Operation::HeapAlloc => 0,
+            Operation::HeapPopPtr => -1,
+            Operation::HeapCopyPtr { .. } => 1,
+            Operation::HeapLoad { .. } => 0,
+            Operation::HeapStore { .. } => -2,
+            Operation::Read => 1,
+            Operation::Print => -1,
+        }
+    }
 }
 
 impl TryFrom<Instruction> for Operation {
@@ -129,7 +174,7 @@ impl TryFrom<Instruction> for Operation {
             OP_RSH => Rsh,
 
             // Function operations
-            OP_PUSH_RET_ADDRESS => PushRetAddress {
+            OP_SET_RET_ADDRESS => SetRetAddress {
                 operands_count: value.extract_immediate(),
             },
             OP_RET => Return,
@@ -206,8 +251,8 @@ impl From<Operation> for Instruction {
             Xor => Instruction::from_parts(OP_XOR, 0),
             Lsh => Instruction::from_parts(OP_LSH, 0),
             Rsh => Instruction::from_parts(OP_RSH, 0),
-            PushRetAddress { operands_count } => {
-                Instruction::from_parts(OP_PUSH_RET_ADDRESS, operands_count)
+            SetRetAddress { operands_count } => {
+                Instruction::from_parts(OP_SET_RET_ADDRESS, operands_count)
             }
             Return => Instruction::from_parts(OP_RET, 0),
             Equal => Instruction::from_parts(OP_EQ, 0),

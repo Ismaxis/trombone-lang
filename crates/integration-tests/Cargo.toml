@@ -1,8 +1,10 @@
 [package]
-name = "trombone-compiler"
+name = "integration-tests"
 version = "0.1.0"
 edition.workspace = true
 repository.workspace = true
 
 [dependencies]
 trombone-compiler-lib.workspace = true
+trombone-runner.workspace = true
+trombone-common.workspace = true

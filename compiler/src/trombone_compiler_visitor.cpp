@@ -125,12 +125,16 @@ std::any trombone_compiler_visitor::visitAssignment(TromboneParser::AssignmentCo
 std::any trombone_compiler_visitor::visitArrayAssignment(TromboneParser::ArrayAssignmentContext *ctx) {
     std::string name = ctx->IDENTIFIER()->getText();
     auto meta = get_variable(name);
-    ctx->expr(1)->accept(this);
-    ctx->expr(0)->accept(this);
+    ctx->expr(1)->accept(this);  // value
+    ctx->expr(0)->accept(this);  // offset
     if (meta.type == tromb_t::int_array_t) {
-        uint32_t address = next_address - 1 - meta.address; // different logic for instruction
+        // uint32_t address = next_address - 1 - meta.address; // different logic for instruction
+        // pop_address();
+        // pop_address();
+
         pop_address();
         pop_address();
+        uint32_t address = next_address - 1 - meta.address;  // different logic for instruction
         write_instruction(op_heap_store_ptr, address);
     }
     return std::any();

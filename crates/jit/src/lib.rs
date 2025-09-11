@@ -351,9 +351,9 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 Operation::HeapStore { variable_offset } => {
-                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
                     let offset = vstack.pop();
                     let value = vstack.pop();
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
 
                     // Compute ptr + offset
                     let gep_ptr = unsafe {

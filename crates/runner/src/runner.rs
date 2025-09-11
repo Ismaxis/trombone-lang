@@ -153,7 +153,9 @@ where
 
     pub fn evaluate_next_instruction(&mut self) -> Result<ReturnCode> {
         use Operation::*;
-        match self.stream.next_instruction()? {
+        let prev_sp = self.sp;
+        let operation = self.stream.next_instruction()?;
+        match operation {
             // Stack operations
             PushLiteral { value } => self.push(value as TrombValue),
             Pop => {
@@ -232,7 +234,7 @@ where
             Lsh => self.binary_op(|a, b| a.checked_shl(b as u32).unwrap_or(0)),
             Rsh => self.binary_op(|a, b| a.checked_shr(b as u32).unwrap_or(0)),
 
-            PushRetAddress { operands_count } => {
+            SetRetAddress { operands_count } => {
                 self.stack[self.sp - 1 - operands_count as usize] =
                     1 + self.stream.get_instruction_pointer() as TrombValue;
             }
@@ -321,18 +323,17 @@ where
                 self.push(value);
             }
             HeapStore { variable_offset } => {
-                // TODO: Maybe it is better to pass variable_offset ignoring offset and value values on stack?
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap store".into());
+                }
+                let value = self.pop();
 
                 let ptr = self.get_pointer_from_variable(variable_offset);
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
                 }
 
-                let offset = self.pop();
-                if offset < 0 {
-                    return Err("Negative offset in heap store".into());
-                }
-                let value = self.pop();
                 let ptr = unsafe { ptr.add(offset as usize) };
                 unsafe {
                     *ptr = value;
@@ -351,18 +352,34 @@ where
                 }
             }
             Print => {
-                let value = self.pop();
-                self.output.write_fmt(format_args!("$$ {}\n", value))?;
+                let value = self.pop(); // TODO: Change semantic according to https://github.com/Ismaxis/trombone-lang/pull/52#discussion_r2317237090
+                self.output.write_fmt(format_args!("$ {}\n", value))?;
             }
         }
+        debug_assert_eq!(
+            (prev_sp as isize + operation.calc_stack_diff()) as usize,
+            self.sp,
+            "Expected that operation '{:?}' changes stack by {}, but actual difference is {}",
+            operation,
+            operation.calc_stack_diff(),
+            self.sp as isize - prev_sp as isize
+        );
         Ok(ReturnCode::Continue)
     }
 
     pub fn evaluate(&mut self) -> Result<()> {
         while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
+            // TODO: proper debug mode
             // println!("IP: {}", self.stream.get_instruction_pointer());
-            self.evaluate_next_instruction()?;
+            match self.evaluate_next_instruction() {
+                Ok(ReturnCode::Done) => break,
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(e);
+                }
+            }
         }
+        // TODO: proper debug mode
         // println!("IP: {}", self.stream.get_instruction_pointer());
 
         Ok(())

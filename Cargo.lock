@@ -334,6 +334,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration-tests"
+version = "0.1.0"
+dependencies = [
+ "trombone-common",
+ "trombone-compiler-lib",
+ "trombone-runner",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -766,8 +775,16 @@ dependencies = [
 name = "trombone-compiler"
 version = "0.1.0"
 dependencies = [
+ "trombone-compiler-lib",
+]
+
+[[package]]
+name = "trombone-compiler-lib"
+version = "0.1.0"
+dependencies = [
  "lalrpop",
  "lalrpop-util 0.21.0",
+ "trombone-common",
 ]
 
 [[package]]
