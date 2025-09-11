@@ -30,7 +30,7 @@ mod tests {
     ) -> Result<String> {
         runner
             .stream
-            .emplace_operations(compile_from_string(program.to_string()));
+            .emplace_operations(compiler::compile_from_string(program.to_string()));
         runner.evaluate()?;
 
         Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
@@ -83,6 +83,73 @@ fn main() {
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(result, "> > $ 2783000000\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn function_call() -> Result<()> {
+        let program = r"
+fn main() {
+    foo();
+    foo();
+    foo();
+    return;
+}
+
+fn foo() {
+    print(42);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n$ 42\n$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_with_arguments() -> Result<()> {
+        let program = r"
+fn main() {
+    foo(42);
+    foo(43);
+    foo(44);
+    return;
+}
+
+fn foo(x: int) {
+    print(x);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n$ 43\n$ 44\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_with_multiple_arguments() -> Result<()> {
+        let program = r"
+fn main() {
+    foo(42, 43, 44);
+    foo(52, 53, 54);
+    return;
+}
+
+fn foo(x: int, y: int, z: int) {
+    print(x);
+    print(y);
+    print(z);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n$ 43\n$ 44\n$ 52\n$ 53\n$ 54\n".to_string());
         Ok(())
     }
 

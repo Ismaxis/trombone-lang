@@ -372,7 +372,15 @@ where
         while self.stream.get_instruction_pointer() < self.stream.get_instructions_len() {
             // TODO: proper debug mode
             // println!("IP: {}", self.stream.get_instruction_pointer());
-            self.evaluate_next_instruction()?;
+            match self.evaluate_next_instruction() {
+                Ok(ok) => match ok {
+                    ReturnCode::Done => break,
+                    _ => {}
+                },
+                Err(e) => {
+                    return Err(e);
+                }
+            }
         }
         // TODO: proper debug mode
         // println!("IP: {}", self.stream.get_instruction_pointer());

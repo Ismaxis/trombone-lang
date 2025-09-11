@@ -13,13 +13,9 @@ pub enum OperationPrototype {
     Defined(Operation),
     Call {
         identifier: Identifier,
+        arg_count: isize,
     },
-    Jump,
-    JumpIf,
-    JumpIfNot,
-    SetRetAddress {
-        operands_count: trombone_common::bytecode::Literal,
-    },
+    BasicBlockStart,
 }
 
 impl OperationPrototype {
@@ -27,41 +23,24 @@ impl OperationPrototype {
         let unused_value = 1337;
         match self {
             Self::Defined(op) => op.calc_stack_diff(),
-            Self::Call { identifier: _ } => Operation::Jump {
-                offset: unused_value,
+            Self::Call {
+                identifier: _,
+                arg_count,
+            } => {
+                -arg_count - 1
+                    + Operation::Jump {
+                        offset: unused_value,
+                    }
+                    .calc_stack_diff()
             }
-            .calc_stack_diff(),
-            Self::Jump => Operation::Jump {
-                offset: unused_value,
-            }
-            .calc_stack_diff(),
-            Self::JumpIf => Operation::JumpIf {
-                offset: unused_value,
-            }
-            .calc_stack_diff(),
-            Self::JumpIfNot => Operation::JumpIfNot {
-                offset: unused_value,
-            }
-            .calc_stack_diff(),
-            Self::SetRetAddress { operands_count } => Operation::SetRetAddress {
-                operands_count: *operands_count,
-            }
-            .calc_stack_diff(),
+            Self::BasicBlockStart => todo!("Self::BasicBlockStart"),
         }
     }
 }
 
 impl From<Operation> for OperationPrototype {
     fn from(value: Operation) -> Self {
-        match value {
-            Operation::SetRetAddress { operands_count } => Self::SetRetAddress {
-                operands_count: operands_count,
-            },
-            Operation::Jump { offset: _ } => Self::Jump,
-            Operation::JumpIf { offset: _ } => Self::JumpIf,
-            Operation::JumpIfNot { offset: _ } => Self::JumpIfNot,
-            _ => Self::Defined(value),
-        }
+        Self::Defined(value)
     }
 }
 
@@ -86,14 +65,14 @@ impl Context {
         }
     }
 
-    pub fn declare_func(&mut self, id: &Identifier, meta: FuncMeta) {
+    pub(crate) fn declare_func(&mut self, id: &Identifier, meta: FuncMeta) {
         let prev = self.declared_funcs.insert(id.clone(), meta);
         if prev.is_some() {
             panic!("func '{}' already defined", id);
         }
     }
 
-    fn get_func(&self, id: &Identifier) -> Option<FuncMeta> {
+    pub(crate) fn get_func(&self, id: &Identifier) -> Option<FuncMeta> {
         self.declared_funcs.get(id).cloned()
     }
 
@@ -250,17 +229,16 @@ impl FuncDeclaration {
     pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         debug_assert_eq!(
             ctx.current_rsp, 0,
-            "should be no stack at the beggining of the func"
+            "should be no stack at the beggining of the func '{}'",
+            self.identifier
         );
 
         // prep
-        ctx.declare_func(
-            &self.identifier,
-            FuncMeta {
-                arguments_types: self.params.iter().map(|x| x.type_).collect(),
-                return_type: self.return_type,
-            },
-        );
+        if self.return_type.is_some() {
+            ctx.current_rsp += 1; // reserve for return value
+        }
+        ctx.current_rsp += 1; // reserver for return address
+
         ctx.enter_scope(ScopeTag::Func); // scope for params
 
         // params
@@ -365,7 +343,7 @@ impl Statement {
             Statement::ExpressionStatement { expression } => {
                 let mut ops = expression.visit(ctx);
                 if let Some(expr_type) = expression.get_type(ctx) {
-                    discard_value(expr_type, &mut ops);
+                    discard_value(ctx, &mut ops, expr_type);
                 }
                 ops
             }
@@ -373,12 +351,17 @@ impl Statement {
     }
 }
 
-fn discard_value(return_type: crate::ast::Type, ops: &mut Vec<OperationPrototype>) {
+fn discard_value(
+    ctx: &mut Context,
+    ops: &mut Vec<OperationPrototype>,
+    return_type: crate::ast::Type,
+) {
     let pop_op = match return_type {
-        crate::ast::Type::Int => Operation::Pop.into(),
-        crate::ast::Type::ArrInt => Operation::HeapPopPtr.into(),
-    };
-    ops.push(pop_op);
+        crate::ast::Type::Int => Operation::Pop,
+        crate::ast::Type::ArrInt => Operation::HeapPopPtr,
+    }
+    .into();
+    add_operation(ctx, ops, pop_op);
 }
 
 impl Expression {
@@ -420,7 +403,7 @@ impl Expression {
                         .arguments_types
                         .iter()
                         .cloned()
-                        .map(|x| Some(x))
+                        .map(|x| Some(x)) // TODO: add explicit void type
                         .collect::<Vec<_>>();
                     if given_types != declared_types {
                         // TODO: compare iterators and eval only on error
@@ -457,6 +440,7 @@ impl Expression {
                         &mut ops,
                         OperationPrototype::Call {
                             identifier: identifier.clone(),
+                            arg_count: arg_count as isize,
                         },
                     );
                     ops
@@ -483,7 +467,7 @@ impl Expression {
                         .into(),
                     );
                 } else {
-                    panic!("var '{}' not found", identifier);
+                    panic!("VarReference: var '{}' not found", identifier);
                 }
 
                 ops
@@ -517,7 +501,7 @@ impl Expression {
                 if let Some(fn_meta) = ctx.get_func(&identifier) {
                     fn_meta.return_type.clone()
                 } else {
-                    panic!("func '{}' not found", identifier);
+                    panic!("FuncCall: func '{}' not found", identifier);
                 }
             }
             Expression::UnaryMinus { val: _ } => Some(crate::ast::Type::Int),
@@ -526,7 +510,7 @@ impl Expression {
                 if let Some(var_meta) = ctx.get_var(identifier) {
                     Some(var_meta.type_)
                 } else {
-                    panic!("var '{}' not found", identifier);
+                    panic!("VarReference: var '{}' not found", identifier);
                 }
             }
         }

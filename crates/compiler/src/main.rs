@@ -1,15 +1,21 @@
 use trombone_compiler_lib::*;
 
 fn main() {
-    let test = r"fn main() {
-    let x: int = read();
-    let y: int = read();
-    let z: int = x + y;
-    print(2 * x + y + z);
+    let test = r"
+fn main() {
+    foo(42);
+    foo(42);
+    foo(42);
     return;
-    }";
+}
 
-    let ops = compile_from_string(test.to_string());
+fn foo(x: int) {
+    print(x);
+    return;
+}
+    ";
+
+    let ops = compiler::compile_from_string(test.to_string());
 
     println!("Ops: {:?}", ops)
 }
