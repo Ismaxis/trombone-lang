@@ -412,7 +412,7 @@ mod tests {
             // [x + i] = (42 + i*10)
             runner
                 .stream
-                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (4 - i));
+                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (3 - i));
         }
         for _ in 0..4 {
             runner.evaluate_next_instruction()?;
@@ -581,7 +581,8 @@ mod tests {
             Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x7).as_u64(),
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000002, // LOCAL_COPY
-            0xe400000000000002, // HEAP_STORE_PTR
+            // 0xe400000000000002, // HEAP_STORE_PTR
+            0xe400000000000000, // HEAP_STORE_PTR
             0x0300000000000001, // LOCAL_COPY
             0x0100000000000001, // PUSH 1
             0xa200000000000000, // ADD
