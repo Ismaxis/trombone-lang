@@ -8,7 +8,7 @@ pub struct InstructionWriter<W: Write> {
 
 impl<W: Write> InstructionWriter<W> {
     pub fn new(writer: W) -> Self {
-        Self {writer}
+        Self { writer }
     }
 }
 
