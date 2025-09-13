@@ -5,4 +5,5 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+clap = { version = "4.5.47", features = ["derive"] }
 trombone-compiler-lib.workspace = true
