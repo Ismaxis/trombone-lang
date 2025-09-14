@@ -375,6 +375,11 @@ impl Statement {
                     };
                     add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
+                // Warning: destruct all vars here make other statements broken,
+                // because after destruction all variables, stack becomes zero
+                // -> all accesses to variables lead to "attempt to subtract with overflow"
+
+                // TODO: fix it or build on this mechanism 'dead code detection'
                 ops.append(&mut ctx.destruct_all_vars());
                 add_operation(ctx, &mut ops, Operation::Return.into());
                 ops

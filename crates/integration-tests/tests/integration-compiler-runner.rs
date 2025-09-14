@@ -612,7 +612,6 @@ fn main() {
 
     #[test]
     fn while_condition_is_function_call() -> Result<()> {
-        println!("while fasdkjfalsdkjf adsj");
         let program = r"
 fn main() {
     let x: int = 5;
@@ -632,6 +631,30 @@ fn foo(x: int) -> int {
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn double_while_inner_return() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 5;
+    let y: int = 3;
+    while x > 0 {
+        while y > 0 {
+            print(y);
+            return;
+        }
+        x = x - 1;
+    }
+    return;
+}
+    
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 3\n".to_string());
         Ok(())
     }
 
