@@ -14,12 +14,13 @@ struct Cli {
     input_file: PathBuf,
 
     /// Output file
+    /// Default value is <input-file-no-extension>.trbc
     #[arg(short, long, value_name = "FILE")]
-    output_file: PathBuf,
+    output_file: Option<PathBuf>,
 
     /// File where compiler puts operations in human-friendly format
     #[arg(short, long, value_name = "FILE")]
-    bytecode_as_text: Option<PathBuf>,
+    debug_output: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -31,14 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut program = String::new();
     read_options
-        .open(cli.input_file)?
+        .open(cli.input_file.clone())?
         .read_to_string(&mut program)?;
 
     let ops = compiler::compile_from_string(program);
-    let mut output_writer = FileWriter::new(write_options.open(cli.output_file)?);
+    let output_file = cli
+        .output_file
+        .unwrap_or(cli.input_file.clone().with_extension("trbc"));
+    let mut output_writer = FileWriter::new(write_options.open(output_file)?);
     output_writer.write_all(&ops)?;
 
-    if let Some(bytecode_input) = cli.bytecode_as_text {
+    if let Some(bytecode_input) = cli.debug_output {
         let text: String = ops.iter().map(|op| format!("{:?}\n", op)).collect();
         write_options
             .open(bytecode_input)?
