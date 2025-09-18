@@ -190,13 +190,6 @@ impl Context {
     // This method make context forget variables in scope
     fn exit_scope(&mut self) {
         let top_scope = self.scopes.pop().unwrap();
-        // if let ScopeTag::Block = top_scope.tag {
-        //     debug_assert_eq!(
-        //         top_scope.declared_vars.len(),
-        //         0,
-        //         "destruct_scope_vars should be called before exit_scope"
-        //     );
-        // }
         let prev_sp = top_scope.start_rsp;
         // return address and return values are messy here to assert
         // debug_assert_eq!(
@@ -276,27 +269,16 @@ impl FuncDeclaration {
         }
 
         // statments
-        ctx.enter_scope(ScopeTag::Block); // scop of top func block
-        let ops = visit_statements(ctx, &self.statements);
         debug_assert!(
             matches!(
-                ops.last(),
-                Some(OperationPrototype::Defined(Operation::Return))
+                self.statements.last(),
+                Some(Statement::ReturnStatement { .. })
             ),
             "return statement is mandatory at the end of func"
         );
 
-        // operands are cleared in return // ReturnStatement is mandatory
-        debug_assert_eq!(
-            ctx.scopes.len(),
-            2,
-            "only top function and param scopes left"
-        );
-        debug_assert!(
-            matches!(ctx.cur_scope().tag, ScopeTag::Block),
-            "top function scope"
-        );
-        ctx.exit_scope();
+        let ops = visit_statements(ctx, &self.statements);
+        debug_assert_eq!(ctx.scopes.len(), 1, "only param scopes left");
         debug_assert!(
             matches!(ctx.cur_scope().tag, ScopeTag::FuncParams),
             "param scope"
@@ -315,10 +297,13 @@ impl FuncDeclaration {
 }
 
 fn visit_statements(ctx: &mut Context, statements: &Vec<Statement>) -> Vec<OperationPrototype> {
-    let ops = statements
+    ctx.enter_scope(ScopeTag::Block);
+    let mut ops = statements
         .iter()
         .flat_map(|x| x.visit(ctx))
         .collect::<Vec<_>>();
+    ops.append(&mut ctx.destruct_scope_vars()); // TODO: sometimes generates deadcode, because return before called `destruct_all_vars`
+    ctx.exit_scope();
     ops
 }
 
@@ -381,8 +366,6 @@ impl Statement {
                     };
                     add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
-                // ops.append(&mut ctx.destruct_scope_vars());
-                // ctx.exit_scope();
                 ops.append(&mut ctx.destruct_all_vars());
                 add_operation(ctx, &mut ops, Operation::Return.into());
                 ops
@@ -404,23 +387,13 @@ impl Statement {
 
                 let arms_ops: Vec<Vec<OperationPrototype>> = arms
                     .iter()
-                    .map(|(_, arm)| {
-                        ctx.enter_scope(ScopeTag::Block);
-                        let mut ops = visit_statements(ctx, arm);
-                        ops.append(&mut ctx.destruct_scope_vars());
-                        ctx.exit_scope();
-                        ops
-                    })
+                    .map(|(_, arm)| visit_statements(ctx, arm))
                     .collect();
                 debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
 
-                let else_ops = el.as_ref().map_or(vec![], |else_arm| {
-                    ctx.enter_scope(ScopeTag::Block);
-                    let mut ops = visit_statements(ctx, else_arm);
-                    ops.append(&mut ctx.destruct_scope_vars());
-                    ctx.exit_scope();
-                    ops
-                });
+                let else_ops = el
+                    .as_ref()
+                    .map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
                 debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
 
                 let conds_ops = arms
