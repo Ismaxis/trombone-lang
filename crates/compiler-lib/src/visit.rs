@@ -22,6 +22,7 @@ impl OperationPrototype {
     fn calc_stack_diff(&self) -> isize {
         let unused_value = 1337;
         match self {
+            Self::Defined(Operation::Return) => 0, // we can return multiple times, return address cleared by top scope return
             Self::Defined(op) => op.calc_stack_diff(),
             Self::Call {
                 identifier: _,
@@ -158,7 +159,7 @@ impl Context {
             .collect::<Vec<_>>()
     }
 
-    fn destruct_all_vars(&mut self) -> Vec<OperationPrototype> {
+    fn destruct_all_vars(&self) -> Vec<OperationPrototype> {
         let mut vs = self
             .scopes
             .iter()
@@ -212,7 +213,7 @@ impl Scope {
 }
 
 enum ScopeTag {
-    Func,
+    FuncParams,
     Block,
 }
 
@@ -246,7 +247,7 @@ impl FuncDeclaration {
         }
         ctx.current_rsp += 1; // reserver for return address
 
-        ctx.enter_scope(ScopeTag::Func); // scope for params
+        ctx.enter_scope(ScopeTag::FuncParams); // scope for params
 
         // params
         for param in &self.params {
@@ -280,7 +281,7 @@ impl FuncDeclaration {
             "top function scope"
         );
         ctx.exit_scope();
-        debug_assert!(matches!(ctx.cur_scope().tag, ScopeTag::Func), "param scope");
+        debug_assert!(matches!(ctx.cur_scope().tag, ScopeTag::FuncParams), "param scope");
         ctx.exit_scope();
 
         debug_assert_eq!(
@@ -547,7 +548,14 @@ impl Expression {
                     panic!("func '{}' not found", identifier);
                 }
             }
-            Expression::UnaryMinus { val: _ } => todo!("Expression::UnaryMinus"),
+            Expression::UnaryMinus { val } => {
+                let mut ops = Vec::new();
+                ops.extend(val.visit(ctx));
+
+                add_operation(ctx, &mut ops, Operation::Neg.into());
+
+                ops
+            },
             Expression::Literal { val } => {
                 let mut ops = Vec::new();
                 add_operation(ctx, &mut ops, Operation::PushLiteral { value: *val }.into());

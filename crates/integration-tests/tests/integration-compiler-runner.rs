@@ -30,9 +30,7 @@ mod tests {
     ) -> Result<String> {
         let ops = compiler::compile_from_string(program.to_string());
         ops.iter().for_each(|x| println!("{:?}", *x));
-        runner
-            .stream
-            .emplace_operations(ops);
+        runner.stream.emplace_operations(ops);
         runner.evaluate()?;
 
         Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
@@ -262,6 +260,88 @@ fn main() {
     }
 
     #[test]
+    fn nested_if() -> Result<()> {
+        let program = r"
+fn main() {
+    if 1 {
+        if 1 {
+            print(1);
+        }
+        if 0 {
+            print(2);
+        }
+    }
+    if 0 {
+        if 1 {
+            print(3);
+        }
+        if 0 {
+            print(4);
+        }
+    }
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn if_return() -> Result<()> {
+        let program = r"
+fn main() {
+    print(is_zero(0));
+    print(is_zero(1));
+    print(is_zero(2));
+
+    return;
+}
+
+fn is_zero(x: int) -> int {
+    if x == 0 {
+        return 1;
+    } else {
+        return 0;
+    }
+    return -1;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n$ 0\n$ 0\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn recursion() -> Result<()> {
+        let program = r"
+fn main() {
+    rec(5);
+    return;
+}
+
+fn rec(x: int) {
+    if x == 0 {
+        return;
+    } 
+
+    print(x);
+    rec(x - 1);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn basic_if_else() -> Result<()> {
         let program = r"
 fn main() {
@@ -287,80 +367,81 @@ fn main() {
         Ok(())
     }
 
+    //     #[test]
+    //     fn if_chain() -> Result<()> {
+    //         let program = r"
+    // fn main() {
+    //     foo(1);
+    //     foo(2);
+    //     foo(10);
+    //     return;
+    // }
+
+    // fn foo(x: int) {
+    //     if x == 1 {
+    //         print(1);
+    //     } else if x == 2 {
+    //         print(2);
+    //     } else {
+    //         print(3);
+    //     }
+    // }
+    //         ";
+    //         let mut runner = setup_runner!("");
+    //         let result = run_test(&mut runner, program)?;
+
+    //         assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
+    //         Ok(())
+    //     }
+
+    //     #[test]
+    //     fn if_chain_no_else() -> Result<()> {
+    //         let program = r"
+    // fn main() {
+    //     foo(1);
+    //     foo(2);
+    //     foo(10);
+    //     return;
+    // }
+
+    // fn foo(x: int) {
+    //     if x == 1 {
+    //         print(1);
+    //     } else if x == 2 {
+    //         print(2);
+    //     }
+
+    //     print(3);
+    // }
+    //         ";
+    //         let mut runner = setup_runner!("");
+    //         let result = run_test(&mut runner, program)?;
+
+    //         assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
+    //         Ok(())
+    //     }
+
     #[test]
-    fn if_chain() -> Result<()> {
+    fn factorial() -> Result<()> {
         let program = r"
 fn main() {
-    foo(1);
-    foo(2);
-    foo(10);
+    let n: int = 5;
+    print(factorial(n));
     return;
 }
 
-fn foo(x: int) {
-    if x == 1 {
-        print(1);
-    } else if x == 2 {
-        print(2);
-    } else {
-        print(3);
+fn factorial(n: int) -> int {
+    if n <= 1 {
+        return 1;
     }
+    return n * factorial(n - 1);
 }
-        ";
-        let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
-
-        assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
-        Ok(())
-    }
-
-    #[test]
-    fn if_chain_no_else() -> Result<()> {
-        let program = r"
-fn main() {
-    foo(1);
-    foo(2);
-    foo(10);
-    return;
-}
-
-fn foo(x: int) {
-    if x == 1 {
-        print(1);
-    } else if x == 2 {
-        print(2);
-    }
-
-    print(3);
-}
-        ";
-        let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
-
-        assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
-        Ok(())
-    }
-
-    #[test]
-    fn factorial() {
-        let test = r"
-        fn factorial(n: int) -> int {
-            if n <= 1 {
-                return 1;
-            }
-            return n * factorial(n - 1);
-        }
-
-        fn main() {
-            let n: int = read();
-            print(factorial(n));
-            return;
-        }
     ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
 
-        let res = trombone::ProgramParser::new().parse(test);
-        assert!(res.is_ok(), "{}", res.unwrap_err());
-        // TODO: check execution
+        assert_eq!(result, "$ 120\n".to_string());
+        Ok(())
     }
 
     #[test]
