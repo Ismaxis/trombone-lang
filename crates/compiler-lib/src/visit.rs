@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::once};
 
 use crate::ast::Expression;
 
@@ -281,7 +281,10 @@ impl FuncDeclaration {
             "top function scope"
         );
         ctx.exit_scope();
-        debug_assert!(matches!(ctx.cur_scope().tag, ScopeTag::FuncParams), "param scope");
+        debug_assert!(
+            matches!(ctx.cur_scope().tag, ScopeTag::FuncParams),
+            "param scope"
+        );
         ctx.exit_scope();
 
         debug_assert_eq!(
@@ -372,71 +375,133 @@ impl Statement {
             } => todo!("WhileStatement"),
             Statement::IfStatement { arms, el } => {
                 // TODO: optimization if only 1 if (no else)
-                assert_eq!(arms.len(), 1, "tmp restriction #1");
+                // assert_eq!(arms.len(), 1, "tmp restriction #1");
                 // assert!(el.is_none(), "tmp restriction #2");
 
-                let arm = arms[0].clone();
+                const COND_VAR_SIZE: usize = 1;
+                const JUMP_IN_SIZE: usize = 1;
+                const JUMP_OUT_SIZE: usize = 1;
 
                 let beg_rsp = ctx.current_rsp;
 
-                let mut ops = Vec::new();
+                let mut ops: Vec<OperationPrototype> = Vec::new();
                 ctx.enter_scope(ScopeTag::Block);
-                {
-                    let arm_ops = visit_statements(ctx, &arm.1);
-                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
+                let arms_ops = arms
+                    .iter()
+                    .map(|(_, arm)| visit_statements(ctx, arm))
+                    .collect::<Vec<_>>();
+                debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
 
-                    // let else_ops = vec![];
-                    let else_ops = el.as_ref().map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
-                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
+                let else_ops = el
+                    .as_ref()
+                    .map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
+                debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
 
-                    let cond_ops = arm.0.visit(ctx);
-                    debug_assert_eq!(ctx.current_rsp, beg_rsp + 1, "cond only pushed 1 value");
+                let conds_ops = arms
+                    .iter()
+                    .map(|(cond, _)| {
+                        let ops = cond.visit(ctx);
+                        debug_assert_eq!(
+                            ctx.current_rsp,
+                            beg_rsp + COND_VAR_SIZE,
+                            "cond only pushed 1 value"
+                        );
+                        ctx.current_rsp = beg_rsp; // reset rsp after condition evaluation
+                        ops
+                    })
+                    .collect::<Vec<_>>();
 
-                    ops.extend(cond_ops);
+                // pre-calculate jumps offsets
 
-                    // if true
+                let arms_cumsum = once(0)
+                    .chain(arms_ops.iter().map(|x| x.len()).scan(0, |sum, i| {
+                        *sum += i;
+                        Some(*sum)
+                    }))
+                    .collect::<Vec<_>>();
+
+                let mut arms_cumsum_rev = arms_ops
+                    .iter()
+                    .skip(1)
+                    .chain(once(&else_ops))
+                    .map(|x| x.len())
+                    .chain(once(0))
+                    .rev()
+                    .scan(0, |sum, i| {
+                        *sum += i;
+                        Some(*sum)
+                    })
+                    .collect::<Vec<_>>();
+                arms_cumsum_rev.reverse();
+
+                let mut conds_cumsum = conds_ops
+                    .iter()
+                    .skip(1)
+                    .map(|x| x.len())
+                    .chain(once(0))
+                    .rev()
+                    .scan(0, |sum, i| {
+                        *sum += i;
+                        Some(*sum)
+                    })
+                    .collect::<Vec<_>>();
+                conds_cumsum.reverse();
+
+                for i in 0..arms.len() {
+                    let cond_ops = &conds_ops[i];
+
+                    // condition
+                    ops.extend((*cond_ops).iter().cloned());
+                    ctx.current_rsp = beg_rsp + COND_VAR_SIZE;
+
+                    // jump in
                     add_operation(
                         ctx,
                         &mut ops,
                         Operation::JumpIf {
-                            offset: 2, // TODO: 2 (else case) + (<number of if> - 1) + sum of arm_ops len from 0 to i-1
+                            offset: (1 + // TODO: ;(
+                                conds_cumsum[i]
+                                + arms_cumsum[i]
+                                + JUMP_IN_SIZE * (arms.len() - i)
+                                + JUMP_OUT_SIZE * i) as i32,
                         }
                         .into(),
                     );
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after condition");
+                }
 
-                    // if false, jump over
+                // jump else
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::Jump {
+                        offset: (1 + // TODO: ;(
+                            arms_cumsum.last().unwrap() + JUMP_OUT_SIZE * arms.len())
+                            as i32,
+                    }
+                    .into(),
+                );
+
+                for i in 0..arms.len() {
+                    let arm_ops = &arms_ops[i];
+
+                    // block
+                    ops.extend((*arm_ops).iter().cloned());
+
+                    // jump out
                     add_operation(
                         ctx,
                         &mut ops,
                         Operation::Jump {
-                            offset: 1
-                                + ((arm_ops.len() + 1)) as i32, // TODO: sum over all arms + 1 to each arm (jump out op)
+                            offset: (1 + // TODO: ;(
+                                arms_cumsum_rev[i] + JUMP_OUT_SIZE * (arms.len() - (i + 1)))
+                                as i32,
                         }
                         .into(),
                     );
-
-                    // arm
-                    {
-                        // block
-                        ops.extend(arm_ops);
-
-                        // jump out
-                        add_operation(
-                            ctx,
-                            &mut ops,
-                            Operation::Jump {
-                                offset: 1
-                                    + (0 /* TODO: sum over all remainig arms*/ 
-                                        + else_ops.len())
-                                        as i32, // TODO: sum of all remainig arms ops
-                            }
-                            .into(),
-                        );
-                    }
-
-                    ops.extend(else_ops);
                 }
 
+                ops.extend(else_ops);
                 ctx.exit_scope();
                 ops
             }
@@ -555,7 +620,7 @@ impl Expression {
                 add_operation(ctx, &mut ops, Operation::Neg.into());
 
                 ops
-            },
+            }
             Expression::Literal { val } => {
                 let mut ops = Vec::new();
                 add_operation(ctx, &mut ops, Operation::PushLiteral { value: *val }.into());

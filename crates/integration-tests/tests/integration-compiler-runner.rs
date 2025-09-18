@@ -367,59 +367,64 @@ fn main() {
         Ok(())
     }
 
-    //     #[test]
-    //     fn if_chain() -> Result<()> {
-    //         let program = r"
-    // fn main() {
-    //     foo(1);
-    //     foo(2);
-    //     foo(10);
-    //     return;
-    // }
+    #[test]
+    fn if_chain() -> Result<()> {
+        let program = r"
+    fn main() {
+        foo(1);
+        foo(2);
+        foo(3);
+        foo(10);
+        return;
+    }
 
-    // fn foo(x: int) {
-    //     if x == 1 {
-    //         print(1);
-    //     } else if x == 2 {
-    //         print(2);
-    //     } else {
-    //         print(3);
-    //     }
-    // }
-    //         ";
-    //         let mut runner = setup_runner!("");
-    //         let result = run_test(&mut runner, program)?;
+    fn foo(x: int) {
+        if x == 1 {
+            print(1);
+        } else if x == 2 {
+            print(2);
+        } else if x == 3 {
+            print(3);
+        } else {
+            print(4);
+        }
+        return;
+    }
+            ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
 
-    //         assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
-    //         Ok(())
-    //     }
+        assert_eq!(result, "$ 1\n$ 2\n$ 3\n$ 4\n".to_string());
+        Ok(())
+    }
 
-    //     #[test]
-    //     fn if_chain_no_else() -> Result<()> {
-    //         let program = r"
-    // fn main() {
-    //     foo(1);
-    //     foo(2);
-    //     foo(10);
-    //     return;
-    // }
+    #[test]
+    fn if_chain_no_else() -> Result<()> {
+        let program = r"
+    fn main() {
+        foo(1);
+        foo(2);
+        foo(10);
+        return;
+    }
 
-    // fn foo(x: int) {
-    //     if x == 1 {
-    //         print(1);
-    //     } else if x == 2 {
-    //         print(2);
-    //     }
+    fn foo(x: int) {
+        if x == 1 {
+            print(1);
+        } else if x == 2 {
+            print(2);
+        }
 
-    //     print(3);
-    // }
-    //         ";
-    //         let mut runner = setup_runner!("");
-    //         let result = run_test(&mut runner, program)?;
+        print(3);
+        return;
+    }
+            ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
 
-    //         assert_eq!(result, "$ 1\n$ 2\n$ 3\n".to_string());
-    //         Ok(())
-    //     }
+        assert_eq!(result, "$ 1\n$ 3\n$ 2\n$ 3\n$ 3\n".to_string());
+        Ok(())
+    }
 
     #[test]
     fn factorial() -> Result<()> {
