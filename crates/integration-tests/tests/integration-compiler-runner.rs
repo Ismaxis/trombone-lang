@@ -383,7 +383,7 @@ fn bar(x: int, y: int, z: int) -> int {
         assert_eq!(result, "$ 2\n$ 10\n$ -1\n".to_string());
         Ok(())
     }
-    
+
     #[test]
     fn if_clear_locals() -> Result<()> {
         let program = r"
