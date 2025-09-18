@@ -145,10 +145,11 @@ impl Context {
 
     // Generates operations to destroy variables in current scope
     fn destruct_scope_vars(&mut self) -> Vec<OperationPrototype> {
-        let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
+        let mut vs = self.cur_scope().declared_vars.drain().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
-        vs.iter()
+        let ops = vs
+            .iter()
             .map(|x| {
                 match x.1.type_ {
                     crate::ast::Type::Int => Operation::Pop,
@@ -156,7 +157,15 @@ impl Context {
                 }
                 .into()
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        self.current_rsp = (self.current_rsp as isize
+            + ops
+                .iter()
+                .map(OperationPrototype::calc_stack_diff)
+                .sum::<isize>()) as usize;
+
+        ops
     }
 
     fn destruct_all_vars(&self) -> Vec<OperationPrototype> {
@@ -181,6 +190,13 @@ impl Context {
     // This method make context forget variables in scope
     fn exit_scope(&mut self) {
         let top_scope = self.scopes.pop().unwrap();
+        // if let ScopeTag::Block = top_scope.tag {
+        //     debug_assert_eq!(
+        //         top_scope.declared_vars.len(),
+        //         0,
+        //         "destruct_scope_vars should be called before exit_scope"
+        //     );
+        // }
         let prev_sp = top_scope.start_rsp;
         // return address and return values are messy here to assert
         // debug_assert_eq!(
@@ -365,6 +381,8 @@ impl Statement {
                     };
                     add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
+                // ops.append(&mut ctx.destruct_scope_vars());
+                // ctx.exit_scope();
                 ops.append(&mut ctx.destruct_all_vars());
                 add_operation(ctx, &mut ops, Operation::Return.into());
                 ops
@@ -375,8 +393,6 @@ impl Statement {
             } => todo!("WhileStatement"),
             Statement::IfStatement { arms, el } => {
                 // TODO: optimization if only 1 if (no else)
-                // assert_eq!(arms.len(), 1, "tmp restriction #1");
-                // assert!(el.is_none(), "tmp restriction #2");
 
                 const COND_VAR_SIZE: usize = 1;
                 const JUMP_IN_SIZE: usize = 1;
@@ -385,16 +401,26 @@ impl Statement {
                 let beg_rsp = ctx.current_rsp;
 
                 let mut ops: Vec<OperationPrototype> = Vec::new();
-                ctx.enter_scope(ScopeTag::Block);
-                let arms_ops = arms
+
+                let arms_ops: Vec<Vec<OperationPrototype>> = arms
                     .iter()
-                    .map(|(_, arm)| visit_statements(ctx, arm))
-                    .collect::<Vec<_>>();
+                    .map(|(_, arm)| {
+                        ctx.enter_scope(ScopeTag::Block);
+                        let mut ops = visit_statements(ctx, arm);
+                        ops.append(&mut ctx.destruct_scope_vars());
+                        ctx.exit_scope();
+                        ops
+                    })
+                    .collect();
                 debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
 
-                let else_ops = el
-                    .as_ref()
-                    .map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
+                let else_ops = el.as_ref().map_or(vec![], |else_arm| {
+                    ctx.enter_scope(ScopeTag::Block);
+                    let mut ops = visit_statements(ctx, else_arm);
+                    ops.append(&mut ctx.destruct_scope_vars());
+                    ctx.exit_scope();
+                    ops
+                });
                 debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
 
                 let conds_ops = arms
@@ -501,8 +527,9 @@ impl Statement {
                     );
                 }
 
-                ops.extend(else_ops);
-                ctx.exit_scope();
+                if el.is_some() {
+                    ops.extend(else_ops);
+                }
                 ops
             }
             Statement::ExpressionStatement { expression } => {

@@ -317,6 +317,98 @@ fn is_zero(x: int) -> int {
     }
 
     #[test]
+    fn if_return_hard() -> Result<()> {
+        let program = r"
+fn main() {
+    print(foo(1, 1));
+    print(foo(1, 0));
+    print(foo(0, 1));
+    print(foo(0, 0));
+    return;
+}
+
+fn foo(x: int, y: int) -> int {
+    if x {
+        if y {
+            return 3;
+        } else {
+            return 2;
+        }
+    } else {
+        if y {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+    return -1;
+}
+
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 3\n$ 2\n$ 1\n$ 0\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn if_return_deep() -> Result<()> {
+        let program = r"
+fn main() {
+    print(bar(1, 2, 1));
+    print(bar(1, 10, 1));
+    print(bar(1, 10, 0));
+    return;
+}
+
+fn bar(x: int, y: int, z: int) -> int {
+    let x1: int = x;
+    if x == x1 {
+        let y1: int = y;
+        if y == y1 {
+            let z1: int = z;
+            if z == 1 {
+                return y1;
+            }
+        }
+    }
+    return -1;
+}
+        ";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 2\n$ 10\n$ -1\n".to_string());
+        Ok(())
+    }
+    
+    #[test]
+    fn if_clear_locals() -> Result<()> {
+        let program = r"
+fn main() {
+    print(bar(1, 2, 1));
+    print(bar(1, 10, 1));
+    print(bar(1, -1, 0));
+    return;
+}
+
+fn bar(x: int, y: int, z: int) -> int {
+    if 1 {
+        let x1: int = x;
+    }
+    return y;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 2\n$ 10\n$ -1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn recursion() -> Result<()> {
         let program = r"
 fn main() {
