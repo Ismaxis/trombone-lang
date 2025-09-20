@@ -654,20 +654,17 @@ impl Expression {
 
     fn get_type(&self, ctx: &mut Context) -> Option<crate::ast::Type> {
         match self {
-            Expression::Mul { lhs: _, rhs: _ }
-            | Expression::Div { lhs: _, rhs: _ }
-            | Expression::Add { lhs: _, rhs: _ }
-            | Expression::Sub { lhs: _, rhs: _ }
-            | Expression::Less { lhs: _, rhs: _ }
-            | Expression::Greater { lhs: _, rhs: _ }
-            | Expression::LessEq { lhs: _, rhs: _ }
-            | Expression::GreaterEq { lhs: _, rhs: _ }
-            | Expression::Eq { lhs: _, rhs: _ }
-            | Expression::NonEq { lhs: _, rhs: _ } => Some(crate::ast::Type::Int),
-            Expression::ArrayAccess {
-                identifier: _,
-                index: _,
-            } => {
+            Expression::Mul { .. }
+            | Expression::Div { .. }
+            | Expression::Add { .. }
+            | Expression::Sub { .. }
+            | Expression::Less { .. }
+            | Expression::Greater { .. }
+            | Expression::LessEq { .. }
+            | Expression::GreaterEq { .. }
+            | Expression::Eq { .. }
+            | Expression::NonEq { .. } => Some(crate::ast::Type::Int),
+            Expression::ArrayAccess { .. } => {
                 // NOTE: for now only ints can be stored in array
                 Some(crate::ast::Type::Int)
             }
@@ -681,8 +678,8 @@ impl Expression {
                     panic!("FuncCall: func '{}' not found", identifier);
                 }
             }
-            Expression::UnaryMinus { val: _ } => Some(crate::ast::Type::Int),
-            Expression::Literal { val: _ } => Some(crate::ast::Type::Int),
+            Expression::UnaryMinus { .. } => Some(crate::ast::Type::Int),
+            Expression::Literal { .. } => Some(crate::ast::Type::Int),
             Expression::VarReference { identifier } => {
                 if let Some(var_meta) = ctx.get_var(identifier) {
                     Some(var_meta.type_)
@@ -695,17 +692,17 @@ impl Expression {
 
     fn get_operation(&self) -> Operation {
         match self {
-            Expression::Mul { lhs: _, rhs: _ } => Operation::Mul,
-            Expression::Div { lhs: _, rhs: _ } => Operation::Div,
-            Expression::Add { lhs: _, rhs: _ } => Operation::Add,
-            Expression::Sub { lhs: _, rhs: _ } => Operation::Sub,
-            Expression::Less { lhs: _, rhs: _ } => Operation::LessThan,
-            Expression::Greater { lhs: _, rhs: _ } => Operation::GreaterThan,
-            Expression::LessEq { lhs: _, rhs: _ } => Operation::LessThanOrEqual,
-            Expression::GreaterEq { lhs: _, rhs: _ } => Operation::GreaterThanOrEqual,
-            Expression::Eq { lhs: _, rhs: _ } => Operation::Equal,
-            Expression::NonEq { lhs: _, rhs: _ } => Operation::NotEqual,
-            Expression::UnaryMinus { val: _ } => Operation::Not,
+            Expression::Mul { .. } => Operation::Mul,
+            Expression::Div { .. } => Operation::Div,
+            Expression::Add { .. } => Operation::Add,
+            Expression::Sub { .. } => Operation::Sub,
+            Expression::Less { .. } => Operation::LessThan,
+            Expression::Greater { .. } => Operation::GreaterThan,
+            Expression::LessEq { .. } => Operation::LessThanOrEqual,
+            Expression::GreaterEq { .. } => Operation::GreaterThanOrEqual,
+            Expression::Eq { .. } => Operation::Equal,
+            Expression::NonEq { .. } => Operation::NotEqual,
+            Expression::UnaryMinus { .. } => Operation::Not,
             other => panic!("no operaton for '{:?}'", other),
         }
     }
