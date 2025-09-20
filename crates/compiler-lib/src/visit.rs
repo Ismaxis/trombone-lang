@@ -417,39 +417,11 @@ impl Statement {
                     .collect::<Vec<_>>();
 
                 // pre-calculate jumps offsets
-
-                let arms_cumsum = once(0)
-                    .chain(arms_ops.iter().map(|x| x.len()).scan(0, |sum, i| {
-                        *sum += i;
-                        Some(*sum)
-                    }))
-                    .collect::<Vec<_>>();
-
-                let mut arms_cumsum_rev = arms_ops
-                    .iter()
-                    .skip(1)
-                    .chain(once(&else_ops))
-                    .map(|x| x.len())
-                    .chain(once(0))
-                    .rev()
-                    .scan(0, |sum, i| {
-                        *sum += i;
-                        Some(*sum)
-                    })
-                    .collect::<Vec<_>>();
+                let arms_cumsum = calculate_cumsum(arms_ops.iter());
+                let mut arms_cumsum_rev =
+                    calculate_cumsum(arms_ops.iter().chain(once(&else_ops)).rev());
                 arms_cumsum_rev.reverse();
-
-                let mut conds_cumsum = conds_ops
-                    .iter()
-                    .skip(1)
-                    .map(|x| x.len())
-                    .chain(once(0))
-                    .rev()
-                    .scan(0, |sum, i| {
-                        *sum += i;
-                        Some(*sum)
-                    })
-                    .collect::<Vec<_>>();
+                let mut conds_cumsum = calculate_cumsum(conds_ops.iter().rev());
                 conds_cumsum.reverse();
 
                 for i in 0..arms.len() {
@@ -465,7 +437,7 @@ impl Statement {
                         &mut ops,
                         Operation::JumpIf {
                             offset: (1 + // TODO: ;(
-                                conds_cumsum[i]
+                                conds_cumsum[i + 1]
                                 + arms_cumsum[i]
                                 + JUMP_IN_SIZE * (arms.len() - i)
                                 + JUMP_OUT_SIZE * i) as i32,
@@ -499,7 +471,7 @@ impl Statement {
                         &mut ops,
                         Operation::Jump {
                             offset: (1 + // TODO: ;(
-                                arms_cumsum_rev[i] + JUMP_OUT_SIZE * (arms.len() - (i + 1)))
+                                arms_cumsum_rev[i + 1] + JUMP_OUT_SIZE * (arms.len() - (i + 1)))
                                 as i32,
                         }
                         .into(),
@@ -520,6 +492,18 @@ impl Statement {
             }
         }
     }
+}
+
+fn calculate_cumsum<'a, I>(iter: I) -> Vec<usize>
+where
+    I: Iterator<Item = &'a Vec<OperationPrototype>>,
+{
+    once(0)
+        .chain(iter.map(|x| x.len()).scan(0, |sum, i| {
+            *sum += i;
+            Some(*sum)
+        }))
+        .collect::<Vec<_>>()
 }
 
 fn discard_value(
