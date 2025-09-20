@@ -302,7 +302,13 @@ fn visit_statements(ctx: &mut Context, statements: &Vec<Statement>) -> Vec<Opera
         .iter()
         .flat_map(|x| x.visit(ctx))
         .collect::<Vec<_>>();
-    ops.append(&mut ctx.destruct_scope_vars()); // TODO: sometimes generates deadcode, because return before called `destruct_all_vars`
+
+    // important to remove all deadcode statements after first return
+    if let Some(Statement::ReturnStatement { .. }) = statements.last() {
+        // do not destruct vars, because return already did it
+    } else {
+        ops.append(&mut ctx.destruct_scope_vars());
+    }
     ctx.exit_scope();
     ops
 }
