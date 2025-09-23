@@ -393,9 +393,12 @@ impl Statement {
 
                 let arms_ops: Vec<Vec<OperationPrototype>> = arms
                     .iter()
-                    .map(|(_, arm)| visit_statements(ctx, arm))
+                    .map(|(_, arm)| {
+                        let cur_arm_ops = visit_statements(ctx, arm);
+                        debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
+                        cur_arm_ops
+                    })
                     .collect();
-                debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
 
                 let else_ops = el
                     .as_ref()
@@ -421,8 +424,8 @@ impl Statement {
                 let mut arms_cumsum_rev =
                     calculate_cumsum(arms_ops.iter().chain(once(&else_ops)).rev());
                 arms_cumsum_rev.reverse();
-                let mut conds_cumsum = calculate_cumsum(conds_ops.iter().rev());
-                conds_cumsum.reverse();
+                let mut conds_cumsum_rev = calculate_cumsum(conds_ops.iter().rev());
+                conds_cumsum_rev.reverse();
 
                 for i in 0..arms.len() {
                     let cond_ops = &conds_ops[i];
@@ -436,8 +439,8 @@ impl Statement {
                         ctx,
                         &mut ops,
                         Operation::JumpIf {
-                            offset: (1 + // TODO: ;(
-                                conds_cumsum[i + 1]
+                            offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
+                                conds_cumsum_rev[i + 1]
                                 + arms_cumsum[i]
                                 + JUMP_IN_SIZE * (arms.len() - i)
                                 + JUMP_OUT_SIZE * i) as i32,
@@ -447,17 +450,19 @@ impl Statement {
                     debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after condition");
                 }
 
+                let beg_rsp = ctx.current_rsp;
                 // jump else
                 add_operation(
                     ctx,
                     &mut ops,
                     Operation::Jump {
-                        offset: (1 + // TODO: ;(
+                        offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
                             arms_cumsum.last().unwrap() + JUMP_OUT_SIZE * arms.len())
                             as i32,
                     }
                     .into(),
                 );
+                debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after jumping else");
 
                 for i in 0..arms.len() {
                     let arm_ops = &arms_ops[i];
@@ -465,17 +470,21 @@ impl Statement {
                     // block
                     ops.extend((*arm_ops).iter().cloned());
 
+                    let beg_rsp = ctx.current_rsp;
+
                     // jump out
                     add_operation(
                         ctx,
                         &mut ops,
                         Operation::Jump {
-                            offset: (1 + // TODO: ;(
+                            offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
                                 arms_cumsum_rev[i + 1] + JUMP_OUT_SIZE * (arms.len() - (i + 1)))
                                 as i32,
                         }
                         .into(),
                     );
+
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after jumping out");
                 }
 
                 if el.is_some() {
