@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, iter::once};
 
 use crate::ast::Expression;
 
@@ -22,6 +22,7 @@ impl OperationPrototype {
     fn calc_stack_diff(&self) -> isize {
         let unused_value = 1337;
         match self {
+            Self::Defined(Operation::Return) => 0, // we can return multiple times, return address cleared by top scope return
             Self::Defined(op) => op.calc_stack_diff(),
             Self::Call {
                 identifier: _,
@@ -144,10 +145,11 @@ impl Context {
 
     // Generates operations to destroy variables in current scope
     fn destruct_scope_vars(&mut self) -> Vec<OperationPrototype> {
-        let mut vs = self.cur_scope().declared_vars.iter().collect::<Vec<_>>();
+        let mut vs = self.cur_scope().declared_vars.drain().collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
-        vs.iter()
+        let ops = vs
+            .iter()
             .map(|x| {
                 match x.1.type_ {
                     crate::ast::Type::Int => Operation::Pop,
@@ -155,10 +157,18 @@ impl Context {
                 }
                 .into()
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        self.current_rsp = (self.current_rsp as isize
+            + ops
+                .iter()
+                .map(OperationPrototype::calc_stack_diff)
+                .sum::<isize>()) as usize;
+
+        ops
     }
 
-    fn destruct_all_vars(&mut self) -> Vec<OperationPrototype> {
+    fn destruct_all_vars(&self) -> Vec<OperationPrototype> {
         let mut vs = self
             .scopes
             .iter()
@@ -179,15 +189,16 @@ impl Context {
 
     // This method make context forget variables in scope
     fn exit_scope(&mut self) {
-        let last_scope = self.scopes.pop().unwrap();
-        let prev_sp = last_scope.start_rsp;
-        debug_assert_eq!(
-            prev_sp + last_scope.declared_vars.len(),
-            self.current_rsp,
-            "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
-            prev_sp + last_scope.declared_vars.len(),
-            self.current_rsp
-        );
+        let top_scope = self.scopes.pop().unwrap();
+        let prev_sp = top_scope.start_rsp;
+        // return address and return values are messy here to assert
+        // debug_assert_eq!(
+        //     prev_sp + top_scope.declared_vars.len(),
+        //     self.current_rsp,
+        //     "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
+        //     prev_sp + top_scope.declared_vars.len(),
+        //     self.current_rsp
+        // );
         self.current_rsp = prev_sp;
     }
 
@@ -211,7 +222,7 @@ impl Scope {
 }
 
 enum ScopeTag {
-    Func,
+    FuncParams,
     Block,
 }
 
@@ -245,7 +256,7 @@ impl FuncDeclaration {
         }
         ctx.current_rsp += 1; // reserver for return address
 
-        ctx.enter_scope(ScopeTag::Func); // scope for params
+        ctx.enter_scope(ScopeTag::FuncParams); // scope for params
 
         // params
         for param in &self.params {
@@ -258,23 +269,48 @@ impl FuncDeclaration {
         }
 
         // statments
-        let ops = self
-            .statements
-            .iter()
-            .flat_map(|x| x.visit(ctx))
-            .collect::<Vec<_>>();
-
-        // operands are cleared in return // ReturnStatement is mandatory
         debug_assert!(
             matches!(
-                ops.last(),
-                Some(OperationPrototype::Defined(Operation::Return))
+                self.statements.last(),
+                Some(Statement::ReturnStatement { .. })
             ),
             "return statement is mandatory at the end of func"
         );
 
+        let ops = visit_statements(ctx, &self.statements);
+        debug_assert_eq!(ctx.scopes.len(), 1, "only param scopes left");
+        debug_assert!(
+            matches!(ctx.cur_scope().tag, ScopeTag::FuncParams),
+            "param scope"
+        );
+        ctx.exit_scope();
+
+        debug_assert_eq!(
+            ctx.current_rsp,
+            if self.return_type.is_some() { 2 } else { 1 },
+            "rsp at the end"
+        );
+        ctx.current_rsp = 0;
+
         ops
     }
+}
+
+fn visit_statements(ctx: &mut Context, statements: &Vec<Statement>) -> Vec<OperationPrototype> {
+    ctx.enter_scope(ScopeTag::Block);
+    let mut ops = statements
+        .iter()
+        .flat_map(|x| x.visit(ctx))
+        .collect::<Vec<_>>();
+
+    // important to remove all deadcode statements after first return
+    if let Some(Statement::ReturnStatement { .. }) = statements.last() {
+        // do not destruct vars, because return already did it
+    } else {
+        ops.append(&mut ctx.destruct_scope_vars());
+    }
+    ctx.exit_scope();
+    ops
 }
 
 impl Statement {
@@ -344,7 +380,118 @@ impl Statement {
                 condition: _,
                 statements: _,
             } => todo!("WhileStatement"),
-            Statement::IfStatement { arms: _, el: _ } => todo!("IfStatement"),
+            Statement::IfStatement { arms, el } => {
+                // TODO: optimization if only 1 if (no else)
+
+                const COND_VAR_SIZE: usize = 1;
+                const JUMP_IN_SIZE: usize = 1;
+                const JUMP_OUT_SIZE: usize = 1;
+
+                let beg_rsp = ctx.current_rsp;
+
+                let mut ops: Vec<OperationPrototype> = Vec::new();
+
+                let arms_ops: Vec<Vec<OperationPrototype>> = arms
+                    .iter()
+                    .map(|(_, arm)| {
+                        let cur_arm_ops = visit_statements(ctx, arm);
+                        debug_assert_eq!(ctx.current_rsp, beg_rsp, "arm didn't affect rsp");
+                        cur_arm_ops
+                    })
+                    .collect();
+
+                let else_ops = el
+                    .as_ref()
+                    .map_or(vec![], |else_arm| visit_statements(ctx, else_arm));
+                debug_assert_eq!(ctx.current_rsp, beg_rsp, "else didn't affect rsp");
+
+                let conds_ops = arms
+                    .iter()
+                    .map(|(cond, _)| {
+                        let ops = cond.visit(ctx);
+                        debug_assert_eq!(
+                            ctx.current_rsp,
+                            beg_rsp + COND_VAR_SIZE,
+                            "cond only pushed 1 value"
+                        );
+                        ctx.current_rsp = beg_rsp; // reset rsp after condition evaluation
+                        ops
+                    })
+                    .collect::<Vec<_>>();
+
+                // pre-calculate jumps offsets
+                let arms_cumsum = calculate_cumsum(arms_ops.iter());
+                let mut arms_cumsum_rev =
+                    calculate_cumsum(arms_ops.iter().chain(once(&else_ops)).rev());
+                arms_cumsum_rev.reverse();
+                let mut conds_cumsum_rev = calculate_cumsum(conds_ops.iter().rev());
+                conds_cumsum_rev.reverse();
+
+                for i in 0..arms.len() {
+                    let cond_ops = &conds_ops[i];
+
+                    // condition
+                    ops.extend((*cond_ops).iter().cloned());
+                    ctx.current_rsp = beg_rsp + COND_VAR_SIZE;
+
+                    // jump in
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::JumpIf {
+                            offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
+                                conds_cumsum_rev[i + 1]
+                                + arms_cumsum[i]
+                                + JUMP_IN_SIZE * (arms.len() - i)
+                                + JUMP_OUT_SIZE * i) as i32,
+                        }
+                        .into(),
+                    );
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after condition");
+                }
+
+                let beg_rsp = ctx.current_rsp;
+                // jump else
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::Jump {
+                        offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
+                            arms_cumsum.last().unwrap() + JUMP_OUT_SIZE * arms.len())
+                            as i32,
+                    }
+                    .into(),
+                );
+                debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after jumping else");
+
+                for i in 0..arms.len() {
+                    let arm_ops = &arms_ops[i];
+
+                    // block
+                    ops.extend((*arm_ops).iter().cloned());
+
+                    let beg_rsp = ctx.current_rsp;
+
+                    // jump out
+                    add_operation(
+                        ctx,
+                        &mut ops,
+                        Operation::Jump {
+                            offset: (1 + // TODO: Because Jump does -1 (for more details, check Runner::evaluate_next_instruction() Jump arm)
+                                arms_cumsum_rev[i + 1] + JUMP_OUT_SIZE * (arms.len() - (i + 1)))
+                                as i32,
+                        }
+                        .into(),
+                    );
+
+                    debug_assert_eq!(ctx.current_rsp, beg_rsp, "rsp unchanged after jumping out");
+                }
+
+                if el.is_some() {
+                    ops.extend(else_ops);
+                }
+                ops
+            }
             Statement::ExpressionStatement { expression } => {
                 let mut ops = expression.visit(ctx);
                 if let Some(expr_type) = expression.get_type(ctx) {
@@ -354,6 +501,18 @@ impl Statement {
             }
         }
     }
+}
+
+fn calculate_cumsum<'a, I>(iter: I) -> Vec<usize>
+where
+    I: Iterator<Item = &'a Vec<OperationPrototype>>,
+{
+    once(0)
+        .chain(iter.map(|x| x.len()).scan(0, |sum, i| {
+            *sum += i;
+            Some(*sum)
+        }))
+        .collect::<Vec<_>>()
 }
 
 fn discard_value(
@@ -453,7 +612,14 @@ impl Expression {
                     panic!("func '{}' not found", identifier);
                 }
             }
-            Expression::UnaryMinus { val: _ } => todo!("Expression::UnaryMinus"),
+            Expression::UnaryMinus { val } => {
+                let mut ops = Vec::new();
+                ops.extend(val.visit(ctx));
+
+                add_operation(ctx, &mut ops, Operation::Neg.into());
+
+                ops
+            }
             Expression::Literal { val } => {
                 let mut ops = Vec::new();
                 add_operation(ctx, &mut ops, Operation::PushLiteral { value: *val }.into());
@@ -487,20 +653,17 @@ impl Expression {
 
     fn get_type(&self, ctx: &mut Context) -> Option<crate::ast::Type> {
         match self {
-            Expression::Mul { lhs: _, rhs: _ }
-            | Expression::Div { lhs: _, rhs: _ }
-            | Expression::Add { lhs: _, rhs: _ }
-            | Expression::Sub { lhs: _, rhs: _ }
-            | Expression::Less { lhs: _, rhs: _ }
-            | Expression::Greater { lhs: _, rhs: _ }
-            | Expression::LessEq { lhs: _, rhs: _ }
-            | Expression::GreaterEq { lhs: _, rhs: _ }
-            | Expression::Eq { lhs: _, rhs: _ }
-            | Expression::NonEq { lhs: _, rhs: _ } => Some(crate::ast::Type::Int),
-            Expression::ArrayAccess {
-                identifier: _,
-                index: _,
-            } => {
+            Expression::Mul { .. }
+            | Expression::Div { .. }
+            | Expression::Add { .. }
+            | Expression::Sub { .. }
+            | Expression::Less { .. }
+            | Expression::Greater { .. }
+            | Expression::LessEq { .. }
+            | Expression::GreaterEq { .. }
+            | Expression::Eq { .. }
+            | Expression::NonEq { .. } => Some(crate::ast::Type::Int),
+            Expression::ArrayAccess { .. } => {
                 // NOTE: for now only ints can be stored in array
                 Some(crate::ast::Type::Int)
             }
@@ -514,8 +677,8 @@ impl Expression {
                     panic!("FuncCall: func '{}' not found", identifier);
                 }
             }
-            Expression::UnaryMinus { val: _ } => Some(crate::ast::Type::Int),
-            Expression::Literal { val: _ } => Some(crate::ast::Type::Int),
+            Expression::UnaryMinus { .. } => Some(crate::ast::Type::Int),
+            Expression::Literal { .. } => Some(crate::ast::Type::Int),
             Expression::VarReference { identifier } => {
                 if let Some(var_meta) = ctx.get_var(identifier) {
                     Some(var_meta.type_)
@@ -528,17 +691,17 @@ impl Expression {
 
     fn get_operation(&self) -> Operation {
         match self {
-            Expression::Mul { lhs: _, rhs: _ } => Operation::Mul,
-            Expression::Div { lhs: _, rhs: _ } => Operation::Div,
-            Expression::Add { lhs: _, rhs: _ } => Operation::Add,
-            Expression::Sub { lhs: _, rhs: _ } => Operation::Sub,
-            Expression::Less { lhs: _, rhs: _ } => Operation::LessThan,
-            Expression::Greater { lhs: _, rhs: _ } => Operation::GreaterThan,
-            Expression::LessEq { lhs: _, rhs: _ } => Operation::LessThanOrEqual,
-            Expression::GreaterEq { lhs: _, rhs: _ } => Operation::GreaterThanOrEqual,
-            Expression::Eq { lhs: _, rhs: _ } => Operation::Equal,
-            Expression::NonEq { lhs: _, rhs: _ } => Operation::NotEqual,
-            Expression::UnaryMinus { val: _ } => Operation::Not,
+            Expression::Mul { .. } => Operation::Mul,
+            Expression::Div { .. } => Operation::Div,
+            Expression::Add { .. } => Operation::Add,
+            Expression::Sub { .. } => Operation::Sub,
+            Expression::Less { .. } => Operation::LessThan,
+            Expression::Greater { .. } => Operation::GreaterThan,
+            Expression::LessEq { .. } => Operation::LessThanOrEqual,
+            Expression::GreaterEq { .. } => Operation::GreaterThanOrEqual,
+            Expression::Eq { .. } => Operation::Equal,
+            Expression::NonEq { .. } => Operation::NotEqual,
+            Expression::UnaryMinus { .. } => Operation::Not,
             other => panic!("no operaton for '{:?}'", other),
         }
     }
