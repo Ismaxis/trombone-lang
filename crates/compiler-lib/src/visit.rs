@@ -253,7 +253,7 @@ struct VarMeta {
 // Impl
 
 impl FuncDeclaration {
-        pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
+    pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         debug_assert_eq!(
             ctx.current_rsp, 0,
             "should be no stack at the beggining of the func '{}'",
