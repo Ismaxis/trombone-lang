@@ -71,7 +71,7 @@ fn main() -> Result {
         .and_then(|mut x| x.read_to_string(&mut program))
         .map_err(CompilerError::from_io_to_read_error)?;
 
-    let ops = compiler::compile_from_string(program);
+    let ops = compiler::compile_from_string(program).map_err(CompilerError::to_read_error)?;
     let output_file = cli
         .output_file
         .unwrap_or(cli.input_file.clone().with_extension("trbc"));

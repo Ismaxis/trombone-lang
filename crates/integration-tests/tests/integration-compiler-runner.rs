@@ -2,7 +2,7 @@
 mod tests {
     use trombone_common::error::Result;
 
-    use trombone_runner::runner::{OperationStream, ReturnCode, Runner};
+    use trombone_runner::runner::Runner;
     use trombone_runner::runner_test::test_utils::*;
 
     use trombone_compiler_lib::*;
@@ -28,30 +28,9 @@ mod tests {
         >,
         program: &str,
     ) -> Result<String> {
-        let ops = compiler::compile_from_string(program.to_string());
-        // ops.iter().for_each(|x| println!("{:?}", *x));
+        let ops = compiler::compile_from_string(program.to_string())?;
         runner.stream.emplace_operations(ops);
         runner.evaluate()?;
-        // {
-        //         let mut s = String::from_utf8(runner.output.clone().into_inner()).unwrap();
-
-        //         while runner.stream.get_instruction_pointer() < runner.stream.get_instructions_len() {
-        //             match runner.evaluate_next_instruction() {
-        //                 Ok(ReturnCode::Done) => break,
-        //                 Ok(_) => {}
-        //                 Err(e) => {
-        //                     return Err(e);
-        //                 }
-        //             }
-
-        //             let new_s = String::from_utf8(runner.output.clone().into_inner()).unwrap();
-
-        //             if new_s != s {
-        //                 println!("{}", new_s);
-        //                 s = new_s;
-        //             }
-        //         }
-        // }
 
         Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
     }
@@ -714,41 +693,292 @@ fn main() {
     }
 
     #[test]
-    fn simple_array() -> Result<()> {
+    fn empty_array() -> Result<()> {
         let program = r"
 fn main() {
-    let arr: [int] = array(5);
-    let i: int = 0;
-    while i < 5 {
-        arr[i] = i;
-        i = i + 1;
-    }
-        
-    i = 0;
-    while i < 5 {
-        print(arr[i]);
-        i = i + 1;
-    }
-    
-    arr[0] = -1;
-    arr[4] = -1;
-    
-    i = 0;
-    while i < 5 {
-        print(arr[i]);
-        i = i + 1;
-    }
-    
+    let arr: [int] = array(0);
+    print(123);
     return;
 }
-        ";
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program);
+
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn single_element_array() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(1);
+
+    arr[0] = 42;
+    print(arr[0]);
+
+    return;
+}
+";
+
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
 
-        assert_eq!(
-            result,
-            "$ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ -1\n$ 1\n$ 2\n$ 3\n$ -1\n".to_string()
-        );
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn array_mutation_through_function() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(3);
+
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+
+    set_first(arr, 99);
+
+    print(arr[0]);
+    print(arr[1]);
+    print(arr[2]);
+
+    return;
+}
+
+fn set_first(arr: [int], value: int) {
+    arr[0] = value;
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 99\n$ 20\n$ 30\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn fill_array_through_function() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(5);
+
+    fill(arr, 7, 5);
+
+    let i: int = 0;
+    while i < 5 {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn fill(arr: [int], value: int, n: int) {
+    let i: int = 0;
+
+    while i < n {
+        arr[i] = value;
+        i = i + 1;
+    }
+
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 7\n$ 7\n$ 7\n$ 7\n$ 7\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn sum_array_in_function() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(4);
+
+    arr[0] = 3;
+    arr[1] = 4;
+    arr[2] = 2;
+    arr[3] = 1;
+
+    let result: int = sum(arr, 4);
+    print(result);
+
+    return;
+}
+
+fn sum(arr: [int], n: int) -> int {
+    let total: int = 0;
+    let i: int = 0;
+
+    while i < n {
+        total = total + arr[i];
+        i = i + 1;
+    }
+
+    return total;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 10\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn copy_array_between_arrays() -> Result<()> {
+        let program = r"
+fn main() {
+    let source: [int] = array(4);
+    let destination: [int] = array(4);
+
+    source[0] = 8;
+    source[1] = 6;
+    source[2] = 7;
+    source[3] = 5;
+
+    copy_array(source, destination, 4);
+
+    let i: int = 0;
+    while i < 4 {
+        print(destination[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn copy_array(source: [int], destination: [int], n: int) {
+    let i: int = 0;
+
+    while i < n {
+        destination[i] = source[i];
+        i = i + 1;
+    }
+
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 8\n$ 6\n$ 7\n$ 5\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn reverse_array_in_place() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(5);
+
+    arr[0] = 1;
+    arr[1] = 2;
+    arr[2] = 3;
+    arr[3] = 4;
+    arr[4] = 5;
+
+    reverse(arr, 5);
+
+    let i: int = 0;
+    while i < 5 {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn reverse(arr: [int], n: int) {
+    let left: int = 0;
+    let right: int = n - 1;
+
+    while left < right {
+        let temp: int = arr[left];
+        arr[left] = arr[right];
+        arr[right] = temp;
+
+        left = left + 1;
+        right = right - 1;
+    }
+
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn same_array_passed_twice() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(1);
+    arr[0] = 5;
+
+    modify(arr, arr);
+
+    print(arr[0]);
+
+    return;
+}
+
+fn modify(a: [int], b: [int]) {
+    a[0] = a[0] + 1;
+    b[0] = b[0] + 10;
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 16\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn recursive_array_access() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(3);
+
+    arr[0] = 11;
+    arr[1] = 22;
+    arr[2] = 33;
+
+    print_forward(arr, 0, 3);
+
+    return;
+}
+
+fn print_forward(arr: [int], index: int, n: int) {
+    if index < n {
+        print(arr[index]);
+        print_forward(arr, index + 1, n);
+    }
+
+    return;
+}
+";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 11\n$ 22\n$ 33\n".to_string());
         Ok(())
     }
 
@@ -834,7 +1064,7 @@ fn sieve(n: int) {
     }
 
     #[test]
-    fn sort() -> Result<()> {
+    fn quicksort() -> Result<()> {
         let program = r"
 fn main() {
     let n: int = read();
@@ -895,6 +1125,79 @@ fn quicksort(arr: [int], low: int, high: int) {
         let result = run_test(&mut runner, program)?;
         assert_eq!(result, "> > > > > $ 1\n$ 2\n$ 3\n$ 4\n".to_string());
 
+        Ok(())
+    }
+
+    #[test]
+    fn quicksort_with_duplicates() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(7);
+
+    arr[0] = 2;
+    arr[1] = 7;
+    arr[2] = 2;
+    arr[3] = 9;
+    arr[4] = 1;
+    arr[5] = 5;
+    arr[6] = 1;
+
+    quicksort(arr, 0, 6);
+
+    let i: int = 0;
+    while i < 7 {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn partition(arr: [int], low: int, high: int) -> int {
+    let pivot: int = arr[high];
+    let i: int = low - 1;
+    let j: int = low;
+
+    while j < high {
+        if arr[j] <= pivot {
+            i = i + 1;
+
+            let temp: int = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+
+        j = j + 1;
+    }
+
+    let temp: int = arr[i + 1];
+    arr[i + 1] = arr[high];
+    arr[high] = temp;
+
+    return i + 1;
+}
+
+fn quicksort(arr: [int], low: int, high: int) {
+    if low < high {
+        let pi: int = partition(arr, low, high);
+
+        if low < pi {
+            quicksort(arr, low, pi - 1);
+        }
+
+        if pi < high {
+            quicksort(arr, pi + 1, high);
+        }
+    }
+
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 1\n$ 1\n$ 2\n$ 2\n$ 5\n$ 7\n$ 9\n".to_string());
         Ok(())
     }
 }
