@@ -17,10 +17,10 @@ pub type VmExecuteFunc = unsafe extern "C" fn(Rsp) -> Rsp;
 
 pub trait CodeGenTrait<'ctx> {
     fn jit_compile_basic_block(
-        &self,
+        &'_ self,
         block_id: usize,
         operations: &[Operation],
-    ) -> errors::Result<JitFunction<VmExecuteFunc>>;
+    ) -> errors::Result<JitFunction<'_, VmExecuteFunc>>;
 }
 
 pub struct CodeGen<'ctx> {
@@ -150,10 +150,10 @@ impl<'ctx> VirtualStack<'ctx> {
 
 impl<'ctx> CodeGenTrait<'ctx> for CodeGen<'ctx> {
     fn jit_compile_basic_block(
-        &self,
+        &'_ self,
         block_id: usize,
         operations: &[Operation],
-    ) -> errors::Result<JitFunction<VmExecuteFunc>> {
+    ) -> errors::Result<JitFunction<'_, VmExecuteFunc>> {
         let module_name = format!("block_module_{}", block_id);
         let module = self.context.create_module(&module_name);
 
@@ -496,7 +496,7 @@ fn ptr_with_offset<'ctx>(
 
 pub type ExportedContext = Context;
 
-pub fn init(context: &ExportedContext) -> CodeGen {
+pub fn init(context: &'_ ExportedContext) -> CodeGen<'_> {
     let module = context.create_module("unused_module");
     let builder = context.create_builder();
     let execution_engine = module

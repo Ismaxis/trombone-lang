@@ -168,7 +168,7 @@ impl Context {
         ops
     }
 
-    fn destruct_all_vars(&self) -> Vec<OperationPrototype> {
+    fn destruct_all_vars(&mut self) -> Vec<OperationPrototype> {
         let mut vs = self
             .scopes
             .iter()
@@ -176,7 +176,8 @@ impl Context {
             .collect::<Vec<_>>();
         vs.sort_by(|(_, meta1), (_, meta2)| meta1.address.cmp(&meta2.address).reverse());
 
-        vs.iter()
+        let ops = vs
+            .iter()
             .map(|x| {
                 match x.1.type_ {
                     crate::ast::Type::Int => Operation::Pop,
@@ -184,19 +185,26 @@ impl Context {
                 }
                 .into()
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        self.current_rsp = (self.current_rsp as isize
+            + ops
+                .iter()
+                .map(OperationPrototype::calc_stack_diff)
+                .sum::<isize>()) as usize;
+        ops
     }
 
     // This method make context forget variables in scope
     fn exit_scope(&mut self) {
-        let top_scope = self.scopes.pop().unwrap();
-        let prev_sp = top_scope.start_rsp;
-        // return address and return values are messy here to assert
+        let last_scope = self.scopes.pop().unwrap();
+        let prev_sp = last_scope.start_rsp;
+        // TODO: Revise the assert, taking into account "return value" and "return address" in FuncDeclaration::visit()
         // debug_assert_eq!(
-        //     prev_sp + top_scope.declared_vars.len(),
+        //     prev_sp + last_scope.declared_vars.len(),
         //     self.current_rsp,
         //     "Expected only variables on stack, but found temporaries? Expected stack pointer = {}, found = {}",
-        //     prev_sp + top_scope.declared_vars.len(),
+        //     prev_sp + last_scope.declared_vars.len(),
         //     self.current_rsp
         // );
         self.current_rsp = prev_sp;
@@ -207,6 +215,7 @@ impl Context {
     }
 }
 
+#[derive(Debug)]
 struct Scope {
     start_rsp: usize,
     declared_vars: HashMap<Identifier, VarMeta>,
@@ -221,6 +230,7 @@ impl Scope {
     }
 }
 
+#[derive(Debug)]
 enum ScopeTag {
     FuncParams,
     Block,
@@ -234,7 +244,7 @@ pub struct FuncMeta {
     pub return_type: Option<crate::ast::Type>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct VarMeta {
     address: usize, // rsp at the moment of declaration
     type_: crate::ast::Type,
@@ -254,7 +264,7 @@ impl FuncDeclaration {
         if self.return_type.is_some() {
             ctx.current_rsp += 1; // reserve for return value
         }
-        ctx.current_rsp += 1; // reserver for return address
+        ctx.current_rsp += 1; // reserve for return address
 
         ctx.enter_scope(ScopeTag::FuncParams); // scope for params
 
@@ -269,28 +279,28 @@ impl FuncDeclaration {
         }
 
         // statments
+        let ops = self
+            .statements
+            .iter()
+            .flat_map(|x| x.visit(ctx))
+            .collect::<Vec<_>>();
+
+        // operands are cleared in return // ReturnStatement is mandatory
         debug_assert!(
             matches!(
-                self.statements.last(),
-                Some(Statement::ReturnStatement { .. })
+                ops.last(),
+                Some(OperationPrototype::Defined(Operation::Return))
             ),
             "return statement is mandatory at the end of func"
         );
 
-        let ops = visit_statements(ctx, &self.statements);
-        debug_assert_eq!(ctx.scopes.len(), 1, "only param scopes left");
-        debug_assert!(
-            matches!(ctx.cur_scope().tag, ScopeTag::FuncParams),
-            "param scope"
-        );
         ctx.exit_scope();
 
-        debug_assert_eq!(
-            ctx.current_rsp,
-            if self.return_type.is_some() { 2 } else { 1 },
-            "rsp at the end"
-        );
-        ctx.current_rsp = 0;
+        if self.return_type.is_some() {
+            ctx.current_rsp -= 1; // was reserved for return value
+        }
+
+        ctx.current_rsp -= 1; // was reserved for return address
 
         ops
     }
@@ -372,14 +382,70 @@ impl Statement {
                     };
                     add_operation(ctx, &mut ops, set_return_value_op.into());
                 }
+                // Warning: destruct all vars here make other statements broken,
+                // because after destruction all variables, stack becomes zero
+                // -> all accesses to variables lead to "attempt to subtract with overflow"
+
+                // TODO: fix it or build on this mechanism 'dead code detection'
                 ops.append(&mut ctx.destruct_all_vars());
                 add_operation(ctx, &mut ops, Operation::Return.into());
                 ops
             }
             Statement::WhileStatement {
-                condition: _,
-                statements: _,
-            } => todo!("WhileStatement"),
+                condition,
+                statements,
+            } => {
+                // Ordering of compiling statements_ops before condition_ops is important!
+                // We assume that after [execution condition operations and testing it (execution of OP_JMP_IFNOT)], stack pointer will be the same as before execution (check assert)
+
+                let rsp_before = ctx.current_rsp;
+                ctx.enter_scope(ScopeTag::Block);
+
+                let mut statements_ops = statements
+                    .iter()
+                    .flat_map(|x| x.visit(ctx))
+                    .collect::<Vec<_>>();
+
+                statements_ops.append(&mut ctx.destruct_scope_vars());
+                ctx.exit_scope();
+                assert_eq!(
+                    ctx.current_rsp, rsp_before,
+                    "Statement block evaluation should return stack pointer to previous state"
+                );
+
+                let rsp_before = ctx.current_rsp;
+                let condition_ops = condition.visit(ctx);
+                assert_eq!(
+                    ctx.current_rsp as isize
+                        + Operation::JumpIfNot { offset: 0xBEEF }.calc_stack_diff(),
+                    rsp_before as isize,
+                    "Evaluation of condition expression should not affect stack pointer"
+                );
+
+                let condition_ops_len = condition_ops.len() as i32;
+                let statements_ops_len = statements_ops.len() as i32;
+
+                let mut ops = condition_ops;
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::JumpIfNot {
+                        offset: statements_ops_len + 2,
+                    }
+                    .into(),
+                );
+                ops.append(&mut statements_ops);
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::Jump {
+                        offset: -(statements_ops_len + 1 + condition_ops_len),
+                    }
+                    .into(),
+                );
+
+                ops
+            }
             Statement::IfStatement { arms, el } => {
                 // TODO: optimization if only 1 if (no else)
 

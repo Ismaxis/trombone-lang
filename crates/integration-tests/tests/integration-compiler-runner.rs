@@ -343,7 +343,6 @@ fn foo(x: int, y: int) -> int {
     }
     return -1;
 }
-
         ";
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
@@ -515,6 +514,182 @@ fn main() {
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(result, "$ 1\n$ 3\n$ 2\n$ 3\n$ 3\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn simple_while() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 10;
+    while x > 0 {
+        print(x);
+        x = x - 1;
+    }
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(
+            result,
+            "$ 10\n$ 9\n$ 8\n$ 7\n$ 6\n$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn while_no_execution() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 2;
+    while x != 2 {
+        print(1337);
+    }
+    print(42);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn inner_while() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 5;
+    while x > 0 {
+        let y: int = 3;
+        while y > 0 {
+            print(x * y);
+            y = y - 1;
+        }
+        x = x - 1;
+    }
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(
+            result,
+            "$ 15\n$ 10\n$ 5\n$ 12\n$ 8\n$ 4\n$ 9\n$ 6\n$ 3\n$ 6\n$ 4\n$ 2\n$ 3\n$ 2\n$ 1\n"
+                .to_string()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn return_in_while() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = read();
+    while x == 0 {
+        print(0);
+        return;
+    }
+    print(1);
+    return;
+}
+        ";
+        let mut runner = setup_runner!("0");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "> $ 0\n".to_string());
+
+        let mut runner = setup_runner!("123");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "> $ 1\n".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn return_nested_if_and_while() -> Result<()> {
+        let program = r"
+fn main() {
+    print(while_in_if(1));
+    print(while_in_if(2));
+    print(if_in_while(1));
+    print(if_in_while(2));
+    return;
+}
+
+fn while_in_if(x: int) -> int {
+    if x {
+        while x == 1 {
+            return 1;
+        }
+        return 0;
+    }
+    return -1;
+}
+
+fn if_in_while(x: int) -> int {
+    while x {
+        if x == 1 {
+            return 1;
+        }
+        return 0;
+    }
+    return -1;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "$ 1\n$ 0\n$ 1\n$ 0\n".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn while_condition_is_function_call() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 5;
+    while foo(x) > 0 {
+        print(x);
+        x = x - 1;
+    }
+    return;
+}
+
+fn foo(x: int) -> int {
+    return x > 0;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn double_while_inner_return() -> Result<()> {
+        let program = r"
+fn main() {
+    let x: int = 5;
+    let y: int = 3;
+    while x > 0 {
+        while y > 0 {
+            print(y);
+            return;
+        }
+        x = x - 1;
+    }
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 3\n".to_string());
         Ok(())
     }
 
