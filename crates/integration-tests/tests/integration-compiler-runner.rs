@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use trombone_common::error::Result;
 
     use trombone_runner::runner::Runner;
@@ -16,6 +18,23 @@ mod tests {
                 RunnerType::default_allocator(),
             )
         };
+    }
+
+    macro_rules! setup_runner_with_alloc {
+        ($input:literal) => {{
+            let mock_allocator: &'static MockAllocator = Box::leak(Box::new(MockAllocator {
+                alloc_count: AtomicUsize::new(0),
+            }));
+
+            let runner = Runner::new(
+                SimpleTestOperationStream::new(),
+                std::io::Cursor::new($input.as_bytes()),
+                std::io::Cursor::new(Vec::new()),
+                mock_allocator,
+            );
+
+            (runner, mock_allocator)
+        }};
     }
 
     fn run_test<'a>(
@@ -981,7 +1000,7 @@ fn sum_array(arr: [int], n: int) -> int {
 }
 ";
 
-        let mut runner = setup_runner!("");
+        let (mut runner, mock_allocator) = setup_runner_with_alloc!("");
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(
@@ -1001,6 +1020,9 @@ fn sum_array(arr: [int], n: int) -> int {
          $ 200\n"
                 .to_string()
         );
+
+        // no leaks
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
 
         Ok(())
     }
@@ -1068,7 +1090,7 @@ fn add_to_array(source: [int], n: int, value: int) -> [int] {
 }
 ";
 
-        let mut runner = setup_runner!("");
+        let (mut runner, mock_allocator) = setup_runner_with_alloc!("");
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(
@@ -1081,6 +1103,9 @@ fn add_to_array(source: [int], n: int, value: int) -> [int] {
          $ 25\n"
                 .to_string()
         );
+
+        // no leaks
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
 
         Ok(())
     }
