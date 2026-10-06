@@ -381,6 +381,10 @@ impl Statement {
                     match var_meta.type_ {
                         crate::ast::Type::ArrInt => {
                             // TODO: do we need double pop here??
+                            let stack_diff = Operation::HeapStore {
+                                variable_offset: 1339, /* unused */
+                            }
+                            .calc_stack_diff();
                             add_operation(
                                 ctx,
                                 &mut ops,
@@ -388,7 +392,7 @@ impl Statement {
                                     variable_offset: ctx.current_rsp as i32
                                         - 1
                                         - var_meta.address as i32
-                                        - 2,
+                                        + stack_diff as i32,
                                 }
                                 .into(),
                             );

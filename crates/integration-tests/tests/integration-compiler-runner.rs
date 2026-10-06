@@ -725,7 +725,10 @@ fn main() {
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
 
-        assert_eq!(result, "$ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ -1\n$ 1\n$ 2\n$ 3\n$ -1\n".to_string());
+        assert_eq!(
+            result,
+            "$ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ -1\n$ 1\n$ 2\n$ 3\n$ -1\n".to_string()
+        );
         Ok(())
     }
 
@@ -733,7 +736,7 @@ fn main() {
     fn factorial() -> Result<()> {
         let program = r"
 fn main() {
-    let n: int = 5;
+    let n: int = read();
     print(factorial(n));
     return;
 }
@@ -745,18 +748,35 @@ fn factorial(n: int) -> int {
     return n * factorial(n - 1);
 }
     ";
-        let mut runner = setup_runner!("");
+        let mut runner = setup_runner!("5");
         let result = run_test(&mut runner, program)?;
-
         assert_eq!(result, "$ 120\n".to_string());
+
+        let mut runner = setup_runner!("4");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "$ 20\n".to_string());
+
         Ok(())
     }
 
     #[test]
-    fn sieve() {
-        let test = r"
+    fn sieve() -> Result<()> {
+        let program = r"
+fn main() {
+    let n: int = read();
+    sieve(n);
+    return;
+}
+
 fn sieve(n: int) {
-    let is_prime: [int] = array(n + 1, 1);
+    let is_prime: [int] = array(n + 1);
+
+    let cnt: int = 0;
+    while cnt <= n {
+        is_prime[cnt] = 1;
+        cnt = cnt + 1;
+    }
+
     is_prime[0] = 0;
     is_prime[1] = 0;
 
@@ -780,17 +800,17 @@ fn sieve(n: int) {
         }
         i = i + 1;
     }
-}
-
-fn main() {
-    let n: int = read();
-    sieve(n);
+    return;
 }
 ";
+        let mut runner = setup_runner!("10");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(
+            result,
+            "> $ 2\n$ 3\n$ 5\n$ 7\n".to_string()
+        );
 
-        let res = trombone::ProgramParser::new().parse(test);
-        assert!(res.is_ok(), "{}", res.unwrap_err());
-        // TODO: check execution
+        Ok(())
     }
 
     #[test]
@@ -842,7 +862,6 @@ fn main() {
     }
 }
 ";
-
         let res = trombone::ProgramParser::new().parse(test);
         assert!(res.is_ok(), "{}", res.unwrap_err());
         // TODO: check execution
