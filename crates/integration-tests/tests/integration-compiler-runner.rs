@@ -694,6 +694,42 @@ fn main() {
     }
 
     #[test]
+    fn simple_array() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(5);
+    let i: int = 0;
+    while i < 5 {
+        arr[i] = i;
+        i = i + 1;
+    }
+        
+    i = 0;
+    while i < 5 {
+        print(arr[i]);
+        i = i + 1;
+    }
+    
+    arr[0] = -1;
+    arr[4] = -1;
+    
+    i = 0;
+    while i < 5 {
+        print(arr[i]);
+        i = i + 1;
+    }
+    
+    return;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 0\n$ 1\n$ 2\n$ 3\n$ 4\n$ -1\n$ 1\n$ 2\n$ 3\n$ -1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn factorial() -> Result<()> {
         let program = r"
 fn main() {
