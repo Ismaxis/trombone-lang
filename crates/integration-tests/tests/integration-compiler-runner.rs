@@ -2,7 +2,7 @@
 mod tests {
     use trombone_common::error::Result;
 
-    use trombone_runner::runner::Runner;
+    use trombone_runner::runner::{OperationStream, ReturnCode, Runner};
     use trombone_runner::runner_test::test_utils::*;
 
     use trombone_compiler_lib::*;
@@ -29,9 +29,29 @@ mod tests {
         program: &str,
     ) -> Result<String> {
         let ops = compiler::compile_from_string(program.to_string());
-        ops.iter().for_each(|x| println!("{:?}", *x));
+        // ops.iter().for_each(|x| println!("{:?}", *x));
         runner.stream.emplace_operations(ops);
         runner.evaluate()?;
+        // {
+        //         let mut s = String::from_utf8(runner.output.clone().into_inner()).unwrap();
+
+        //         while runner.stream.get_instruction_pointer() < runner.stream.get_instructions_len() {
+        //             match runner.evaluate_next_instruction() {
+        //                 Ok(ReturnCode::Done) => break,
+        //                 Ok(_) => {}
+        //                 Err(e) => {
+        //                     return Err(e);
+        //                 }
+        //             }
+
+        //             let new_s = String::from_utf8(runner.output.clone().into_inner()).unwrap();
+
+        //             if new_s != s {
+        //                 println!("{}", new_s);
+        //                 s = new_s;
+        //             }
+        //         }
+        // }
 
         Ok(String::from_utf8(runner.output.clone().into_inner()).unwrap())
     }
@@ -750,11 +770,11 @@ fn factorial(n: int) -> int {
     ";
         let mut runner = setup_runner!("5");
         let result = run_test(&mut runner, program)?;
-        assert_eq!(result, "$ 120\n".to_string());
+        assert_eq!(result, "> $ 120\n".to_string());
 
         let mut runner = setup_runner!("4");
         let result = run_test(&mut runner, program)?;
-        assert_eq!(result, "$ 20\n".to_string());
+        assert_eq!(result, "> $ 24\n".to_string());
 
         Ok(())
     }
@@ -769,7 +789,10 @@ fn main() {
 }
 
 fn sieve(n: int) {
-    let is_prime: [int] = array(n + 1);
+    let t: int = n + 1;
+    print(t);
+    let is_prime: [int] = array(t);
+    print(t);
 
     let cnt: int = 0;
     while cnt <= n {
@@ -805,17 +828,34 @@ fn sieve(n: int) {
 ";
         let mut runner = setup_runner!("10");
         let result = run_test(&mut runner, program)?;
-        assert_eq!(
-            result,
-            "> $ 2\n$ 3\n$ 5\n$ 7\n".to_string()
-        );
+        assert_eq!(result, "> $ 11\n$ 11\n$ 2\n$ 3\n$ 5\n$ 7\n".to_string());
 
         Ok(())
     }
 
     #[test]
-    fn sort() {
-        let test = r"
+    fn sort() -> Result<()> {
+        let program = r"
+fn main() {
+    let n: int = read();
+    let arr: [int] = array(n);
+    let i: int = 0;
+    while i < n {
+        arr[i] = read();
+        i = i + 1;
+    }
+
+    quicksort(arr, 0, n - 1);
+
+    i = 0;
+    while i < n {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
 fn partition(arr: [int], low: int, high: int) -> int {
     let pivot: int = arr[high];
     let i: int = low - 1;
@@ -824,10 +864,13 @@ fn partition(arr: [int], low: int, high: int) -> int {
     while j < high {
         if arr[j] <= pivot {
             i = i + 1;
+
             let temp: int = arr[i];
             arr[i] = arr[j];
             arr[j] = temp;
         }
+
+        j = j + 1;
     }
 
     let temp: int = arr[i + 1];
@@ -844,26 +887,14 @@ fn quicksort(arr: [int], low: int, high: int) {
         quicksort(arr, low, pi - 1);
         quicksort(arr, pi + 1, high);
     }
-}
 
-fn main() {
-    let n: int = read();
-    let arr: [int] = array(n);
-    let i: int = 0;
-    while i < n {
-        arr[i] = read();
-        i = i + 1;
-    }
-
-    i = 0;
-    while i < n {
-        print(arr[i]);
-        i = i + 1;
-    }
+    return;
 }
 ";
-        let res = trombone::ProgramParser::new().parse(test);
-        assert!(res.is_ok(), "{}", res.unwrap_err());
-        // TODO: check execution
+        let mut runner = setup_runner!("4\n3\n4\n2\n1");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "> > > > > $ 1\n$ 2\n$ 3\n$ 4\n".to_string());
+
+        Ok(())
     }
 }

@@ -761,7 +761,16 @@ impl Expression {
                             }
                             .into(),
                         ),
-                        crate::ast::Type::ArrInt => todo!("Expression::VarReference ArrInt"),
+                        crate::ast::Type::ArrInt => add_operation(
+                            ctx,
+                            &mut ops,
+                            Operation::HeapCopyPtr {
+                                variable_offset: ctx.current_rsp as i32
+                                    - 1
+                                    - var_meta.address as i32,
+                            }
+                            .into(),
+                        ),
                     }
                 } else {
                     panic!("VarReference: var '{}' not found", identifier);
