@@ -15,6 +15,8 @@ build/
 c/
 cpp/
 
+# coverage
+lcov.info
 
 # Added by cargo
 
