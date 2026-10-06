@@ -343,7 +343,6 @@ fn foo(x: int, y: int) -> int {
     }
     return -1;
 }
-
         ";
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
@@ -611,6 +610,44 @@ fn main() {
     }
 
     #[test]
+    fn return_nested_if_and_while() -> Result<()> {
+        let program = r"
+fn main() {
+    print(while_in_if(1));
+    print(while_in_if(2));
+    print(if_in_while(1));
+    print(if_in_while(2));
+    return;
+}
+
+fn while_in_if(x: int) -> int {
+    if x {
+        while x == 1 {
+            return 1;
+        }
+        return 0;
+    }
+    return -1;
+}
+
+fn if_in_while(x: int) -> int {
+    while x {
+        if x == 1 {
+            return 1;
+        }
+        return 0;
+    }
+    return -1;
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(result, "$ 1\n$ 0\n$ 1\n$ 0\n".to_string());
+
+        Ok(())
+    }
+
+    #[test]
     fn while_condition_is_function_call() -> Result<()> {
         let program = r"
 fn main() {
@@ -625,7 +662,6 @@ fn main() {
 fn foo(x: int) -> int {
     return x > 0;
 }
-    
         ";
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
@@ -649,7 +685,6 @@ fn main() {
     }
     return;
 }
-    
         ";
         let mut runner = setup_runner!("");
         let result = run_test(&mut runner, program)?;
