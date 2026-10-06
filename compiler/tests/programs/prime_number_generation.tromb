@@ -1,20 +1,29 @@
-
 fn main() {
     let n: int = read();
-    let is_prime: [int] = array(n + 1);
-    let i: int = 0;
-    while i <= n {
-        is_prime[i] = 1;
-        i = i + 1;
+    sieve(n);
+    return;
+}
+
+fn sieve(n: int) {
+    let t: int = n + 1;
+    print(t);
+    let is_prime: [int] = array(t);
+    print(t);
+
+    let cnt: int = 0;
+    while cnt <= n {
+        is_prime[cnt] = 1;
+        cnt = cnt + 1;
     }
+
     is_prime[0] = 0;
     is_prime[1] = 0;
 
-    i = 2;
+    let i: int = 2;
     let j: int = 0;
     while i * i <= n {
         if is_prime[i] {
-            j = i * i;
+            let j: int = i * i;
             while j <= n {
                 is_prime[j] = 0;
                 j = j + i;
@@ -26,8 +35,9 @@ fn main() {
     i = 0;
     while i <= n {
         if is_prime[i] {
-            j = print(i);
+            print(i);
         }
         i = i + 1;
     }
+    return;
 }

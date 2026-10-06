@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use crate::*;
 
 use trombone_common::bytecode::Operation;
+use trombone_common::error::Result;
 
-pub fn compile_from_string(program: String) -> Vec<Operation> {
-    let parsed = trombone::ProgramParser::new().parse(program.as_str());
-    assert!(parsed.is_ok());
+pub fn compile_from_string(program: String) -> Result<Vec<Operation>> {
+    let parsed: Result<Vec<ast::FuncDeclaration>> = trombone::ProgramParser::new()
+        .parse(program.as_str())
+        .map_err(|e| e.to_string().into());
 
-    let funcs_ast = parsed.unwrap();
+    let funcs_ast = parsed?;
 
     let mut ctx = visit::Context::new();
     compiler::define_builtin_funcs(&mut ctx);
@@ -39,6 +41,18 @@ pub fn compile_from_string(program: String) -> Vec<Operation> {
         })
         .collect::<HashMap<_, _>>();
 
+    match funcs_addresses.get("main") {
+        Some(0) => {
+            // ok
+        }
+        _ => {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "'main' function should be first in file",
+            )));
+        }
+    }
+
     let global_ops = global_ops
         .iter()
         .enumerate()
@@ -64,7 +78,7 @@ pub fn compile_from_string(program: String) -> Vec<Operation> {
         .rev()
         .collect::<Vec<_>>();
 
-    global_ops
+    Ok(global_ops)
 }
 
 pub fn define_builtin_funcs(ctx: &mut visit::Context) {

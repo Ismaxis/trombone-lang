@@ -1,3 +1,24 @@
+fn main() {
+    let n: int = read();
+    let arr: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        arr[i] = read();
+        i = i + 1;
+    }
+
+    quicksort(arr, 0, n - 1);
+
+    i = 0;
+    while i < n {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
 fn partition(arr: [int], low: int, high: int) -> int {
     let pivot: int = arr[high];
     let i: int = low - 1;
@@ -6,10 +27,13 @@ fn partition(arr: [int], low: int, high: int) -> int {
     while j < high {
         if arr[j] <= pivot {
             i = i + 1;
+
             let temp: int = arr[i];
             arr[i] = arr[j];
             arr[j] = temp;
         }
+
+        j = j + 1;
     }
 
     let temp: int = arr[i + 1];
@@ -20,26 +44,13 @@ fn partition(arr: [int], low: int, high: int) -> int {
 }
 
 fn quicksort(arr: [int], low: int, high: int) {
-    if low < high {
-        int pi = partition(arr, low, high);
+    if low >= high {
+        return;
+    }
         
-        quicksort(arr, low, pi - 1);
-        quicksort(arr, pi + 1, high);
-    }
-}
+    let pi: int = partition(arr, low, high);
 
-fn main() {
-    let n: int = read();
-    let arr: [int] = array(n);
-    let i: int = 0;
-    while i < n {
-        arr[i] = read();
-        i = i + 1;
-    }
-
-    i = 0;
-    while i < n {
-        print(arr[i]);
-        i = i + 1;
-    }
+    quicksort(arr, low, pi - 1);
+    quicksort(arr, pi + 1, high);
+    return;
 }

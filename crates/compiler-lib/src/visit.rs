@@ -368,10 +368,43 @@ impl Statement {
                 }
             }
             Statement::ArrayAssignment {
-                identifier: _,
-                index: _,
-                value: _,
-            } => todo!("ArrayAssignment"),
+                identifier,
+                index,
+                value,
+            } => {
+                let mut ops = Vec::new();
+
+                ops.extend(value.visit(ctx));
+                ops.extend(index.visit(ctx));
+
+                if let Some(var_meta) = ctx.get_var(identifier) {
+                    match var_meta.type_ {
+                        crate::ast::Type::ArrInt => {
+                            // TODO: do we need double pop here??
+                            let stack_diff = Operation::HeapStore {
+                                variable_offset: 1339, /* unused */
+                            }
+                            .calc_stack_diff();
+                            add_operation(
+                                ctx,
+                                &mut ops,
+                                Operation::HeapStore {
+                                    variable_offset: ctx.current_rsp as i32
+                                        - 1
+                                        - var_meta.address as i32
+                                        + stack_diff as i32,
+                                }
+                                .into(),
+                            );
+                        }
+                        t => panic!("array assignment operation unsupported for {:?}", t),
+                    }
+                } else {
+                    panic!("can't assign to '{}': not found", identifier);
+                }
+
+                ops
+            }
             Statement::ReturnStatement { return_value } => {
                 let mut ops = Vec::new();
                 if let Some(return_value) = return_value {
@@ -447,7 +480,7 @@ impl Statement {
                 ops
             }
             Statement::IfStatement { arms, el } => {
-                // TODO: optimization if only 1 if (no else)
+                // TODO: optimization if only 'if' (without 'else')
 
                 const COND_VAR_SIZE: usize = 1;
                 const JUMP_IN_SIZE: usize = 1;
@@ -615,10 +648,32 @@ impl Expression {
 
                 ops
             }
-            Expression::ArrayAccess {
-                identifier: _,
-                index: _,
-            } => todo!("Expression::ArrayAccess"),
+            Expression::ArrayAccess { identifier, index } => {
+                let mut ops = Vec::new();
+
+                if let Some(var_meta) = ctx.get_var(identifier) {
+                    match var_meta.type_ {
+                        crate::ast::Type::ArrInt => {
+                            ops.extend(index.visit(ctx));
+                            add_operation(
+                                ctx,
+                                &mut ops,
+                                Operation::HeapLoad {
+                                    variable_offset: ctx.current_rsp as i32
+                                        - 1
+                                        - var_meta.address as i32,
+                                }
+                                .into(),
+                            );
+                        }
+                        t => panic!("subscript operation unsupported for {:?}", t),
+                    }
+                } else {
+                    panic!("can't access '{}': not found", identifier);
+                }
+
+                ops
+            }
             Expression::FuncCall {
                 identifier,
                 arguments,
@@ -638,8 +693,8 @@ impl Expression {
                     if given_types != declared_types {
                         // TODO: compare iterators and eval only on error
                         panic!(
-                            "given types does not match declared: {:?} != {:?}",
-                            given_types, declared_types
+                            "given types does not match declared for '{}': {:?} != {:?}",
+                            identifier, given_types, declared_types
                         )
                     }
 
@@ -706,7 +761,16 @@ impl Expression {
                             }
                             .into(),
                         ),
-                        crate::ast::Type::ArrInt => todo!("Expression::VarReference ArrInt"),
+                        crate::ast::Type::ArrInt => add_operation(
+                            ctx,
+                            &mut ops,
+                            Operation::HeapCopyPtr {
+                                variable_offset: ctx.current_rsp as i32
+                                    - 1
+                                    - var_meta.address as i32,
+                            }
+                            .into(),
+                        ),
                     }
                 } else {
                     panic!("VarReference: var '{}' not found", identifier);
@@ -794,7 +858,11 @@ fn handle_builtins(
             add_operation(ctx, ops, Operation::Read.into());
             true
         }
-        "array" => todo!("builtin: array(n)"),
+        "array" => {
+            eval_arguments(ctx, ops, arguments);
+            add_operation(ctx, ops, Operation::HeapAlloc.into());
+            true
+        }
         _ => false,
     }
 }
