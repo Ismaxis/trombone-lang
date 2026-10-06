@@ -1064,6 +1064,30 @@ fn sieve(n: int) {
     }
 
     #[test]
+    fn array_out_of_bounds() -> Result<()> {
+        let program = r"
+fn main() {
+    let arr: [int] = array(3);
+
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+
+    arr[3] = 40;
+
+    return;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let _result = run_test(&mut runner, program)?;
+
+        // TODO: ??
+
+        Ok(())
+    }
+
+    #[test]
     fn quicksort() -> Result<()> {
         let program = r"
 fn main() {
@@ -1124,6 +1148,114 @@ fn quicksort(arr: [int], low: int, high: int) {
         let mut runner = setup_runner!("4\n3\n4\n2\n1");
         let result = run_test(&mut runner, program)?;
         assert_eq!(result, "> > > > > $ 1\n$ 2\n$ 3\n$ 4\n".to_string());
+
+        let mut runner = setup_runner!(
+            "20\n\
+         17\n\
+         3\n\
+         14\n\
+         1\n\
+         19\n\
+         8\n\
+         6\n\
+         12\n\
+         4\n\
+         20\n\
+         2\n\
+         15\n\
+         9\n\
+         7\n\
+         13\n\
+         5\n\
+         18\n\
+         10\n\
+         11\n\
+         16"
+        );
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(
+            result,
+            "> > > > > > > > > > > > > > > > > > > > > \
+         $ 1\n\
+         $ 2\n\
+         $ 3\n\
+         $ 4\n\
+         $ 5\n\
+         $ 6\n\
+         $ 7\n\
+         $ 8\n\
+         $ 9\n\
+         $ 10\n\
+         $ 11\n\
+         $ 12\n\
+         $ 13\n\
+         $ 14\n\
+         $ 15\n\
+         $ 16\n\
+         $ 17\n\
+         $ 18\n\
+         $ 19\n\
+         $ 20\n"
+                .to_string()
+        );
+
+        let mut runner = setup_runner!(
+            "24\n\
+         5\n\
+         3\n\
+         8\n\
+         3\n\
+         1\n\
+         9\n\
+         5\n\
+         2\n\
+         8\n\
+         7\n\
+         3\n\
+         6\n\
+         4\n\
+         9\n\
+         1\n\
+         5\n\
+         2\n\
+         7\n\
+         6\n\
+         4\n\
+         8\n\
+         2\n\
+         9\n\
+         1"
+        );
+        let result = run_test(&mut runner, program)?;
+        assert_eq!(
+            result,
+            "> > > > > > > > > > > > > > > > > > > > > > > > > \
+         $ 1\n\
+         $ 1\n\
+         $ 1\n\
+         $ 2\n\
+         $ 2\n\
+         $ 2\n\
+         $ 3\n\
+         $ 3\n\
+         $ 3\n\
+         $ 4\n\
+         $ 4\n\
+         $ 5\n\
+         $ 5\n\
+         $ 5\n\
+         $ 6\n\
+         $ 6\n\
+         $ 7\n\
+         $ 7\n\
+         $ 8\n\
+         $ 8\n\
+         $ 8\n\
+         $ 9\n\
+         $ 9\n\
+         $ 9\n"
+                .to_string()
+        );
 
         Ok(())
     }
