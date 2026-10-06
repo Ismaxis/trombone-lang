@@ -877,6 +877,215 @@ fn copy_array(source: [int], destination: [int], n: int) {
     }
 
     #[test]
+    fn clone_array() -> Result<()> {
+        let program = r"
+fn main() {
+    let source: [int] = array(4);
+
+    source[0] = 8;
+    source[1] = 6;
+    source[2] = 7;
+    source[3] = 5;
+
+    let destination: [int] = clone_array(source, 4);
+
+    let i: int = 0;
+    while i < 4 {
+        print(destination[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn clone_array(source: [int], n: int) -> [int] {
+    let i: int = 0;
+    let destination: [int] = array(n);
+
+    while i < n {
+        destination[i] = source[i];
+        i = i + 1;
+    }
+
+    return destination;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 8\n$ 6\n$ 7\n$ 5\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn return_transformed_array_from_function() -> Result<()> {
+        let program = r"
+fn main() {
+    let source: [int] = array(8);
+
+    source[0] = 12;
+    source[1] = 3;
+    source[2] = 19;
+    source[3] = 7;
+    source[4] = 1;
+    source[5] = 15;
+    source[6] = 8;
+    source[7] = 4;
+
+    let transformed: [int] = transform_array(source, 8);
+
+    let total: int = sum_array(transformed, 8);
+    print(total);
+
+    let i: int = 0;
+    while i < 8 {
+        print(transformed[i]);
+        i = i + 1;
+    }
+
+    transformed[0] = 100;
+    transformed[7] = 200;
+
+    print(source[0]);
+    print(source[7]);
+
+    print(transformed[0]);
+    print(transformed[7]);
+
+    return;
+}
+
+fn transform_array(source: [int], n: int) -> [int] {
+    let destination: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        destination[i] = source[n - i - 1] * 2;
+        i = i + 1;
+    }
+
+    return destination;
+}
+
+fn sum_array(arr: [int], n: int) -> int {
+    let total: int = 0;
+    let i: int = 0;
+
+    while i < n {
+        total = total + arr[i];
+        i = i + 1;
+    }
+
+    return total;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(
+            result,
+            "$ 138\n\
+         $ 8\n\
+         $ 16\n\
+         $ 30\n\
+         $ 2\n\
+         $ 14\n\
+         $ 38\n\
+         $ 6\n\
+         $ 24\n\
+         $ 12\n\
+         $ 4\n\
+         $ 100\n\
+         $ 200\n"
+                .to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn chained_array_return_functions() -> Result<()> {
+        let program = r"
+fn main() {
+    let source: [int] = array(6);
+
+    source[0] = 10;
+    source[1] = 20;
+    source[2] = 30;
+    source[3] = 40;
+    source[4] = 50;
+    source[5] = 60;
+
+    let doubled: [int] = multiply_array(source, 6, 2);
+    let reversed: [int] = reverse_array(doubled, 6);
+    let shifted: [int] = add_to_array(reversed, 6, 5);
+
+    let i: int = 0;
+    while i < 6 {
+        print(shifted[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn multiply_array(source: [int], n: int, factor: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[i] * factor;
+        i = i + 1;
+    }
+
+    return result;
+}
+
+fn reverse_array(source: [int], n: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[n - i - 1];
+        i = i + 1;
+    }
+
+    return result;
+}
+
+fn add_to_array(source: [int], n: int, value: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[i] + value;
+        i = i + 1;
+    }
+
+    return result;
+}
+";
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(
+            result,
+            "$ 125\n\
+         $ 105\n\
+         $ 85\n\
+         $ 65\n\
+         $ 45\n\
+         $ 25\n"
+                .to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn reverse_array_in_place() -> Result<()> {
         let program = r"
 fn main() {
