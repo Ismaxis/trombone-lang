@@ -7,10 +7,20 @@ pub struct InstructionWriter<W: Write> {
 }
 
 impl<W: Write> InstructionWriter<W> {
-    pub fn write(&mut self, op: Operation) -> Result<usize> {
+    pub fn new(writer: W) -> Self {
+        Self { writer }
+    }
+}
+
+impl<W: Write> InstructionWriter<W> {
+    pub fn write(&mut self, op: &Operation) -> Result<usize> {
         self.writer
-            .write(Instruction::from(op).as_u64().to_le_bytes().as_slice())
+            .write(Instruction::from(*op).as_u64().to_le_bytes().as_slice())
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+    }
+
+    pub fn write_all(&mut self, op: &[Operation]) -> Result<usize> {
+        op.iter().map(|op| self.write(op)).sum()
     }
 }
 
