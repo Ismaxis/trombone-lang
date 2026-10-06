@@ -168,7 +168,7 @@ impl Context {
         ops
     }
 
-    fn destruct_all_vars(&self) -> Vec<OperationPrototype> {
+    fn destruct_all_vars(&mut self) -> Vec<OperationPrototype> {
         let mut vs = self
             .scopes
             .iter()
@@ -253,7 +253,7 @@ struct VarMeta {
 // Impl
 
 impl FuncDeclaration {
-    pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
+        pub fn visit(&self, ctx: &mut Context) -> Vec<OperationPrototype> {
         debug_assert_eq!(
             ctx.current_rsp, 0,
             "should be no stack at the beggining of the func '{}'",
@@ -279,10 +279,17 @@ impl FuncDeclaration {
         }
 
         // statments
+        let ops = self
+            .statements
+            .iter()
+            .flat_map(|x| x.visit(ctx))
+            .collect::<Vec<_>>();
+
+        // operands are cleared in return // ReturnStatement is mandatory
         debug_assert!(
             matches!(
-                self.statements.last(),
-                Some(Statement::ReturnStatement { .. })
+                ops.last(),
+                Some(OperationPrototype::Defined(Operation::Return))
             ),
             "return statement is mandatory at the end of func"
         );
