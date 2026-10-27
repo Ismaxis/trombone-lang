@@ -20,7 +20,8 @@ pub const OP_POP: OpCode = 0x02;
 // |  0x03-04 |      Unused      |      Offset to variable     |
 // +----------+------------------+-----------------------------+
 pub const OP_LOCAL_COPY: OpCode = 0x03; // Reads Nth (N = offset) value from top of stack and pushes it on top of stack
-pub const OP_LOCAL_STORE: OpCode = 0x04; // Pops top of stack and store it to Nth (N = offset) value from top of stack 
+pub const OP_LOCAL_STORE: OpCode = 0x04; // Pops top of stack and store it to Nth (N = offset) value from top of stack
+// NOTE: offset always >= 1
 
 // Basic block instruction
 // 63       56 55              32 31                           0
@@ -75,7 +76,7 @@ pub const OP_GE: OpCode = 0xc5; // Greater than or equal
 // | 0xd0-d2  |      Unused      |         Jump Offset         |
 // +----------+------------------+-----------------------------+
 pub const OP_JMP: OpCode = 0xd0; // Unconditional jump // NOJIT
-pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true // NOJIT 
+pub const OP_JMP_IF: OpCode = 0xd1; // Jump if true // NOJIT
 pub const OP_JMP_IF_NOT: OpCode = 0xd2; // Jump if false // NOJIT
 
 // Heap instructions
@@ -96,7 +97,7 @@ pub const OP_HEAP_COPY_PTR: OpCode = 0xe2; // Copies and pushes `ptr`, increment
 // `offset` - top of stack
 // `ptr` - variable by offset
 pub const OP_HEAP_LOAD_PTR: OpCode = 0xe3; // Pushes `ptr` + `offset`, increments refcount
-// `offset` - top of stack
+// `offset` - top of stack (always >= 2)
 // `value` - second value on stack
 // `ptr` - variable by offset
 pub const OP_HEAP_STORE_PTR: OpCode = 0xe4; // Stores `value` to `ptr` + `offset`

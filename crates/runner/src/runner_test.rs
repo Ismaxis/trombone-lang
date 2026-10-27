@@ -56,7 +56,7 @@ mod tests {
         runner.evaluate_next_instruction()?;
 
         // x = x1
-        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 7);
+        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 8);
         runner.evaluate_next_instruction()?;
 
         let stack_should_be = vec![42 + 54 + 68, 54, 68, 0, 0, 0, 0, 0];
@@ -88,7 +88,7 @@ mod tests {
 
         // OP_LOCAL_STORE {with offset zero} means "put top value on next after top value"
         // or, in some absurd sense "pop second value"
-        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 0);
+        runner.stream.emplace_instruction(opcode::OP_LOCAL_STORE, 1);
         runner.evaluate_next_instruction()?;
         assert_eq!(runner.stack[0..runner.sp], vec![42, 1000]);
 
@@ -139,7 +139,7 @@ mod tests {
             (Operation::Add,    opcode::OP_ADD, Box::new(|x, y| { x + y })),
             (Operation::Sub,    opcode::OP_SUB, Box::new(|x, y| { x - y })),
             (Operation::Mul,    opcode::OP_MUL, Box::new(|x, y| { x * y })),
-            (Operation::Div,    opcode::OP_DIV, Box::new(|x, y| { x / y })), 
+            (Operation::Div,    opcode::OP_DIV, Box::new(|x, y| { x / y })),
             (Operation::Mod,    opcode::OP_MOD, Box::new(|x, y| { x % y })),
             (Operation::And,    opcode::OP_AND, Box::new(|x, y| { x & y })),
             (Operation::Or,     opcode::OP_OR,  Box::new(|x, y| { x | y })),
@@ -412,7 +412,7 @@ mod tests {
             // [x + i] = (42 + i*10)
             runner
                 .stream
-                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (3 - i));
+                .emplace_instruction(OP_HEAP_STORE_PTR, 0x2 * (4 - i)); // NOTE: offset always >= 2
         }
         for _ in 0..4 {
             runner.evaluate_next_instruction()?;
@@ -581,17 +581,16 @@ mod tests {
             Instruction::from_parts(opcode::OP_BASICBLOCK_START, 0x7).as_u64(),
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000002, // LOCAL_COPY
-            // 0xe400000000000002, // HEAP_STORE_PTR
-            0xe400000000000000, // HEAP_STORE_PTR
+            0xe400000000000002, // HEAP_STORE_PTR
             0x0300000000000001, // LOCAL_COPY
             0x0100000000000001, // PUSH 1
             0xa200000000000000, // ADD
-            0x0400000000000001, // LOCAL_STORE
+            0x0400000000000002, // LOCAL_STORE
             /* asssign loop body end */
             0xd0000000fffffff4, // JMP -12 (to loop cond)
             /* print loop */
             0x0100000000000000, // PUSH 0
-            0x0400000000000001, // LOCAL_STORE
+            0x0400000000000002, // LOCAL_STORE
             0x0300000000000001, // LOCAL_COPY
             0x0300000000000003, // LOCAL_COPY
             0xc200000000000000, // LT
@@ -602,7 +601,7 @@ mod tests {
             0x0300000000000001, // LOCAL_COPY
             0x0100000000000001, // PUSH 1
             0xa200000000000000, // ADD
-            0x0400000000000001, // LOCAL_STORE
+            0x0400000000000002, // LOCAL_STORE
             0xd0000000fffffff5, // JMP
             0xe100000000000000, // HEAP_POP_PTR
             0x0200000000000000, // POP

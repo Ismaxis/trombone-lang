@@ -267,7 +267,8 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 Operation::LocalStore { variable_offset } => {
                     let value = vstack.pop();
-                    vstack.set(calc_stack_offset(variable_offset), value);
+                    let adjusted_offset = variable_offset - 1; // NOTE: because all offsets are valid at the begining of Operation execution
+                    vstack.set(calc_stack_offset(&adjusted_offset), value);
                 }
 
                 // Arithmetic
@@ -351,9 +352,9 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 Operation::HeapStore { variable_offset } => {
+                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
                     let offset = vstack.pop();
                     let value = vstack.pop();
-                    let ptr = vstack.get_ptr(calc_stack_offset(variable_offset));
 
                     // Compute ptr + offset
                     let gep_ptr = unsafe {
@@ -476,7 +477,7 @@ impl<'ctx> CodeGen<'ctx> {
 }
 
 fn calc_stack_offset(variable_offset: &i32) -> i64 {
-    -(*variable_offset as i64) - 1
+    -(*variable_offset as i64) - 1 // NOTE: -1 because rsp points to first free cell
 }
 
 fn ptr_with_offset<'ctx>(
@@ -568,7 +569,12 @@ pub mod tests {
 
         // LocalStore
         let localstore_jit = codegen
-            .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 7 }; 3])
+            .jit_compile_basic_block(
+                1,
+                &[Operation::LocalStore {
+                    variable_offset: 7 + 1,
+                }; 3],
+            )
             .expect("Failed to compile local_store function");
         {
             stack[8] = 11;
@@ -591,7 +597,7 @@ pub mod tests {
             .jit_compile_basic_block(0, &[Operation::LocalCopy { variable_offset: 0 }])
             .expect("Failed to compile local_copy function");
         let localstore_jit_zero = codegen
-            .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 0 }])
+            .jit_compile_basic_block(1, &[Operation::LocalStore { variable_offset: 1 }])
             .expect("Failed to compile local_store function");
 
         let mut stack: [TrombValue; 16] = [TrombValue::default(); 16];

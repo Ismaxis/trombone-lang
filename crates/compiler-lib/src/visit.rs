@@ -250,6 +250,12 @@ struct VarMeta {
     type_: crate::ast::Type,
 }
 
+impl VarMeta {
+    pub fn calc_variable_offset(&self, rsp: usize) -> i32 {
+        rsp as i32 - self.address as i32 - 1
+    }
+}
+
 // Impl
 
 impl FuncDeclaration {
@@ -331,7 +337,7 @@ impl Statement {
             } => {
                 let address = ctx.current_rsp;
                 let ops = value.visit(ctx);
-                assert_eq!(
+                debug_assert_eq!(
                     address,
                     ctx.current_rsp - 1,
                     "expression evaluation should advance rsp"
@@ -352,9 +358,9 @@ impl Statement {
                     let mut ops = value.visit(ctx);
                     match var_meta.type_ {
                         crate::ast::Type::Int => {
-                            let offset = ctx.current_rsp - 1 - var_meta.address - 1; // TODO: check
+                            let offset = var_meta.calc_variable_offset(ctx.current_rsp);
                             let op = Operation::LocalStore {
-                                variable_offset: offset as i32,
+                                variable_offset: offset,
                             };
                             add_operation(ctx, &mut ops, op.into());
                             ops
@@ -378,19 +384,11 @@ impl Statement {
                 if let Some(var_meta) = ctx.get_var(identifier) {
                     match var_meta.type_ {
                         crate::ast::Type::ArrInt => {
-                            // TODO: do we need double pop here??
-                            let stack_diff = Operation::HeapStore {
-                                variable_offset: 1339, /* unused */
-                            }
-                            .calc_stack_diff();
                             add_operation(
                                 ctx,
                                 &mut ops,
                                 Operation::HeapStore {
-                                    variable_offset: ctx.current_rsp as i32
-                                        - 1
-                                        - var_meta.address as i32
-                                        + stack_diff as i32,
+                                    variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
                                 }
                                 .into(),
                             );
@@ -407,7 +405,7 @@ impl Statement {
                 let mut ops = Vec::new();
                 if let Some(return_value) = return_value {
                     ops = return_value.visit(ctx);
-                    let return_value_offset = (ctx.current_rsp - 1 - 1) as i32; // TODO: abstract calculating it in other method
+                    let return_value_offset = (ctx.current_rsp - 1) as i32;
                     let set_return_value_op = Operation::LocalStore {
                         variable_offset: return_value_offset,
                     };
@@ -662,7 +660,7 @@ impl Expression {
                     ctx,
                     &mut ops,
                     Operation::HeapLoad {
-                        variable_offset: ctx.current_rsp as i32 - 1 - var_meta.address as i32,
+                        variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
                     }
                     .into(),
                 );
@@ -750,9 +748,7 @@ impl Expression {
                             ctx,
                             &mut ops,
                             Operation::LocalCopy {
-                                variable_offset: ctx.current_rsp as i32
-                                    - 1
-                                    - var_meta.address as i32,
+                                variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
                             }
                             .into(),
                         ),
@@ -760,9 +756,7 @@ impl Expression {
                             ctx,
                             &mut ops,
                             Operation::HeapCopyPtr {
-                                variable_offset: ctx.current_rsp as i32
-                                    - 1
-                                    - var_meta.address as i32,
+                                variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
                             }
                             .into(),
                         ),
