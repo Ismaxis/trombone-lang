@@ -41,16 +41,11 @@ pub fn compile_from_string(program: String) -> Result<Vec<Operation>> {
         })
         .collect::<HashMap<_, _>>();
 
-    match funcs_addresses.get("main") {
-        Some(0) => {
-            // ok
-        }
-        _ => {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "'main' function should be first in file",
-            )));
-        }
+    if funcs_addresses.get("main") != Some(&0) {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "'main' function should be first in file",
+        )));
     }
 
     let global_ops = global_ops

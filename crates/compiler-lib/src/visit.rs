@@ -649,27 +649,15 @@ impl Expression {
             Expression::ArrayAccess { identifier, index } => {
                 let mut ops = Vec::new();
 
-                if let Some(var_meta) = ctx.get_var(identifier) {
-                    match var_meta.type_ {
-                        crate::ast::Type::ArrInt => {
-                            ops.extend(index.visit(ctx));
-                            add_operation(
-                                ctx,
-                                &mut ops,
-                                Operation::HeapLoad {
-                                    variable_offset: ctx.current_rsp as i32
-                                        - 1
-                                        - var_meta.address as i32,
-                                }
-                                .into(),
-                            );
-                        }
-                        t => panic!("subscript operation unsupported for {:?}", t),
-                    }
-                } else {
+                let Some(var_meta) = ctx.get_var(identifier) else {
                     panic!("can't access '{}': not found", identifier);
+                };
+
+                if var_meta.type_ != crate::ast::Type::ArrInt {
+                    panic!("subscript operation unsupported for {:?}", var_meta.type_);
                 }
 
+                ops.extend(index.visit(ctx));
                 ops
             }
             Expression::FuncCall {
