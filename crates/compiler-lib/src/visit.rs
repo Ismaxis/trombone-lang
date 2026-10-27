@@ -658,6 +658,15 @@ impl Expression {
                 }
 
                 ops.extend(index.visit(ctx));
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::HeapLoad {
+                        variable_offset: ctx.current_rsp as i32 - 1 - var_meta.address as i32,
+                    }
+                    .into(),
+                );
+
                 ops
             }
             Expression::FuncCall {
