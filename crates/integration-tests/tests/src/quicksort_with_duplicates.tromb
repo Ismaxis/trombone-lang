@@ -1,0 +1,61 @@
+fn main() {
+    let arr: [int] = array(7);
+
+    arr[0] = 2;
+    arr[1] = 7;
+    arr[2] = 2;
+    arr[3] = 9;
+    arr[4] = 1;
+    arr[5] = 5;
+    arr[6] = 1;
+
+    quicksort(arr, 0, 6);
+
+    let i: int = 0;
+    while i < 7 {
+        print(arr[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn partition(arr: [int], low: int, high: int) -> int {
+    let pivot: int = arr[high];
+    let i: int = low - 1;
+    let j: int = low;
+
+    while j < high {
+        if arr[j] <= pivot {
+            i = i + 1;
+
+            let temp: int = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+
+        j = j + 1;
+    }
+
+    let temp: int = arr[i + 1];
+    arr[i + 1] = arr[high];
+    arr[high] = temp;
+
+    return i + 1;
+}
+
+fn quicksort(arr: [int], low: int, high: int) {
+    if low < high {
+        let pi: int = partition(arr, low, high);
+
+        if low < pi {
+            quicksort(arr, low, pi - 1);
+        }
+
+        if pi < high {
+            quicksort(arr, pi + 1, high);
+        }
+    }
+
+    return;
+}

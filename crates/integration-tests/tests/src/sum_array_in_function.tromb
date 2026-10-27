@@ -1,0 +1,25 @@
+fn main() {
+    let arr: [int] = array(4);
+
+    arr[0] = 3;
+    arr[1] = 4;
+    arr[2] = 2;
+    arr[3] = 1;
+
+    let result: int = sum(arr, 4);
+    print(result);
+
+    return;
+}
+
+fn sum(arr: [int], n: int) -> int {
+    let total: int = 0;
+    let i: int = 0;
+
+    while i < n {
+        total = total + arr[i];
+        i = i + 1;
+    }
+
+    return total;
+}

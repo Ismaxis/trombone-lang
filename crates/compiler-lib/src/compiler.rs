@@ -5,9 +5,9 @@ use crate::*;
 use trombone_common::bytecode::Operation;
 use trombone_common::error::Result;
 
-pub fn compile_from_string(program: String) -> Result<Vec<Operation>> {
+pub fn compile_from_string(program: &str) -> Result<Vec<Operation>> {
     let parsed: Result<Vec<ast::FuncDeclaration>> = trombone::ProgramParser::new()
-        .parse(program.as_str())
+        .parse(program)
         .map_err(|e| e.to_string().into());
 
     let funcs_ast = parsed?;

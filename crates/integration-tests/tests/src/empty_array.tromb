@@ -1,0 +1,5 @@
+fn main() {
+    let arr: [int] = array(0);
+    print(123);
+    return;
+}
