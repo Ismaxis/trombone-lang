@@ -21,19 +21,13 @@ mod tests {
     }
 
     macro_rules! setup_runner_with_alloc {
-        ($input:literal) => {{
-            let mock_allocator: &'static MockAllocator = Box::leak(Box::new(MockAllocator {
-                alloc_count: AtomicUsize::new(0),
-            }));
-
-            let runner = Runner::new(
+        ($input:expr, $allocator:expr) => {{
+            Runner::new(
                 SimpleTestOperationStream::new(),
                 std::io::Cursor::new($input.as_bytes()),
                 std::io::Cursor::new(Vec::new()),
-                mock_allocator,
-            );
-
-            (runner, mock_allocator)
+                $allocator,
+            )
         }};
     }
 
@@ -1014,7 +1008,11 @@ fn sum_array(arr: [int], n: int) -> int {
 }
 ";
 
-        let (mut runner, mock_allocator) = setup_runner_with_alloc!("");
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+        let mut runner = setup_runner_with_alloc!("", &mock_allocator);
+
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(
@@ -1104,7 +1102,11 @@ fn add_to_array(source: [int], n: int, value: int) -> [int] {
 }
 ";
 
-        let (mut runner, mock_allocator) = setup_runner_with_alloc!("");
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+        let mut runner = setup_runner_with_alloc!("", &mock_allocator);
+
         let result = run_test(&mut runner, program)?;
 
         assert_eq!(
