@@ -55,6 +55,20 @@ mod tests {
     }
 
     #[test]
+    fn no_return() -> Result<()> {
+        let program = r"
+fn main() {
+    print(40 + 2);
+}
+        ";
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program)?;
+
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
     fn single_print() -> Result<()> {
         let program = r"
 fn main() {
@@ -436,7 +450,7 @@ fn main() {
 fn rec(x: int) {
     if x == 0 {
         return;
-    } 
+    }
 
     print(x);
     rec(x - 1);
@@ -459,7 +473,7 @@ fn main() {
     } else {
         print(2);
     }
-    
+
     if 0 {
         print(1);
     } else {

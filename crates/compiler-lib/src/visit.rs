@@ -279,20 +279,18 @@ impl FuncDeclaration {
         }
 
         // statments
-        let ops = self
+        let mut ops = self
             .statements
             .iter()
             .flat_map(|x| x.visit(ctx))
             .collect::<Vec<_>>();
 
-        // operands are cleared in return // ReturnStatement is mandatory
-        debug_assert!(
-            matches!(
-                ops.last(),
-                Some(OperationPrototype::Defined(Operation::Return))
-            ),
-            "return statement is mandatory at the end of func"
-        );
+        match ops.last() {
+            Some(OperationPrototype::Defined(Operation::Return)) => { /* ok  */ }
+            _ => {
+                ops.push(OperationPrototype::Defined(Operation::Return));
+            }
+        }
 
         ctx.exit_scope();
 
