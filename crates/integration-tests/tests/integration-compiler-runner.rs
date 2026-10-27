@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use trombone_common::error::Result;
 
     use trombone_runner::runner::Runner;
@@ -18,6 +20,24 @@ mod tests {
         };
     }
 
+    macro_rules! setup_runner_with_alloc {
+        ($input:expr, $allocator:expr) => {{
+            Runner::new(
+                SimpleTestOperationStream::new(),
+                std::io::Cursor::new($input.as_bytes()),
+                std::io::Cursor::new(Vec::new()),
+                $allocator,
+            )
+        }};
+    }
+
+    fn read_program(file_name: &str) -> Result<String> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/src")
+            .join(file_name);
+        Ok(std::fs::read_to_string(path)?)
+    }
+
     fn run_test<'a>(
         runner: &mut Runner<
             'a,
@@ -28,8 +48,7 @@ mod tests {
         >,
         program: &str,
     ) -> Result<String> {
-        let ops = compiler::compile_from_string(program.to_string());
-        ops.iter().for_each(|x| println!("{:?}", *x));
+        let ops = compiler::compile_from_string(program)?;
         runner.stream.emplace_operations(ops);
         runner.evaluate()?;
 
@@ -37,15 +56,20 @@ mod tests {
     }
 
     #[test]
-    fn single_print() -> Result<()> {
-        let program = r"
-fn main() {
-    print(40 + 2);
-    return;
-}
-        ";
+    fn no_return() -> Result<()> {
+        let program = read_program("no_return.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn single_print() -> Result<()> {
+        let program = read_program("single_print.tromb")?;
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n".to_string());
         Ok(())
@@ -53,15 +77,9 @@ fn main() {
 
     #[test]
     fn read_and_print() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = read();
-    print(x);
-    return;
-}
-        ";
+        let program = read_program("read_and_print.tromb")?;
         let mut runner = setup_runner!("42");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "> $ 42\n".to_string());
         Ok(())
@@ -69,18 +87,9 @@ fn main() {
 
     #[test]
     fn variables_access() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = read();
-    let y: int = read();
-    let z: int = x + y;
-    let a: int = z * z * x * y;
-    print(a * (2 * x + y + z));
-    return;
-}
-        ";
+        let program = read_program("variables_access.tromb")?;
         let mut runner = setup_runner!("10\n100");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "> > $ 2783000000\n".to_string());
         Ok(())
@@ -88,21 +97,9 @@ fn main() {
 
     #[test]
     fn function_call() -> Result<()> {
-        let program = r"
-fn main() {
-    foo();
-    foo();
-    foo();
-    return;
-}
-
-fn foo() {
-    print(42);
-    return;
-}
-        ";
+        let program = read_program("function_call.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n$ 42\n$ 42\n".to_string());
         Ok(())
@@ -110,21 +107,9 @@ fn foo() {
 
     #[test]
     fn function_call_with_arguments() -> Result<()> {
-        let program = r"
-fn main() {
-    foo(42);
-    foo(43);
-    foo(44);
-    return;
-}
-
-fn foo(x: int) {
-    print(x);
-    return;
-}
-        ";
+        let program = read_program("function_call_with_arguments.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n$ 43\n$ 44\n".to_string());
         Ok(())
@@ -132,22 +117,9 @@ fn foo(x: int) {
 
     #[test]
     fn function_call_with_multiple_arguments() -> Result<()> {
-        let program = r"
-fn main() {
-    foo(42, 43, 44);
-    foo(52, 53, 54);
-    return;
-}
-
-fn foo(x: int, y: int, z: int) {
-    print(x);
-    print(y);
-    print(z);
-    return;
-}
-        ";
+        let program = read_program("function_call_with_multiple_arguments.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n$ 43\n$ 44\n$ 52\n$ 53\n$ 54\n".to_string());
         Ok(())
@@ -155,20 +127,9 @@ fn foo(x: int, y: int, z: int) {
 
     #[test]
     fn function_call_with_return() -> Result<()> {
-        let program = r"
-fn main() {
-    print(foo());
-    print(foo());
-    print(foo());
-    return;
-}
-
-fn foo() -> int {
-    return 42;
-}
-        ";
+        let program = read_program("function_call_with_return.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n$ 42\n$ 42\n".to_string());
         Ok(())
@@ -176,21 +137,9 @@ fn foo() -> int {
 
     #[test]
     fn function_call_discard() -> Result<()> {
-        let program = r"
-fn main() {
-    foo();
-    foo();
-    foo();
-    return;
-}
-
-fn foo() -> int {
-    read();
-    return 42;
-}
-        ";
+        let program = read_program("function_call_discard.tromb")?;
         let mut runner = setup_runner!("1\n1\n1\n");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "> > > ".to_string());
         Ok(())
@@ -198,19 +147,9 @@ fn foo() -> int {
 
     #[test]
     fn function_call_inc() -> Result<()> {
-        let program = r"
-fn main() {
-    print(foo(42));
-    print(foo(43) + foo(44));
-    return;
-}
-
-fn foo(x: int) -> int {
-    return x + 1;
-}
-        ";
+        let program = read_program("function_call_inc.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 43\n$ 89\n".to_string());
         Ok(())
@@ -218,20 +157,9 @@ fn foo(x: int) -> int {
 
     #[test]
     fn function_call_sum() -> Result<()> {
-        let program = r"
-fn main() {
-    print(foo(1, 2));
-    print(foo(3, 4));
-    print(foo(4, 6));
-    return;
-}
-
-fn foo(x: int, y: int) -> int {
-    return x + y;
-}
-        ";
+        let program = read_program("function_call_sum.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 3\n$ 7\n$ 10\n".to_string());
         Ok(())
@@ -241,19 +169,9 @@ fn foo(x: int, y: int) -> int {
 
     #[test]
     fn basic_if() -> Result<()> {
-        let program = r"
-fn main() {
-    if 1 {
-        print(1);
-    }
-    if 0 {
-        print(2);
-    }
-    return;
-}
-        ";
+        let program = read_program("basic_if.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n".to_string());
         Ok(())
@@ -261,29 +179,9 @@ fn main() {
 
     #[test]
     fn nested_if() -> Result<()> {
-        let program = r"
-fn main() {
-    if 1 {
-        if 1 {
-            print(1);
-        }
-        if 0 {
-            print(2);
-        }
-    }
-    if 0 {
-        if 1 {
-            print(3);
-        }
-        if 0 {
-            print(4);
-        }
-    }
-    return;
-}
-        ";
+        let program = read_program("nested_if.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n".to_string());
         Ok(())
@@ -291,26 +189,9 @@ fn main() {
 
     #[test]
     fn if_return() -> Result<()> {
-        let program = r"
-fn main() {
-    print(is_zero(0));
-    print(is_zero(1));
-    print(is_zero(2));
-
-    return;
-}
-
-fn is_zero(x: int) -> int {
-    if x == 0 {
-        return 1;
-    } else {
-        return 0;
-    }
-    return -1;
-}
-        ";
+        let program = read_program("if_return.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n$ 0\n$ 0\n".to_string());
         Ok(())
@@ -318,34 +199,9 @@ fn is_zero(x: int) -> int {
 
     #[test]
     fn if_return_hard() -> Result<()> {
-        let program = r"
-fn main() {
-    print(foo(1, 1));
-    print(foo(1, 0));
-    print(foo(0, 1));
-    print(foo(0, 0));
-    return;
-}
-
-fn foo(x: int, y: int) -> int {
-    if x {
-        if y {
-            return 3;
-        } else {
-            return 2;
-        }
-    } else {
-        if y {
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-    return -1;
-}
-        ";
+        let program = read_program("if_return_hard.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 3\n$ 2\n$ 1\n$ 0\n".to_string());
         Ok(())
@@ -353,31 +209,10 @@ fn foo(x: int, y: int) -> int {
 
     #[test]
     fn if_return_deep() -> Result<()> {
-        let program = r"
-fn main() {
-    print(bar(1, 2, 1));
-    print(bar(1, 10, 1));
-    print(bar(1, 10, 0));
-    return;
-}
-
-fn bar(x: int, y: int, z: int) -> int {
-    let x1: int = x;
-    if x == x1 {
-        let y1: int = y;
-        if y == y1 {
-            let z1: int = z;
-            if z == 1 {
-                return y1;
-            }
-        }
-    }
-    return -1;
-}
-        ";
+        let program = read_program("if_return_deep.tromb")?;
 
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 2\n$ 10\n$ -1\n".to_string());
         Ok(())
@@ -385,23 +220,9 @@ fn bar(x: int, y: int, z: int) -> int {
 
     #[test]
     fn if_clear_locals() -> Result<()> {
-        let program = r"
-fn main() {
-    print(bar(1, 2, 1));
-    print(bar(1, 10, 1));
-    print(bar(1, -1, 0));
-    return;
-}
-
-fn bar(x: int, y: int, z: int) -> int {
-    if 1 {
-        let x1: int = x;
-    }
-    return y;
-}
-        ";
+        let program = read_program("if_clear_locals.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 2\n$ 10\n$ -1\n".to_string());
         Ok(())
@@ -409,24 +230,9 @@ fn bar(x: int, y: int, z: int) -> int {
 
     #[test]
     fn recursion() -> Result<()> {
-        let program = r"
-fn main() {
-    rec(5);
-    return;
-}
-
-fn rec(x: int) {
-    if x == 0 {
-        return;
-    } 
-
-    print(x);
-    rec(x - 1);
-    return;
-}
-        ";
+        let program = read_program("recursion.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
         Ok(())
@@ -434,25 +240,9 @@ fn rec(x: int) {
 
     #[test]
     fn basic_if_else() -> Result<()> {
-        let program = r"
-fn main() {
-    if 1 {
-        print(1);
-    } else {
-        print(2);
-    }
-    
-    if 0 {
-        print(1);
-    } else {
-        print(2);
-    }
-
-    return;
-}
-        ";
+        let program = read_program("basic_if_else.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n$ 2\n".to_string());
         Ok(())
@@ -460,30 +250,9 @@ fn main() {
 
     #[test]
     fn if_chain() -> Result<()> {
-        let program = r"
-    fn main() {
-        foo(1);
-        foo(2);
-        foo(3);
-        foo(10);
-        return;
-    }
-
-    fn foo(x: int) {
-        if x == 1 {
-            print(1);
-        } else if x == 2 {
-            print(2);
-        } else if x == 3 {
-            print(3);
-        } else {
-            print(4);
-        }
-        return;
-    }
-            ";
+        let program = read_program("if_chain.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n$ 2\n$ 3\n$ 4\n".to_string());
         Ok(())
@@ -491,27 +260,9 @@ fn main() {
 
     #[test]
     fn if_chain_no_else() -> Result<()> {
-        let program = r"
-    fn main() {
-        foo(1);
-        foo(2);
-        foo(10);
-        return;
-    }
-
-    fn foo(x: int) {
-        if x == 1 {
-            print(1);
-        } else if x == 2 {
-            print(2);
-        }
-
-        print(3);
-        return;
-    }
-            ";
+        let program = read_program("if_chain_no_else.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 1\n$ 3\n$ 2\n$ 3\n$ 3\n".to_string());
         Ok(())
@@ -519,18 +270,9 @@ fn main() {
 
     #[test]
     fn simple_while() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = 10;
-    while x > 0 {
-        print(x);
-        x = x - 1;
-    }
-    return;
-}
-        ";
+        let program = read_program("simple_while.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(
             result,
@@ -541,18 +283,9 @@ fn main() {
 
     #[test]
     fn while_no_execution() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = 2;
-    while x != 2 {
-        print(1337);
-    }
-    print(42);
-    return;
-}
-        ";
+        let program = read_program("while_no_execution.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 42\n".to_string());
         Ok(())
@@ -560,22 +293,9 @@ fn main() {
 
     #[test]
     fn inner_while() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = 5;
-    while x > 0 {
-        let y: int = 3;
-        while y > 0 {
-            print(x * y);
-            y = y - 1;
-        }
-        x = x - 1;
-    }
-    return;
-}
-        ";
+        let program = read_program("inner_while.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(
             result,
@@ -587,23 +307,13 @@ fn main() {
 
     #[test]
     fn return_in_while() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = read();
-    while x == 0 {
-        print(0);
-        return;
-    }
-    print(1);
-    return;
-}
-        ";
+        let program = read_program("return_in_while.tromb")?;
         let mut runner = setup_runner!("0");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
         assert_eq!(result, "> $ 0\n".to_string());
 
         let mut runner = setup_runner!("123");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
         assert_eq!(result, "> $ 1\n".to_string());
 
         Ok(())
@@ -611,37 +321,9 @@ fn main() {
 
     #[test]
     fn return_nested_if_and_while() -> Result<()> {
-        let program = r"
-fn main() {
-    print(while_in_if(1));
-    print(while_in_if(2));
-    print(if_in_while(1));
-    print(if_in_while(2));
-    return;
-}
-
-fn while_in_if(x: int) -> int {
-    if x {
-        while x == 1 {
-            return 1;
-        }
-        return 0;
-    }
-    return -1;
-}
-
-fn if_in_while(x: int) -> int {
-    while x {
-        if x == 1 {
-            return 1;
-        }
-        return 0;
-    }
-    return -1;
-}
-        ";
+        let program = read_program("return_nested_if_and_while.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
         assert_eq!(result, "$ 1\n$ 0\n$ 1\n$ 0\n".to_string());
 
         Ok(())
@@ -649,22 +331,9 @@ fn if_in_while(x: int) -> int {
 
     #[test]
     fn while_condition_is_function_call() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = 5;
-    while foo(x) > 0 {
-        print(x);
-        x = x - 1;
-    }
-    return;
-}
-
-fn foo(x: int) -> int {
-    return x > 0;
-}
-        ";
+        let program = read_program("while_condition_is_function_call.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
         Ok(())
@@ -672,143 +341,241 @@ fn foo(x: int) -> int {
 
     #[test]
     fn double_while_inner_return() -> Result<()> {
-        let program = r"
-fn main() {
-    let x: int = 5;
-    let y: int = 3;
-    while x > 0 {
-        while y > 0 {
-            print(y);
-            return;
-        }
-        x = x - 1;
-    }
-    return;
-}
-        ";
+        let program = read_program("double_while_inner_return.tromb")?;
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str())?;
 
         assert_eq!(result, "$ 3\n".to_string());
         Ok(())
     }
 
     #[test]
-    fn factorial() -> Result<()> {
-        let program = r"
-fn main() {
-    let n: int = 5;
-    print(factorial(n));
-    return;
-}
+    fn empty_array() -> Result<()> {
+        let program = read_program("empty_array.tromb")?;
 
-fn factorial(n: int) -> int {
-    if n <= 1 {
-        return 1;
-    }
-    return n * factorial(n - 1);
-}
-    ";
         let mut runner = setup_runner!("");
-        let result = run_test(&mut runner, program)?;
+        let result = run_test(&mut runner, program.as_str());
 
-        assert_eq!(result, "$ 120\n".to_string());
+        assert!(result.is_err());
         Ok(())
     }
 
     #[test]
-    fn sieve() {
-        let test = r"
-fn sieve(n: int) {
-    let is_prime: [int] = array(n + 1, 1);
-    is_prime[0] = 0;
-    is_prime[1] = 0;
+    fn single_element_array() -> Result<()> {
+        let program = read_program("single_element_array.tromb")?;
 
-    let i: int = 2;
-    let j: int = 0;
-    while i * i <= n {
-        if is_prime[i] {
-            let j: int = i * i;
-            while j <= n {
-                is_prime[j] = 0;
-                j = j + i;
-            }
-        }
-        i = i + 1;
-    }
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
 
-    i = 0;
-    while i <= n {
-        if is_prime[i] {
-            print(i);
-        }
-        i = i + 1;
-    }
-}
-
-fn main() {
-    let n: int = read();
-    sieve(n);
-}
-";
-
-        let res = trombone::ProgramParser::new().parse(test);
-        assert!(res.is_ok(), "{}", res.unwrap_err());
-        // TODO: check execution
+        assert_eq!(result, "$ 42\n".to_string());
+        Ok(())
     }
 
     #[test]
-    fn sort() {
-        let test = r"
-fn partition(arr: [int], low: int, high: int) -> int {
-    let pivot: int = arr[high];
-    let i: int = low - 1;
-    let j: int = low;
+    fn array_mutation_through_function() -> Result<()> {
+        let program = read_program("array_mutation_through_function.tromb")?;
 
-    while j < high {
-        if arr[j] <= pivot {
-            i = i + 1;
-            let temp: int = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-        }
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 99\n$ 20\n$ 30\n".to_string());
+        Ok(())
     }
 
-    let temp: int = arr[i + 1];
-    arr[i + 1] = arr[high];
-    arr[high] = temp;
+    #[test]
+    fn fill_array_through_function() -> Result<()> {
+        let program = read_program("fill_array_through_function.tromb")?;
 
-    return i + 1;
-}
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
 
-fn quicksort(arr: [int], low: int, high: int) {
-    if low < high {
-        let pi: int = partition(arr, low, high);
-
-        quicksort(arr, low, pi - 1);
-        quicksort(arr, pi + 1, high);
-    }
-}
-
-fn main() {
-    let n: int = read();
-    let arr: [int] = array(n);
-    let i: int = 0;
-    while i < n {
-        arr[i] = read();
-        i = i + 1;
+        assert_eq!(result, "$ 7\n$ 7\n$ 7\n$ 7\n$ 7\n".to_string());
+        Ok(())
     }
 
-    i = 0;
-    while i < n {
-        print(arr[i]);
-        i = i + 1;
-    }
-}
-";
+    #[test]
+    fn sum_array_in_function() -> Result<()> {
+        let program = read_program("sum_array_in_function.tromb")?;
 
-        let res = trombone::ProgramParser::new().parse(test);
-        assert!(res.is_ok(), "{}", res.unwrap_err());
-        // TODO: check execution
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 10\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn copy_array_between_arrays() -> Result<()> {
+        let program = read_program("copy_array_between_arrays.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 8\n$ 6\n$ 7\n$ 5\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn clone_array() -> Result<()> {
+        let program = read_program("clone_array.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 8\n$ 6\n$ 7\n$ 5\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn return_transformed_array_from_function() -> Result<()> {
+        let program = read_program("return_transformed_array_from_function.tromb")?;
+
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+        let mut runner = setup_runner_with_alloc!("", &mock_allocator);
+
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(
+            result,
+            "$ 138\n$ 8\n$ 16\n$ 30\n$ 2\n$ 14\n$ 38\n$ 6\n$ 24\n$ 12\n$ 4\n$ 100\n$ 200\n"
+                .to_string()
+        );
+
+        // no leaks
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn chained_array_return_functions() -> Result<()> {
+        let program = read_program("chained_array_return_functions.tromb")?;
+
+        let mock_allocator = MockAllocator {
+            alloc_count: AtomicUsize::new(0),
+        };
+        let mut runner = setup_runner_with_alloc!("", &mock_allocator);
+
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 125\n$ 105\n$ 85\n$ 65\n$ 45\n$ 25\n".to_string());
+
+        // no leaks
+        assert_eq!(mock_allocator.alloc_count.load(Ordering::SeqCst), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn reverse_array_in_place() -> Result<()> {
+        let program = read_program("reverse_array_in_place.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 5\n$ 4\n$ 3\n$ 2\n$ 1\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn same_array_passed_twice() -> Result<()> {
+        let program = read_program("same_array_passed_twice.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 16\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn recursive_array_access() -> Result<()> {
+        let program = read_program("recursive_array_access.tromb")?;
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 11\n$ 22\n$ 33\n".to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn factorial() -> Result<()> {
+        let program = read_program("factorial.tromb")?;
+        let mut runner = setup_runner!("5");
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(result, "> $ 120\n".to_string());
+
+        let mut runner = setup_runner!("4");
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(result, "> $ 24\n".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn sieve() -> Result<()> {
+        let program = read_program("sieve.tromb")?;
+        let mut runner = setup_runner!("10");
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(result, "> $ 11\n$ 11\n$ 2\n$ 3\n$ 5\n$ 7\n".to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn array_out_of_bounds() -> Result<()> {
+        let program = read_program("array_out_of_bounds.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let _result = run_test(&mut runner, program.as_str())?;
+
+        // TODO: ??
+
+        Ok(())
+    }
+
+    #[test]
+    fn quicksort() -> Result<()> {
+        let program = read_program("quicksort.tromb")?;
+        let mut runner = setup_runner!("4\n3\n4\n2\n1");
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(result, "> > > > > $ 1\n$ 2\n$ 3\n$ 4\n".to_string());
+
+        let mut runner = setup_runner!(
+            "20\n17\n3\n14\n1\n19\n8\n6\n12\n4\n20\n2\n15\n9\n7\n13\n5\n18\n10\n11\n16"
+        );
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(
+            result,
+            "> > > > > > > > > > > > > > > > > > > > > \
+    $ 1\n$ 2\n$ 3\n$ 4\n$ 5\n$ 6\n$ 7\n$ 8\n$ 9\n$ 10\n$ 11\n$ 12\n$ 13\n$ 14\n$ 15\n$ 16\n$ 17\n$ 18\n$ 19\n$ 20\n"
+                .to_string()
+        );
+
+        let mut runner = setup_runner!(
+            "24\n5\n3\n8\n3\n1\n9\n5\n2\n8\n7\n3\n6\n4\n9\n1\n5\n2\n7\n6\n4\n8\n2\n9\n1"
+        );
+        let result = run_test(&mut runner, program.as_str())?;
+        assert_eq!(
+            result,
+            "> > > > > > > > > > > > > > > > > > > > > > > > > \
+    $ 1\n$ 1\n$ 1\n$ 2\n$ 2\n$ 2\n$ 3\n$ 3\n$ 3\n$ 4\n$ 4\n$ 5\n$ 5\n$ 5\n$ 6\n$ 6\n$ 7\n$ 7\n$ 8\n$ 8\n$ 8\n$ 9\n$ 9\n$ 9\n"
+                .to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn quicksort_with_duplicates() -> Result<()> {
+        let program = read_program("quicksort_with_duplicates.tromb")?;
+
+        let mut runner = setup_runner!("");
+        let result = run_test(&mut runner, program.as_str())?;
+
+        assert_eq!(result, "$ 1\n$ 1\n$ 2\n$ 2\n$ 5\n$ 7\n$ 9\n".to_string());
+        Ok(())
     }
 }

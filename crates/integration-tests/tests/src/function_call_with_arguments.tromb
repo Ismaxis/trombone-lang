@@ -1,0 +1,11 @@
+fn main() {
+    foo(42);
+    foo(43);
+    foo(44);
+    return;
+}
+
+fn foo(x: int) {
+    print(x);
+    return;
+}

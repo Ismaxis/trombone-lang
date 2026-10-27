@@ -1,0 +1,58 @@
+fn main() {
+    let source: [int] = array(6);
+
+    source[0] = 10;
+    source[1] = 20;
+    source[2] = 30;
+    source[3] = 40;
+    source[4] = 50;
+    source[5] = 60;
+
+    let doubled: [int] = multiply_array(source, 6, 2);
+    let reversed: [int] = reverse_array(doubled, 6);
+    let shifted: [int] = add_to_array(reversed, 6, 5);
+
+    let i: int = 0;
+    while i < 6 {
+        print(shifted[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn multiply_array(source: [int], n: int, factor: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[i] * factor;
+        i = i + 1;
+    }
+
+    return result;
+}
+
+fn reverse_array(source: [int], n: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[n - i - 1];
+        i = i + 1;
+    }
+
+    return result;
+}
+
+fn add_to_array(source: [int], n: int, value: int) -> [int] {
+    let result: [int] = array(n);
+    let i: int = 0;
+
+    while i < n {
+        result[i] = source[i] + value;
+        i = i + 1;
+    }
+
+    return result;
+}
