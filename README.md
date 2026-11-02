@@ -28,3 +28,21 @@ export LLVM_SYS_180_PREFIX=$(llvm-config-18 --prefix)
 ```shell
 cargo test
 ```
+
+### Coverage
+install coverage tool
+```shell
+cargo +stable install cargo-llvm-cov --locked
+```
+run tests
+```shell
+cargo llvm-cov
+```
+
+#### Display coverage in VsCode
+- install [extension](https://marketplace.visualstudio.com/items/?itemName=ryanluker.vscode-coverage-gutters)
+- run `cargo llvm-cov --lcov --output-path lcov.info`
+- press `ctrl + shift + p` and select `Coverage Gutters: Toggle Coverage`
+
+#### Other editors
+see [link](https://lib.rs/crates/cargo-llvm-cov)
