@@ -250,6 +250,12 @@ struct VarMeta {
     type_: crate::ast::Type,
 }
 
+impl VarMeta {
+    pub fn calc_variable_offset(&self, rsp: usize) -> i32 {
+        rsp as i32 - self.address as i32 - 1
+    }
+}
+
 // Impl
 
 impl FuncDeclaration {
@@ -279,20 +285,18 @@ impl FuncDeclaration {
         }
 
         // statments
-        let ops = self
+        let mut ops = self
             .statements
             .iter()
             .flat_map(|x| x.visit(ctx))
             .collect::<Vec<_>>();
 
-        // operands are cleared in return // ReturnStatement is mandatory
-        debug_assert!(
-            matches!(
-                ops.last(),
-                Some(OperationPrototype::Defined(Operation::Return))
-            ),
-            "return statement is mandatory at the end of func"
-        );
+        match ops.last() {
+            Some(OperationPrototype::Defined(Operation::Return)) => { /* ok  */ }
+            _ => {
+                ops.push(OperationPrototype::Defined(Operation::Return));
+            }
+        }
 
         ctx.exit_scope();
 
@@ -333,7 +337,7 @@ impl Statement {
             } => {
                 let address = ctx.current_rsp;
                 let ops = value.visit(ctx);
-                assert_eq!(
+                debug_assert_eq!(
                     address,
                     ctx.current_rsp - 1,
                     "expression evaluation should advance rsp"
@@ -354,9 +358,9 @@ impl Statement {
                     let mut ops = value.visit(ctx);
                     match var_meta.type_ {
                         crate::ast::Type::Int => {
-                            let offset = ctx.current_rsp - 1 - var_meta.address - 1; // TODO: check
+                            let offset = var_meta.calc_variable_offset(ctx.current_rsp);
                             let op = Operation::LocalStore {
-                                variable_offset: offset as i32,
+                                variable_offset: offset,
                             };
                             add_operation(ctx, &mut ops, op.into());
                             ops
@@ -368,15 +372,40 @@ impl Statement {
                 }
             }
             Statement::ArrayAssignment {
-                identifier: _,
-                index: _,
-                value: _,
-            } => todo!("ArrayAssignment"),
+                identifier,
+                index,
+                value,
+            } => {
+                let mut ops = Vec::new();
+
+                ops.extend(value.visit(ctx));
+                ops.extend(index.visit(ctx));
+
+                if let Some(var_meta) = ctx.get_var(identifier) {
+                    match var_meta.type_ {
+                        crate::ast::Type::ArrInt => {
+                            add_operation(
+                                ctx,
+                                &mut ops,
+                                Operation::HeapStore {
+                                    variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
+                                }
+                                .into(),
+                            );
+                        }
+                        t => panic!("array assignment operation unsupported for {:?}", t),
+                    }
+                } else {
+                    panic!("can't assign to '{}': not found", identifier);
+                }
+
+                ops
+            }
             Statement::ReturnStatement { return_value } => {
                 let mut ops = Vec::new();
                 if let Some(return_value) = return_value {
                     ops = return_value.visit(ctx);
-                    let return_value_offset = (ctx.current_rsp - 1 - 1) as i32; // TODO: abstract calculating it in other method
+                    let return_value_offset = (ctx.current_rsp - 1) as i32;
                     let set_return_value_op = Operation::LocalStore {
                         variable_offset: return_value_offset,
                     };
@@ -447,7 +476,7 @@ impl Statement {
                 ops
             }
             Statement::IfStatement { arms, el } => {
-                // TODO: optimization if only 1 if (no else)
+                // TODO: optimization if only 'if' (without 'else')
 
                 const COND_VAR_SIZE: usize = 1;
                 const JUMP_IN_SIZE: usize = 1;
@@ -615,10 +644,29 @@ impl Expression {
 
                 ops
             }
-            Expression::ArrayAccess {
-                identifier: _,
-                index: _,
-            } => todo!("Expression::ArrayAccess"),
+            Expression::ArrayAccess { identifier, index } => {
+                let mut ops = Vec::new();
+
+                let Some(var_meta) = ctx.get_var(identifier) else {
+                    panic!("can't access '{}': not found", identifier);
+                };
+
+                if var_meta.type_ != crate::ast::Type::ArrInt {
+                    panic!("subscript operation unsupported for {:?}", var_meta.type_);
+                }
+
+                ops.extend(index.visit(ctx));
+                add_operation(
+                    ctx,
+                    &mut ops,
+                    Operation::HeapLoad {
+                        variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
+                    }
+                    .into(),
+                );
+
+                ops
+            }
             Expression::FuncCall {
                 identifier,
                 arguments,
@@ -638,8 +686,8 @@ impl Expression {
                     if given_types != declared_types {
                         // TODO: compare iterators and eval only on error
                         panic!(
-                            "given types does not match declared: {:?} != {:?}",
-                            given_types, declared_types
+                            "given types does not match declared for '{}': {:?} != {:?}",
+                            identifier, given_types, declared_types
                         )
                     }
 
@@ -700,13 +748,18 @@ impl Expression {
                             ctx,
                             &mut ops,
                             Operation::LocalCopy {
-                                variable_offset: ctx.current_rsp as i32
-                                    - 1
-                                    - var_meta.address as i32,
+                                variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
                             }
                             .into(),
                         ),
-                        crate::ast::Type::ArrInt => todo!("Expression::VarReference ArrInt"),
+                        crate::ast::Type::ArrInt => add_operation(
+                            ctx,
+                            &mut ops,
+                            Operation::HeapCopyPtr {
+                                variable_offset: var_meta.calc_variable_offset(ctx.current_rsp),
+                            }
+                            .into(),
+                        ),
                     }
                 } else {
                     panic!("VarReference: var '{}' not found", identifier);
@@ -794,7 +847,11 @@ fn handle_builtins(
             add_operation(ctx, ops, Operation::Read.into());
             true
         }
-        "array" => todo!("builtin: array(n)"),
+        "array" => {
+            eval_arguments(ctx, ops, arguments);
+            add_operation(ctx, ops, Operation::HeapAlloc.into());
+            true
+        }
         _ => false,
     }
 }

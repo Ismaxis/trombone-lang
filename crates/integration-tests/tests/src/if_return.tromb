@@ -1,0 +1,16 @@
+fn main() {
+    print(is_zero(0));
+    print(is_zero(1));
+    print(is_zero(2));
+
+    return;
+}
+
+fn is_zero(x: int) -> int {
+    if x == 0 {
+        return 1;
+    } else {
+        return 0;
+    }
+    return -1;
+}

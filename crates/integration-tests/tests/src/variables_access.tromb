@@ -1,0 +1,8 @@
+fn main() {
+    let x: int = read();
+    let y: int = read();
+    let z: int = x + y;
+    let a: int = z * z * x * y;
+    print(a * (2 * x + y + z));
+    return;
+}

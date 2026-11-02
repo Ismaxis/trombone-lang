@@ -1,0 +1,9 @@
+fn main() {
+    print(foo(42));
+    print(foo(43) + foo(44));
+    return;
+}
+
+fn foo(x: int) -> int {
+    return x + 1;
+}

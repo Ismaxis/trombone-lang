@@ -1,0 +1,12 @@
+fn main() {
+    let x: int = 5;
+    let y: int = 3;
+    while x > 0 {
+        while y > 0 {
+            print(y);
+            return;
+        }
+        x = x - 1;
+    }
+    return;
+}

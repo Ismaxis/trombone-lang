@@ -1,0 +1,8 @@
+fn main() {
+    let arr: [int] = array(1);
+
+    arr[0] = 42;
+    print(arr[0]);
+
+    return;
+}

@@ -1,0 +1,13 @@
+fn main() {
+    print(bar(1, 2, 1));
+    print(bar(1, 10, 1));
+    print(bar(1, -1, 0));
+    return;
+}
+
+fn bar(x: int, y: int, z: int) -> int {
+    if 1 {
+        let x1: int = x;
+    }
+    return y;
+}

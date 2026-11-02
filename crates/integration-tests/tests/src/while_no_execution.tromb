@@ -1,0 +1,8 @@
+fn main() {
+    let x: int = 2;
+    while x != 2 {
+        print(1337);
+    }
+    print(42);
+    return;
+}

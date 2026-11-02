@@ -166,8 +166,13 @@ where
                 self.push(op);
             }
             LocalStore { variable_offset } => {
+                if variable_offset < 1 {
+                    return Err("offset can't be less than 1 for LOCAL_STORE".into());
+                }
+
                 let value = self.pop();
-                *self.get_variable(variable_offset) = value;
+                let adjusted_offset = variable_offset - 1; // NOTE: because all offsets are valid at the begining of Operation execution
+                *self.get_variable(adjusted_offset) = value;
             }
 
             // Basic block
@@ -306,8 +311,6 @@ where
                 self.push(ptr);
             }
             HeapLoad { variable_offset } => {
-                // TODO: Maybe it is better to pass variable_offset ignoring offset values on stack?
-
                 let ptr = self.get_pointer_from_variable(variable_offset);
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
@@ -323,16 +326,20 @@ where
                 self.push(value);
             }
             HeapStore { variable_offset } => {
-                let offset = self.pop();
-                if offset < 0 {
-                    return Err("Negative offset in heap store".into());
+                if variable_offset < 2 {
+                    return Err("offset can't be less than 2 for HEAP_STORE_PTR".into());
                 }
-                let value = self.pop();
 
                 let ptr = self.get_pointer_from_variable(variable_offset);
                 if ptr.is_null() {
                     return Err("Null pointer dereference".into());
                 }
+
+                let offset = self.pop();
+                if offset < 0 {
+                    return Err("Negative offset in heap store".into());
+                }
+                let value = self.pop();
 
                 let ptr = unsafe { ptr.add(offset as usize) };
                 unsafe {
@@ -395,8 +402,8 @@ where
         self.stack[self.sp]
     }
 
-    fn get_variable(&mut self, variable: VariableOffset) -> &mut TrombValue {
-        &mut self.stack[self.sp - 1 - variable as usize]
+    fn get_variable(&mut self, offset: VariableOffset) -> &mut TrombValue {
+        &mut self.stack[self.sp - 1 - offset as usize]
     }
 
     fn get_pointer_from_variable(&mut self, variable_offset: i32) -> *mut TrombValue {

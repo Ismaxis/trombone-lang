@@ -1,0 +1,10 @@
+fn main() {
+    print(foo());
+    print(foo());
+    print(foo());
+    return;
+}
+
+fn foo() -> int {
+    return 42;
+}

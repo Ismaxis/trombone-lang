@@ -1,0 +1,12 @@
+fn main() {
+    foo(42, 43, 44);
+    foo(52, 53, 54);
+    return;
+}
+
+fn foo(x: int, y: int, z: int) {
+    print(x);
+    print(y);
+    print(z);
+    return;
+}

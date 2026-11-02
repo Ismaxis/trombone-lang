@@ -55,39 +55,30 @@ mod tests {
     }
 
     /**
-     * Create Operation with offset in range (0..rsp-2)
+     * Create Operation with offset in range (0..rsp)
      */
     fn within_stack<T: Fn(i32) -> Operation + 'static>(
         val_creator: T,
         gener: &Rc<RefCell<Pcg64>>,
     ) -> Box<Generator> {
-        // TODO: same code with within_stack_without_last, need generalization
-        let new_gener = gener.clone();
-        Box::new(move |cur_depth| {
-            val_creator(
-                new_gener
-                    .borrow_mut()
-                    .random_range(0..cur_depth)
-                    .try_into()
-                    .unwrap(),
-            )
-        })
+        within_stack_with_offsets(val_creator, gener, 0, 0)
     }
 
     /**
-     * Create Operation with offset in range (0..rsp-2)
+     * Create Operation with offset in range (<from>..rsp+<to>)
      */
-    fn within_stack_without_last<T: Fn(i32) -> Operation + 'static>(
+    fn within_stack_with_offsets<T: Fn(i32) -> Operation + 'static>(
         val_creator: T,
         gener: &Rc<RefCell<Pcg64>>,
+        from: i32,
+        to: i32,
     ) -> Box<Generator> {
-        // TODO: same code with within_stack, need generalization
         let new_gener = gener.clone();
         Box::new(move |cur_depth| {
             val_creator(
                 new_gener
                     .borrow_mut()
-                    .random_range(0..cur_depth - 1)
+                    .random_range(from..(cur_depth as i32 + to))
                     .try_into()
                     .unwrap(),
             )
@@ -104,11 +95,11 @@ mod tests {
             (depth_pred(0, 1),     random_value(|value|                        Operation::PushLiteral { value },          &generator)).into(),
             (depth_pred(1, -1),    constant_op(                                Operation::Pop                                       )).into(),
             (depth_pred(1, 1),     within_stack(|variable_offset|              Operation::LocalCopy { variable_offset },  &generator)).into(),
-            (depth_pred(2, -1),    within_stack_without_last(|variable_offset| Operation::LocalStore { variable_offset }, &generator)).into(),
+            (depth_pred(2, -1),    within_stack_with_offsets(|variable_offset| Operation::LocalStore { variable_offset }, &generator, 1, 0)).into(),
 
             // arithmetic
             (depth_pred(1, 0),  constant_op(Operation::Neg)).into(),
-            (depth_pred(1, 0),  constant_op(Operation::Not)).into(), 
+            (depth_pred(1, 0),  constant_op(Operation::Not)).into(),
             (depth_pred(2, -1), constant_op(Operation::Add)).into(),
             (depth_pred(2, -1), constant_op(Operation::Sub)).into(),
             (depth_pred(2, -1), constant_op(Operation::Mul)).into(),
@@ -118,9 +109,9 @@ mod tests {
             (depth_pred(2, -1), constant_op(Operation::Or)).into(),
             (depth_pred(2, -1), constant_op(Operation::Xor)).into(),
             // Lsh and Rsh are disabled due to unconsistency of shifting at negative count.
-            // (depth_pred(2, -1), constant_op(Operation::Lsh)).into(),   
+            // (depth_pred(2, -1), constant_op(Operation::Lsh)).into(),
             // (depth_pred(2, -1), constant_op(Operation::Rsh)).into(),
-            
+
             // comparison
             (depth_pred(2, -1), constant_op(Operation::Equal)).into(),
             (depth_pred(2, -1), constant_op(Operation::NotEqual)).into(),

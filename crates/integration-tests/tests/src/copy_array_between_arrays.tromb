@@ -1,0 +1,30 @@
+fn main() {
+    let source: [int] = array(4);
+    let destination: [int] = array(4);
+
+    source[0] = 8;
+    source[1] = 6;
+    source[2] = 7;
+    source[3] = 5;
+
+    copy_array(source, destination, 4);
+
+    let i: int = 0;
+    while i < 4 {
+        print(destination[i]);
+        i = i + 1;
+    }
+
+    return;
+}
+
+fn copy_array(source: [int], destination: [int], n: int) {
+    let i: int = 0;
+
+    while i < n {
+        destination[i] = source[i];
+        i = i + 1;
+    }
+
+    return;
+}
